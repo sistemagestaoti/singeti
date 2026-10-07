@@ -1,0 +1,618 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// FASE 1: NÚCLEO ORGANIZACIONAL E RBAC
+// ---------------------------------------------------------
+
+model Company {
+  id             String   @id @default(cuid())
+  corporate_name String
+  trade_name     String
+  cnpj           String?  @unique
+  email          String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  locations        Location[]
+  departments      Department[]
+  users            User[]
+  Asset            Asset[]
+  Ticket           Ticket[]
+  Problem          Problem[]
+  Change           Change[]
+  Supplier         Supplier[]
+  Contract         Contract[]
+  Project          Project[]
+  KnowledgeArticle KnowledgeArticle[]
+
+  @@map("companies")
+}
+
+model Location {
+  id         String   @id @default(cuid())
+  name       String
+  address    String?
+  company_id String
+  company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  departments Department[]
+  users       User[]
+  Asset       Asset[]
+
+  @@map("locations")
+}
+
+model Department {
+  id          String  @id @default(cuid())
+  name        String
+  company_id  String
+  location_id String?
+
+  company  Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  location Location? @relation(fields: [location_id], references: [id], onDelete: SetNull)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  users   User[]
+  Asset   Asset[]
+  Ticket  Ticket[]
+  Problem Problem[]
+
+  @@map("departments")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions String // JSON string of permissions
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id            String  @id @default(cuid())
+  name          String
+  email         String  @unique
+  password_hash String
+  job_title     String?
+  phone         String?
+  avatar        String?
+  status        String  @default("ACTIVE") // ACTIVE, INACTIVE, EXTERNAL
+
+  role_id       String
+  department_id String?
+  location_id   String?
+  company_id    String
+  manager_id    String?
+
+  role       Role        @relation(fields: [role_id], references: [id])
+  department Department? @relation(fields: [department_id], references: [id], onDelete: SetNull)
+  location   Location?   @relation(fields: [location_id], references: [id], onDelete: SetNull)
+  company    Company     @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  manager      User?  @relation("ManagerToUser", fields: [manager_id], references: [id], onDelete: SetNull)
+  subordinates User[] @relation("ManagerToUser")
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  Asset             Asset[]
+  tickets_requested Ticket[]        @relation("RequesterTickets")
+  tickets_assigned  Ticket[]        @relation("AssignedTickets")
+  ticket_comments   TicketComment[]
+
+  problems_assigned Problem[]  @relation("AssignedProblems")
+  changes_requested Change[]   @relation("RequestedChanges")
+  changes_managed   Change[]   @relation("ManagedChanges")
+  contracts_managed Contract[] @relation("ContractManager")
+
+  projects_managed Project[]          @relation("ProjectManager")
+  projects_member  Project[]          @relation("ProjectMembers")
+  project_tasks    ProjectTask[]      @relation("TaskAssignee")
+  articles_written KnowledgeArticle[] @relation("ArticleAuthor")
+  bookings         Booking[]          @relation("UserBookings")
+
+  channels      ChatChannel[] @relation("ChannelMembers")
+  sent_messages ChatMessage[] @relation("SentMessages")
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------
+// FASE 2: CMDB E INVENTÁRIO DE TI
+// ---------------------------------------------------------
+
+model Asset {
+  id             String    @id @default(cuid())
+  internal_id    String    @unique // Código interno único ex: AST-0001
+  asset_tag      String?   @unique // Código patrimonial
+  type           String // COMPUTER, MONITOR, PRINTER, NETWORK, OTHER
+  name           String
+  status         String    @default("IN_USE") // IN_USE, IN_STOCK, MAINTENANCE, RETIRED, LOST
+  manufacturer   String?
+  model          String?
+  serial_number  String?
+  purchase_date  DateTime?
+  warranty_end   DateTime?
+  purchase_value Float?
+  notes          String?
+
+  // Relacionamentos Organizacionais
+  user_id       String?
+  department_id String?
+  location_id   String?
+  company_id    String
+
+  user       User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  department Department? @relation(fields: [department_id], references: [id], onDelete: SetNull)
+  location   Location?   @relation(fields: [location_id], references: [id], onDelete: SetNull)
+  company    Company     @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  // Especializações (Relações 1:1)
+  computer       Computer?
+  network_device NetworkDevice?
+  printer        Printer?
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  Ticket     Ticket[]
+  Problem    Problem?  @relation(fields: [problemId], references: [id])
+  problemId  String?
+  Change     Change?   @relation(fields: [changeId], references: [id])
+  changeId   String?
+  Supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  supplierId String?
+  Contract   Contract? @relation(fields: [contractId], references: [id])
+  contractId String?
+  Project    Project?  @relation(fields: [projectId], references: [id])
+  projectId  String?
+  Booking    Booking[]
+
+  @@map("assets")
+}
+
+model Computer {
+  id          String  @id @default(cuid())
+  asset_id    String  @unique
+  hostname    String?
+  processor   String?
+  memory_mb   Int?
+  storage_gb  Int?
+  mac_address String?
+  ip_address  String?
+  os_name     String?
+  os_version  String?
+
+  asset Asset @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+
+  @@map("computers")
+}
+
+model NetworkDevice {
+  id          String  @id @default(cuid())
+  asset_id    String  @unique
+  ip_address  String?
+  mac_address String?
+  firmware    String?
+  port_count  Int?
+
+  asset Asset @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+
+  @@map("network_devices")
+}
+
+model Printer {
+  id          String  @id @default(cuid())
+  asset_id    String  @unique
+  ip_address  String?
+  mac_address String?
+  is_network  Boolean @default(true)
+  page_count  Int     @default(0)
+
+  asset Asset @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+
+  @@map("printers")
+}
+
+model Software {
+  id           String  @id @default(cuid())
+  name         String
+  manufacturer String?
+  category     String?
+  version      String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  licenses License[]
+
+  @@map("software")
+}
+
+model License {
+  id              String    @id @default(cuid())
+  software_id     String
+  license_key     String?
+  type            String // VOLUME, SUBSCRIPTION, PERPETUAL, OEM
+  quantity        Int       @default(1)
+  used_quantity   Int       @default(0)
+  expiration_date DateTime?
+
+  software Software @relation(fields: [software_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  Supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  supplierId String?
+  Contract   Contract? @relation(fields: [contractId], references: [id])
+  contractId String?
+
+  @@map("licenses")
+}
+
+// ---------------------------------------------------------
+// FASE 3: SERVICE DESK E CHAMADOS
+// ---------------------------------------------------------
+
+model TicketCategory {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  parent_id   String?
+
+  parent   TicketCategory?  @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: SetNull)
+  children TicketCategory[] @relation("CategoryHierarchy")
+
+  tickets Ticket[]
+
+  @@map("ticket_categories")
+}
+
+model Ticket {
+  id          String @id @default(cuid())
+  code        String @unique // ex: CH-00001245
+  type        String // INCIDENT, REQUEST
+  title       String
+  description String
+
+  status   String @default("NEW") // NEW, TRIAGE, ASSIGNED, IN_PROGRESS, WAITING_USER, WAITING_VENDOR, RESOLVED, CLOSED, CANCELED
+  urgency  String @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  impact   String @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  priority String @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+
+  // Relacionamentos
+  requester_id   String
+  assigned_to_id String?
+  group_id       String? // Departamento ou Grupo Técnico
+  category_id    String?
+  asset_id       String?
+  company_id     String
+
+  requester   User            @relation("RequesterTickets", fields: [requester_id], references: [id])
+  assigned_to User?           @relation("AssignedTickets", fields: [assigned_to_id], references: [id], onDelete: SetNull)
+  department  Department?     @relation(fields: [group_id], references: [id], onDelete: SetNull)
+  category    TicketCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  asset       Asset?          @relation(fields: [asset_id], references: [id], onDelete: SetNull)
+  company     Company         @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  // Timeline
+  comments TicketComment[]
+
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  resolved_at DateTime?
+  closed_at   DateTime?
+  Problem     Problem?  @relation(fields: [problemId], references: [id])
+  problemId   String?
+  Change      Change?   @relation(fields: [changeId], references: [id])
+  changeId    String?
+
+  @@map("tickets")
+}
+
+model TicketComment {
+  id          String  @id @default(cuid())
+  ticket_id   String
+  author_id   String
+  content     String
+  is_internal Boolean @default(false)
+
+  ticket Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [author_id], references: [id])
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("ticket_comments")
+}
+
+// ---------------------------------------------------------
+// FASE 4: PROBLEMAS E MUDANÇAS (ITIL)
+// ---------------------------------------------------------
+
+model Problem {
+  id          String @id @default(cuid())
+  code        String @unique // ex: PB-0000001
+  title       String
+  description String
+
+  root_cause String?
+  workaround String?
+  solution   String?
+
+  status   String @default("OPEN") // OPEN, INVESTIGATING, IDENTIFIED, RESOLVED, CLOSED
+  priority String @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+
+  // Relacionamentos
+  assigned_to_id String?
+  group_id       String?
+  company_id     String
+
+  assigned_to User?       @relation("AssignedProblems", fields: [assigned_to_id], references: [id], onDelete: SetNull)
+  department  Department? @relation(fields: [group_id], references: [id], onDelete: SetNull)
+  company     Company     @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  // Vínculos
+  tickets Ticket[]
+  changes Change[]
+  assets  Asset[]
+
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  resolved_at DateTime?
+
+  @@map("problems")
+}
+
+model Change {
+  id          String @id @default(cuid())
+  code        String @unique // ex: MD-0000001
+  title       String
+  reason      String
+  description String
+
+  risk   String @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  impact String @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  status String @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, SCHEDULED, IMPLEMENTING, SUCCESS, FAILED, ROLLED_BACK
+
+  execution_plan String?
+  rollback_plan  String?
+  test_plan      String?
+
+  scheduled_start DateTime?
+  scheduled_end   DateTime?
+
+  // Relacionamentos
+  requester_id String
+  manager_id   String?
+  company_id   String
+
+  requester User    @relation("RequestedChanges", fields: [requester_id], references: [id])
+  manager   User?   @relation("ManagedChanges", fields: [manager_id], references: [id], onDelete: SetNull)
+  company   Company @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  // Vínculos
+  problems Problem[]
+  tickets  Ticket[]
+  assets   Asset[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  Project    Project? @relation(fields: [projectId], references: [id])
+  projectId  String?
+
+  @@map("changes")
+}
+
+// ---------------------------------------------------------
+// FASE 5: FORNECEDORES, CONTRATOS E CUSTOS
+// ---------------------------------------------------------
+
+model Supplier {
+  id           String  @id @default(cuid())
+  name         String
+  trade_name   String?
+  cnpj         String? @unique
+  contact_name String?
+  email        String?
+  phone        String?
+  website      String?
+  address      String?
+  status       String  @default("ACTIVE") // ACTIVE, INACTIVE, BLACKLISTED
+
+  company_id String
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  contracts Contract[]
+  assets    Asset[]
+  licenses  License[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("suppliers")
+}
+
+model Contract {
+  id          String  @id @default(cuid())
+  code        String  @unique // ex: CT-2026-001
+  title       String
+  type        String // SUPPORT, LICENSING, LEASING, INTERNET, OTHER
+  description String?
+
+  start_date          DateTime
+  end_date            DateTime
+  renewal_notice_days Int      @default(30)
+
+  total_value Float?
+  currency    String @default("BRL")
+  status      String @default("ACTIVE") // DRAFT, ACTIVE, EXPIRED, CANCELED
+
+  supplier_id String
+  company_id  String
+  manager_id  String?
+
+  supplier Supplier @relation(fields: [supplier_id], references: [id], onDelete: Restrict)
+  company  Company  @relation(fields: [company_id], references: [id], onDelete: Restrict)
+  manager  User?    @relation("ContractManager", fields: [manager_id], references: [id], onDelete: SetNull)
+
+  // Vínculos
+  assets   Asset[]
+  licenses License[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("contracts")
+}
+
+// ---------------------------------------------------------
+// FASE 6: PROJETOS, CONHECIMENTO E RESERVAS
+// ---------------------------------------------------------
+
+model Project {
+  id          String  @id @default(cuid())
+  code        String  @unique // ex: PRJ-2026-001
+  name        String
+  description String?
+  status      String  @default("PLANNING") // PLANNING, ACTIVE, ON_HOLD, COMPLETED, CANCELED
+  priority    String  @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+
+  start_date DateTime?
+  end_date   DateTime?
+
+  manager_id String
+  company_id String
+
+  manager User    @relation("ProjectManager", fields: [manager_id], references: [id])
+  company Company @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  // Equipe
+  members User[] @relation("ProjectMembers")
+
+  // Tarefas
+  tasks ProjectTask[]
+
+  // Vínculos
+  assets  Asset[]
+  changes Change[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("projects")
+}
+
+model ProjectTask {
+  id          String  @id @default(cuid())
+  project_id  String
+  title       String
+  description String?
+  status      String  @default("TODO") // TODO, IN_PROGRESS, REVIEW, DONE
+  priority    String  @default("MEDIUM")
+
+  start_date DateTime?
+  due_date   DateTime?
+
+  assigned_to_id String?
+
+  project     Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  assigned_to User?   @relation("TaskAssignee", fields: [assigned_to_id], references: [id], onDelete: SetNull)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("project_tasks")
+}
+
+model KnowledgeArticle {
+  id        String  @id @default(cuid())
+  title     String
+  content   String // Markdown ou HTML
+  category  String // FAQ, TUTORIAL, POLICY, TROUBLESHOOTING
+  status    String  @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  is_public Boolean @default(false)
+
+  author_id  String
+  company_id String
+
+  author  User    @relation("ArticleAuthor", fields: [author_id], references: [id])
+  company Company @relation(fields: [company_id], references: [id], onDelete: Restrict)
+
+  view_count Int @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("knowledge_articles")
+}
+
+model Booking {
+  id       String @id @default(cuid())
+  asset_id String
+  user_id  String
+
+  start_time DateTime
+  end_time   DateTime
+
+  purpose String?
+  status  String  @default("PENDING") // PENDING, APPROVED, REJECTED, ACTIVE, COMPLETED, CANCELED
+
+  asset Asset @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+  user  User  @relation("UserBookings", fields: [user_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("bookings")
+}
+
+// ---------------------------------------------------------
+// FASE 7: SINGETI CONNECT (CHAT CORPORATIVO)
+// ---------------------------------------------------------
+
+model ChatChannel {
+  id       String  @id @default(cuid())
+  name     String? // Nulo se for chat direto entre 2 pessoas
+  is_group Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  members  User[]        @relation("ChannelMembers")
+  messages ChatMessage[]
+
+  @@map("chat_channels")
+}
+
+model ChatMessage {
+  id         String @id @default(cuid())
+  content    String
+  channel_id String
+  sender_id  String
+
+  is_read Boolean @default(false)
+
+  channel ChatChannel @relation(fields: [channel_id], references: [id], onDelete: Cascade)
+  sender  User        @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("chat_messages")
+}

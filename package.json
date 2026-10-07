@@ -1,0 +1,47 @@
+{
+  "name": "sistema-gestao-de-ti",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "@prisma/adapter-libsql": "^7.10.0",
+    "bcryptjs": "^3.0.3",
+    "next": "^16.4.0",
+    "next-auth": "^4.24.15",
+    "next-themes": "^0.4.6",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.22.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.6.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.0",
+    "lucide-react": "^1.52.0",
+    "postcss": "^8.5.29",
+    "prisma": "^5.22.0",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
