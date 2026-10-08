@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Briefcase } from "lucide-react";
 
+import RowActions from "./RowActions";
+
 export default async function ProjectsPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");

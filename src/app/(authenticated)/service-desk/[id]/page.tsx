@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import TicketTimeline from "./TicketTimeline";
+import TicketActionClient from "./TicketActionClient";
 
 export default async function TicketViewPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -45,7 +46,8 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
           <h2 className="text-2xl font-bold text-foreground">[{ticket.code}] {ticket.title}</h2>
           <p className="text-sm text-muted-foreground mt-1">Chamado criado em {ticket.created_at.toLocaleString('pt-BR')}</p>
         </div>
-        <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-bold border ${
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-bold border ${
           ticket.status === 'NEW' ? 'bg-info/10 text-info border-info/20' :
           ticket.status === 'IN_PROGRESS' ? 'bg-warning/10 text-warning border-warning/20' :
           ticket.status === 'RESOLVED' ? 'bg-success/10 text-success border-success/20' :
@@ -54,6 +56,8 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
         }`}>
           {ticket.status}
         </span>
+          <TicketActionClient ticketId={ticket.id} currentStatus={ticket.status} />
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">

@@ -47,3 +47,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Erro ao atualizar chamado" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+    const resolvedParams = await params;
+    await prisma.ticket.delete({
+      where: { id: resolvedParams.id }
+    });
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error: any) {
+    console.error("Ticket delete error:", error);
+    return NextResponse.json({ error: "Erro ao excluir chamado" }, { status: 500 });
+  }
+}

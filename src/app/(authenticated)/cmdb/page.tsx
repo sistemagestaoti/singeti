@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Server, Monitor, Printer, Network } from "lucide-react";
 
+import RowActions from "../problems/RowActions";
+
 export default async function CMDBPage() {
   const assets = await prisma.asset.findMany({
     include: {
@@ -37,8 +39,9 @@ export default async function CMDBPage() {
               <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Dispositivo</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Usuário/Local</th>
-            </tr>
-          </thead>
+              <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
           <tbody className="bg-surface divide-y divide-border">
             {assets.length === 0 ? (
               <tr>
@@ -77,6 +80,9 @@ export default async function CMDBPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {asset.user?.name || asset.department?.name || "Não atribuído"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <RowActions id={asset.id} route="assets" />
                   </td>
                 </tr>
               ))

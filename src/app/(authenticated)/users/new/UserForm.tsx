@@ -86,14 +86,22 @@ export default function UserForm({
                 type="file" 
                 accept="image/*" 
                 className="hidden" 
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                      setFormData({ ...formData, avatar: reader.result as string });
-                    };
-                    reader.readAsDataURL(file);
+                    const uploadData = new FormData();
+                    uploadData.append("file", file);
+                    try {
+                      const res = await fetch("/api/upload", { method: "POST", body: uploadData });
+                      if (res.ok) {
+                        const { url } = await res.json();
+                        setFormData({ ...formData, avatar: url });
+                      } else {
+                        alert("Erro no upload");
+                      }
+                    } catch(err) {
+                      console.error(err);
+                    }
                   }
                 }}
               />
@@ -108,14 +116,22 @@ export default function UserForm({
                   type="file" 
                   accept="image/*" 
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setFormData({ ...formData, avatar: reader.result as string });
-                      };
-                      reader.readAsDataURL(file);
+                      const uploadData = new FormData();
+                      uploadData.append("file", file);
+                      try {
+                        const res = await fetch("/api/upload", { method: "POST", body: uploadData });
+                        if (res.ok) {
+                          const { url } = await res.json();
+                          setFormData({ ...formData, avatar: url });
+                        } else {
+                          alert("Erro no upload da imagem.");
+                        }
+                      } catch(err) {
+                        console.error(err);
+                      }
                     }
                   }}
                 />
@@ -131,7 +147,7 @@ export default function UserForm({
                 </button>
               )}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Importe uma imagem (JPG, PNG) do seu computador. Ela será salva diretamente no sistema.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Importe uma imagem (JPG, PNG) do seu computador. Ela será salva na pasta pública do servidor.</p>
           </div>
         </div>
 

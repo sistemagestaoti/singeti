@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ArrowRightLeft } from "lucide-react";
 
+import RowActions from "./RowActions";
+
 export default async function ChangesPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -46,6 +48,7 @@ export default async function ChangesPage() {
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Risco</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Solicitante</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-surface divide-y divide-border">
@@ -74,7 +77,10 @@ export default async function ChangesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{change.risk}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{change.requester.name}</td>
-                  </tr>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <RowActions id={change.id} route="changes" />
+                      </td>
+                    </tr>
                 ))
               )}
             </tbody>

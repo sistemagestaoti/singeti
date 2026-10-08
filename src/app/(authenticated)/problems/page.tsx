@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 
+import RowActions from "./RowActions";
+
 export default async function ProblemsPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -46,6 +48,7 @@ export default async function ProblemsPage() {
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Prioridade</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Responsável</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-surface divide-y divide-border">
@@ -74,7 +77,10 @@ export default async function ProblemsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{problem.priority}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{problem.assigned_to?.name || "Não atribuído"}</td>
-                  </tr>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <RowActions id={problem.id} route="problems" />
+                      </td>
+                    </tr>
                 ))
               )}
             </tbody>

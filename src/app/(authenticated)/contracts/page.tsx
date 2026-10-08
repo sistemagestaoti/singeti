@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { FileText, AlertTriangle } from "lucide-react";
 
+import RowActions from "./RowActions";
+
 export default async function ContractsPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -46,6 +48,7 @@ export default async function ContractsPage() {
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Vencimento</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Valor</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-surface divide-y divide-border">
@@ -85,6 +88,9 @@ export default async function ContractsPage() {
                         }`}>
                           {contract.status === 'ACTIVE' ? 'Ativo' : contract.status === 'EXPIRED' ? 'Expirado' : 'Cancelado'}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <RowActions id={contract.id} route="contracts" />
                       </td>
                     </tr>
                   );

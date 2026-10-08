@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { TicketIcon, Clock, AlertCircle } from "lucide-react";
 
+import RowActions from "../problems/RowActions";
+
 export default async function ServiceDeskPage() {
   const tickets = await prisma.ticket.findMany({
     include: {
@@ -37,8 +39,9 @@ export default async function ServiceDeskPage() {
               <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Prioridade</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Solicitante</th>
-            </tr>
-          </thead>
+              <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
           <tbody className="bg-surface divide-y divide-border">
             {tickets.length === 0 ? (
               <tr>
@@ -78,6 +81,9 @@ export default async function ServiceDeskPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {ticket.requester.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <RowActions id={ticket.id} route="tickets" />
                   </td>
                 </tr>
               ))

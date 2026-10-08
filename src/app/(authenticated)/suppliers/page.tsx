@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
+import RowActions from "./RowActions";
+
 export default async function SuppliersPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -39,8 +41,9 @@ export default async function SuppliersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Contato / Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Contratos Ativos</th>
-                </tr>
-              </thead>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
               <tbody className="bg-card divide-y divide-border">
                 {suppliers.length === 0 ? (
                   <tr>
@@ -74,6 +77,9 @@ export default async function SuppliersPage() {
                         <span className="inline-flex items-center justify-center rounded-full bg-accent px-2.5 py-0.5 text-accent-foreground font-medium">
                           {supplier.contracts.filter(c => c.status === 'ACTIVE').length}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <RowActions id={supplier.id} route="suppliers" />
                       </td>
                     </tr>
                   ))

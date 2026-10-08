@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
+import RowActions from "./RowActions";
+
 export default async function BookingsPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
@@ -41,8 +43,9 @@ export default async function BookingsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Data Início</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Data Fim</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
               <tbody className="bg-card divide-y divide-border">
                 {bookings.length === 0 ? (
                   <tr>
@@ -67,6 +70,9 @@ export default async function BookingsPage() {
                         }`}>
                           {booking.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <RowActions id={booking.id} route="bookings" />
                       </td>
                     </tr>
                   ))
