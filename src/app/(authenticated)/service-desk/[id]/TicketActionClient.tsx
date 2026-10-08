@@ -9,13 +9,13 @@ export default function TicketActionClient({ ticketId, currentStatus }: { ticket
   const [loading, setLoading] = useState(false);
 
   const handleStatusChange = async (newStatus: string, actionName: string) => {
-    if (!confirm(\`Deseja realmente \${actionName} este chamado?\`)) return;
+    if (!confirm(`Deseja realmente ${actionName} este chamado?`)) return;
     setLoading(true);
     try {
-      const res = await fetch(\`/api/tickets/\${ticketId}\`, {
+      const res = await fetch(`/api/tickets/${ticketId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus, content: \`Chamado alterado para: \${newStatus}\`, is_internal: true })
+        body: JSON.stringify({ status: newStatus, content: `Chamado alterado para: ${newStatus}`, is_internal: true })
       });
       if (res.ok) {
         router.refresh();
@@ -34,7 +34,7 @@ export default function TicketActionClient({ ticketId, currentStatus }: { ticket
     setLoading(true);
     try {
       // Create DELETE route for tickets if not exists, or we use standard API
-      const res = await fetch(\`/api/tickets/\${ticketId}\`, { method: "DELETE" });
+      const res = await fetch(`/api/tickets/${ticketId}`, { method: "DELETE" });
       if (res.ok) {
         router.push('/service-desk');
         router.refresh();
