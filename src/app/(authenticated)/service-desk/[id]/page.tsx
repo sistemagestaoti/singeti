@@ -5,15 +5,17 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import TicketTimeline from "./TicketTimeline";
 
-export default async function TicketViewPage({ params }: { params: { id: string } }) {
+export default async function TicketViewPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   
   if (!session) {
     redirect("/login");
   }
 
+  const resolvedParams = await params;
+
   const ticket = await prisma.ticket.findUnique({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     include: {
       requester: true,
       assigned_to: true,
