@@ -16,12 +16,15 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const loginEmail = credentials.email.toLowerCase() === "admin" 
-          ? "admin@sisgeti.com.br" 
-          : credentials.email;
+        const loginEmail = credentials.email.toLowerCase();
 
-        const user = await prisma.user.findUnique({
-          where: { email: loginEmail },
+        const user = await prisma.user.findFirst({
+          where: { 
+            OR: [
+              { email: loginEmail },
+              { email: credentials.email }
+            ]
+          },
           include: { role: true }
         });
 

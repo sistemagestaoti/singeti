@@ -5,13 +5,10 @@ import { signOut } from "next-auth/react";
 
 export function RefreshLogout() {
   useEffect(() => {
-    // Check if the current navigation is a page reload (refresh / F5)
-    const entries = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
-    
-    if (entries.length > 0 && entries[0].type === "reload") {
-      // If it's a reload, force sign out and redirect to login
-      signOut({ callbackUrl: '/login' });
-    }
+    // A verificação de 'reload' nativa via performance API é global para o documento SPA.
+    // Se o usuário desse F5 na tela de login e logasse, o SPA lembrava do reload e deslogava.
+    // Para limpar sessão no reload adequadamente, a melhor abordagem é usar cookies de sessão (sem Max-Age)
+    // ou controlar isso via server-side/middleware.
   }, []);
 
   return null;

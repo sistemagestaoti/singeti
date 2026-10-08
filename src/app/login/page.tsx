@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Network, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Network, Mail, Lock, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,10 +122,9 @@ export default function LoginPage() {
 
             {/* Lembrar / Esqueceu a Senha */}
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="w-4 h-4 rounded border border-slate-700 bg-[#020817] group-hover:border-blue-500 flex items-center justify-center transition-colors">
-                  {/* Pseudo-checkbox visual */}
-                  <input type="checkbox" className="hidden" />
+              <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setRememberMe(!rememberMe)}>
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${rememberMe ? 'bg-blue-600 border-blue-600' : 'border-slate-700 bg-[#020817] group-hover:border-blue-500'}`}>
+                  {rememberMe && <Check className="w-3 h-3 text-white" />}
                 </div>
                 <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">Lembrar-me</span>
               </label>
