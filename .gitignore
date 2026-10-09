@@ -35,5 +35,5 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma db
-*.db
+# *.db (removed to allow Vercel build)
 *.db-journal
