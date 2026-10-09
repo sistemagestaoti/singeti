@@ -5,8 +5,9 @@ import { authOptions } from "@/lib/auth";
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   const session = await getServerSession(authOptions);
   
   if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'TECHNICIAN')) {
@@ -65,7 +66,7 @@ export async function PUT(
     }
 
     const updated = await prisma.asset.update({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       data: updateData
     });
 
@@ -81,8 +82,9 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
   const session = await getServerSession(authOptions);
   
   if (!session || session.user.role !== 'ADMIN') {
@@ -90,7 +92,7 @@ export async function DELETE(
   }
 
   try {
-    await prisma.asset.delete({ where: { id: params.id } });
+    await prisma.asset.delete({ where: { id: resolvedParams.id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting asset:", error);

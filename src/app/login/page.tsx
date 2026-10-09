@@ -44,15 +44,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#020817] text-slate-50 font-sans selection:bg-blue-500/30">
+    <div className="flex min-h-screen bg-[#050D1B] text-foreground font-sans selection:bg-primary/30">
       {/* Lado Esquerdo - Branding */}
       <div 
-        className="hidden lg:flex flex-col justify-between w-1/2 p-12 border-r border-slate-800/50 bg-cover bg-center relative"
+        className="hidden lg:flex flex-col justify-between w-1/2 p-12 border-r border-border/50 bg-cover bg-center relative"
         style={{ backgroundImage: branding?.loginBackground ? `url(${branding.loginBackground})` : 'none' }}
       >
         {/* Overlay caso haja imagem de fundo para garantir legibilidade */}
         {branding?.loginBackground && (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a]/90 via-[#020817]/95 to-[#020817] z-0"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a]/90 via-[#050D1B]/95 to-[#050D1B] z-0"></div>
         )}
 
         <div className="relative z-10 flex flex-col justify-between h-full">
@@ -79,7 +79,7 @@ export default function LoginPage() {
                   <span className="text-3xl font-extrabold tracking-widest text-white leading-none">
                     SYNGE<span className="text-[#00C2FF]">TI</span>
                   </span>
-                  <span className="text-[0.65rem] tracking-[0.2em] text-slate-400 font-semibold mt-1">
+                  <span className="text-[0.65rem] tracking-[0.2em] text-muted-foreground font-semibold mt-1">
                     GESTÃO DE TI E COMUNICAÇÃO INTERNA
                   </span>
                 </div>
@@ -92,10 +92,10 @@ export default function LoginPage() {
             {!branding?.loginLogo && (
               <h1 className="text-5xl font-extrabold text-white leading-tight tracking-tight mb-2">
                 Gestão Inteligente<br />
-                <span className="text-blue-500">para sua TI.</span>
+                <span className="text-primary">para sua TI.</span>
               </h1>
             )}
-            <p className="mt-6 text-slate-400 text-lg leading-relaxed">
+            <p className="mt-6 text-muted-foreground text-lg leading-relaxed">
               Centralize chamados, monitore ativos e gerencie toda a 
               operação de tecnologia da sua empresa em uma plataforma 
               unificada e de alta performance.
@@ -103,36 +103,36 @@ export default function LoginPage() {
           </div>
 
           {/* Rodapé do lado esquerdo */}
-          <div className="text-xs text-slate-500 font-medium">
+          <div className="text-xs text-foreground0 font-medium">
             © 2026 SYNGETI. Todos os direitos reservados.
           </div>
         </div>
       </div>
 
       {/* Lado Direito - Formulário de Login */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center p-6 bg-[#020817]">
-        <div className="w-full max-w-md bg-[#0f172a] p-10 rounded-[24px] border border-slate-800/60 shadow-2xl">
+      <div className="flex w-full lg:w-1/2 items-center justify-center p-6 bg-[#050D1B]">
+        <div className="w-full max-w-md bg-[#0f172a] p-10 rounded-[24px] border border-border/60 shadow-2xl">
           
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-2">Bem-vindo de volta</h2>
-            <p className="text-sm text-slate-400">Insira suas credenciais para acessar o painel</p>
+            <p className="text-sm text-muted-foreground">Insira suas credenciais para acessar o painel</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Campo E-mail */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300 ml-1">E-mail ou Usuário</label>
+              <label className="text-xs font-semibold text-foreground ml-1">E-mail ou Usuário</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-slate-500" />
+                  <Mail className="h-4 w-4 text-foreground0" />
                 </div>
                 <input
                   type="text"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#020817] border border-slate-800 text-slate-200 text-sm rounded-xl py-3.5 pl-11 pr-4 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-600"
+                  className="w-full bg-[#050D1B] border border-border text-foreground text-sm rounded-xl py-3.5 pl-11 pr-4 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-muted-foreground"
                   placeholder="admin"
                 />
               </div>
@@ -140,23 +140,23 @@ export default function LoginPage() {
 
             {/* Campo Senha */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-300 ml-1">Senha</label>
+              <label className="text-xs font-semibold text-foreground ml-1">Senha</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-slate-500" />
+                  <Lock className="h-4 w-4 text-foreground0" />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#020817] border border-slate-800 text-slate-200 text-sm rounded-xl py-3.5 pl-11 pr-12 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-600"
+                  className="w-full bg-[#050D1B] border border-border text-foreground text-sm rounded-xl py-3.5 pl-11 pr-12 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-muted-foreground"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-foreground0 hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -166,12 +166,12 @@ export default function LoginPage() {
             {/* Lembrar / Esqueceu a Senha */}
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setRememberMe(!rememberMe)}>
-                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${rememberMe ? 'bg-blue-600 border-blue-600' : 'border-slate-700 bg-[#020817] group-hover:border-blue-500'}`}>
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${rememberMe ? 'bg-primary-hover border-primary-hover' : 'border-slate-700 bg-[#050D1B] group-hover:border-primary'}`}>
                   {rememberMe && <Check className="w-3 h-3 text-white" />}
                 </div>
-                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">Lembrar-me</span>
+                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Lembrar-me</span>
               </label>
-              <a href="#" className="text-xs text-blue-500 hover:text-blue-400 font-medium transition-colors">
+              <a href="#" className="text-xs text-primary hover:text-blue-400 font-medium transition-colors">
                 Esqueceu a senha?
               </a>
             </div>
@@ -186,7 +186,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-70 shadow-lg shadow-blue-600/20 mt-4"
+              className="w-full bg-primary-hover hover:bg-primary text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-70 shadow-lg shadow-primary-hover/20 mt-4"
             >
               {loading ? "Acessando..." : "Acessar Sistema"}
               {!loading && <ArrowRight className="w-4 h-4" />}

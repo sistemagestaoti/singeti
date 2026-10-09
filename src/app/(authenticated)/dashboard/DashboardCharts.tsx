@@ -46,7 +46,7 @@ export default function DashboardCharts({
                 paddingAngle={5}
                 dataKey="quantidade"
                 stroke="none"
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
               >
                 {assetsData.map((entry, index) => {
                   const colors = ['var(--primary)', 'var(--info)', 'var(--success)', 'var(--warning)', 'var(--danger)'];
