@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -18,14 +18,12 @@ export function Sidebar() {
   });
   const [branding, setBranding] = useState<any>(null);
 
-  import("react").then((React) => {
-    React.useEffect(() => {
-      fetch("/api/branding")
-        .then(res => res.json())
-        .then(data => setBranding(data))
-        .catch(console.error);
-    }, []);
-  });
+  useEffect(() => {
+    fetch("/api/branding")
+      .then(res => res.json())
+      .then(data => setBranding(data))
+      .catch(console.error);
+  }, []);
 
   const toggleMenu = (name: string) => {
     setExpandedMenus(prev => ({ ...prev, [name]: !prev[name] }));

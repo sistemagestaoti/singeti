@@ -1,8 +1,8 @@
 {
-  "loginLogo": null,
-  "appLogo": null,
-  "appIcon": null,
-  "favicon": null,
+  "loginLogo": "/branding/logo-combined.png",
+  "appLogo": "/branding/logo-combined.png",
+  "appIcon": "/branding/logo-icon.png",
+  "favicon": "/branding/logo-icon.png",
   "loginBackground": null,
   "updatedAt": 1700000000000
 }

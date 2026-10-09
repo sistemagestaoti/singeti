@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Network, Mail, Lock, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
 
@@ -15,14 +15,12 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [branding, setBranding] = useState<any>(null);
 
-  import("react").then((React) => {
-    React.useEffect(() => {
-      fetch("/api/branding")
-        .then(res => res.json())
-        .then(data => setBranding(data))
-        .catch(console.error);
-    }, []);
-  });
+  useEffect(() => {
+    fetch("/api/branding")
+      .then(res => res.json())
+      .then(data => setBranding(data))
+      .catch(console.error);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
