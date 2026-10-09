@@ -15,6 +15,7 @@ export default async function NewAssetPage() {
   const companies = await prisma.company.findMany();
   const locations = await prisma.location.findMany();
   const departments = await prisma.department.findMany();
+  const users = await prisma.user.findMany({ select: { id: true, name: true } });
 
   return (
     <div className="min-h-screen bg-background py-10">
@@ -24,6 +25,7 @@ export default async function NewAssetPage() {
           companies={companies} 
           locations={locations} 
           departments={departments} 
+          users={users}
         />
       </div>
     </div>
