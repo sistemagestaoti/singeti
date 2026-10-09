@@ -13,6 +13,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [branding, setBranding] = useState<any>(null);
+
+  import("react").then((React) => {
+    React.useEffect(() => {
+      fetch("/api/branding")
+        .then(res => res.json())
+        .then(data => setBranding(data))
+        .catch(console.error);
+    }, []);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,32 +47,49 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen bg-[#020817] text-slate-50 font-sans selection:bg-blue-500/30">
       {/* Lado Esquerdo - Branding */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 p-12 bg-gradient-to-br from-[#0f172a] via-[#020817] to-[#020817] border-r border-slate-800/50">
-        
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-            <Network className="w-5 h-5 text-white" />
+      <div 
+        className="hidden lg:flex flex-col justify-between w-1/2 p-12 border-r border-slate-800/50 bg-cover bg-center relative"
+        style={{ backgroundImage: branding?.loginBackground ? `url(${branding.loginBackground})` : 'none' }}
+      >
+        {/* Overlay caso haja imagem de fundo para garantir legibilidade */}
+        {branding?.loginBackground && (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a]/90 via-[#020817]/95 to-[#020817] z-0"></div>
+        )}
+
+        <div className="relative z-10 flex flex-col justify-between h-full">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            {branding?.loginLogo ? (
+              <img src={branding.loginLogo} alt="SINGETI" className="h-12 object-contain" />
+            ) : (
+              <>
+                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
+                  <Network className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold tracking-widest text-white">SINGETI</span>
+              </>
+            )}
           </div>
-          <span className="text-xl font-bold tracking-widest text-white">SINGETI</span>
-        </div>
 
-        {/* Copy / Texto Central */}
-        <div className="max-w-lg">
-          <h1 className="text-5xl font-extrabold text-white leading-tight tracking-tight mb-2">
-            Gestão Inteligente<br />
-            <span className="text-blue-500">para sua TI.</span>
-          </h1>
-          <p className="mt-6 text-slate-400 text-lg leading-relaxed">
-            Centralize chamados, monitore ativos e gerencie toda a 
-            operação de tecnologia da sua empresa em uma plataforma 
-            unificada e de alta performance.
-          </p>
-        </div>
+          {/* Copy / Texto Central */}
+          <div className="max-w-lg">
+            {!branding?.loginLogo && (
+              <h1 className="text-5xl font-extrabold text-white leading-tight tracking-tight mb-2">
+                Gestão Inteligente<br />
+                <span className="text-blue-500">para sua TI.</span>
+              </h1>
+            )}
+            <p className="mt-6 text-slate-400 text-lg leading-relaxed">
+              Centralize chamados, monitore ativos e gerencie toda a 
+              operação de tecnologia da sua empresa em uma plataforma 
+              unificada e de alta performance.
+            </p>
+          </div>
 
-        {/* Rodapé do lado esquerdo */}
-        <div className="text-xs text-slate-500 font-medium">
-          © 2026 SINGETI. Todos os direitos reservados.
+          {/* Rodapé do lado esquerdo */}
+          <div className="text-xs text-slate-500 font-medium">
+            © 2026 SINGETI. Todos os direitos reservados.
+          </div>
         </div>
       </div>
 

@@ -14,6 +14,17 @@ export function Sidebar() {
   const pathname = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     'Cadastros': true,
+    'Configurações': true,
+  });
+  const [branding, setBranding] = useState<any>(null);
+
+  import("react").then((React) => {
+    React.useEffect(() => {
+      fetch("/api/branding")
+        .then(res => res.json())
+        .then(data => setBranding(data))
+        .catch(console.error);
+    }, []);
   });
 
   const toggleMenu = (name: string) => {
@@ -78,8 +89,10 @@ export function Sidebar() {
     { 
       name: "Configurações", 
       subtitle: "Sistema e acesso",
-      href: "/settings", 
-      icon: Settings 
+      icon: Settings,
+      subItems: [
+        { name: "Identidade Visual", href: "/settings/branding" },
+      ]
     },
   ];
 
@@ -88,13 +101,19 @@ export function Sidebar() {
       {/* Brand */}
       <div className="h-[72px] flex items-center justify-between px-5 border-b border-border/50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded bg-gradient-to-br from-primary to-primary-hover text-primary-foreground flex items-center justify-center font-bold text-lg shadow-lg">
-            S
-          </div>
-          <div>
-            <span className="font-extrabold text-foreground text-xl leading-none block">SINGETI</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-semibold">Plataforma</span>
-          </div>
+          {branding?.appLogo ? (
+            <img src={branding.appLogo} alt="SINGETI" className="h-8 max-w-[150px] object-contain" />
+          ) : (
+            <>
+              <div className="w-9 h-9 rounded bg-gradient-to-br from-primary to-primary-hover text-primary-foreground flex items-center justify-center font-bold text-lg shadow-lg">
+                S
+              </div>
+              <div>
+                <span className="font-extrabold text-foreground text-xl leading-none block">SINGETI</span>
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold">Plataforma</span>
+              </div>
+            </>
+          )}
         </div>
         <button className="w-7 h-7 rounded bg-surface border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors">
           <ChevronRight className="w-4 h-4 rotate-180" />
