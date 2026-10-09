@@ -21,6 +21,14 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const roles = await prisma.role.findMany({ orderBy: { name: 'asc' } });
   const departments = await prisma.department.findMany({ orderBy: { name: 'asc' } });
   
+  const distinctJobs = await prisma.user.findMany({
+    where: { job_title: { not: null } },
+    select: { job_title: true },
+    distinct: ['job_title'],
+    orderBy: { job_title: 'asc' }
+  });
+  const jobTitles = distinctJobs.map(j => j.job_title).filter(Boolean) as string[];
+
   return (
     <div className="flex flex-col gap-6">
       <div className="bg-surface p-6 rounded-xl border border-border shadow-sm">
@@ -31,6 +39,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
       <UserForm 
         roles={roles} 
         departments={departments} 
+        jobTitles={jobTitles}
         companyId={user.company_id}
         initialData={user}
       />

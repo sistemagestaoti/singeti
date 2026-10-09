@@ -11,6 +11,14 @@ export default async function NewUserPage() {
   const roles = await prisma.role.findMany({ orderBy: { name: 'asc' } });
   const departments = await prisma.department.findMany({ orderBy: { name: 'asc' } });
   
+  const distinctJobs = await prisma.user.findMany({
+    where: { job_title: { not: null } },
+    select: { job_title: true },
+    distinct: ['job_title'],
+    orderBy: { job_title: 'asc' }
+  });
+  const jobTitles = distinctJobs.map(j => j.job_title).filter(Boolean) as string[];
+
   // We fetch the current user's company to pre-fill or enforce tenant isolation
   const currentUser = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -27,6 +35,7 @@ export default async function NewUserPage() {
       <UserForm 
         roles={roles} 
         departments={departments} 
+        jobTitles={jobTitles}
         companyId={currentUser?.company_id || ""}
       />
     </div>

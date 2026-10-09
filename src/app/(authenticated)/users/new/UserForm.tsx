@@ -8,17 +8,20 @@ import { User as UserIcon, Eye, EyeOff } from "lucide-react";
 export default function UserForm({
   roles,
   departments,
+  jobTitles = [],
   companyId,
   initialData = null
 }: {
   roles: any[];
   departments: any[];
+  jobTitles?: string[];
   companyId: string;
   initialData?: any;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [localDepartments, setLocalDepartments] = useState(departments);
   const isEditing = !!initialData;
 
   const [formData, setFormData] = useState({
@@ -63,6 +66,38 @@ export default function UserForm({
     } catch (error: any) {
       alert(error.message);
       setLoading(false);
+    }
+  };
+
+  const handleDepartmentChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === "NEW_DEPARTMENT") {
+      const name = window.prompt("Digite o nome do novo setor:");
+      if (name && name.trim()) {
+        try {
+          const res = await fetch("/api/departments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name.trim(), company_id: companyId }),
+          });
+          if (res.ok) {
+            const newDept = await res.json();
+            setLocalDepartments([...localDepartments, newDept]);
+            setFormData({ ...formData, department_id: newDept.id });
+          } else {
+            alert("Erro ao criar o setor.");
+            setFormData({ ...formData, department_id: "" });
+          }
+        } catch (error) {
+          console.error(error);
+          alert("Erro na requisição ao criar o setor.");
+          setFormData({ ...formData, department_id: "" });
+        }
+      } else {
+        setFormData({ ...formData, department_id: "" });
+      }
+    } else {
+      setFormData({ ...formData, department_id: val });
     }
   };
 
@@ -238,23 +273,31 @@ export default function UserForm({
             <label className="block text-sm font-medium leading-6 text-foreground">Cargo / Função</label>
             <input
               type="text"
+              list="jobTitlesList"
               value={formData.job_title}
               onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
               className="mt-2 block w-full rounded-md border-0 py-2 px-3 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm"
+              placeholder="Digite ou selecione..."
             />
+            <datalist id="jobTitlesList">
+              {jobTitles.map((job, idx) => (
+                <option key={idx} value={job} />
+              ))}
+            </datalist>
           </div>
 
           <div>
-            <label className="block text-sm font-medium leading-6 text-foreground">Departamento</label>
+            <label className="block text-sm font-medium leading-6 text-foreground">Setor / Departamento</label>
             <select
               value={formData.department_id || ""}
-              onChange={(e) => setFormData({ ...formData, department_id: e.target.value || "" })}
+              onChange={handleDepartmentChange}
               className="mt-2 block w-full rounded-md border-0 py-2 pl-3 pr-10 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm"
             >
-              <option value="">Sem departamento</option>
-              {departments.map(d => (
+              <option value="">Sem setor</option>
+              {localDepartments.map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
+              <option value="NEW_DEPARTMENT" className="font-bold text-primary">+ Adicionar novo Setor...</option>
             </select>
           </div>
 
