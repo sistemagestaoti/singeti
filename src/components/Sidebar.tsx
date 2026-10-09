@@ -163,8 +163,12 @@ export function Sidebar() {
             <div key={item.name} className="flex flex-col">
               {hasSubItems ? (
                 <button
-                  onClick={() => toggleMenu(item.name)}
-                  className={`flex items-center px-3 py-3 rounded-lg transition-all duration-200 group
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleMenu(item.name);
+                  }}
+                  className={`w-full text-left flex items-center px-3 py-3 rounded-lg transition-all duration-200 group
                     ${active ? 'bg-sidebar-active/30' : 'hover:bg-sidebar-active/50'}`}
                 >
                   {ItemContent}
