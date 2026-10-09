@@ -102,15 +102,27 @@ export function Sidebar() {
       <div className="h-[72px] flex items-center justify-between px-5 border-b border-border/50">
         <div className="flex items-center gap-3">
           {branding?.appLogo ? (
-            <img src={branding.appLogo} alt="SINGETI" className="h-8 max-w-[150px] object-contain" />
+            <img src={branding.appLogo} alt="SYNGETI" className="h-8 max-w-[150px] object-contain" />
           ) : (
             <>
-              <div className="w-9 h-9 rounded bg-gradient-to-br from-primary to-primary-hover text-primary-foreground flex items-center justify-center font-bold text-lg shadow-lg">
-                S
-              </div>
-              <div>
-                <span className="font-extrabold text-foreground text-xl leading-none block">SINGETI</span>
-                <span className="text-[10px] text-muted-foreground uppercase font-semibold">Plataforma</span>
+              <svg width="24" height="28" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
+                <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear)"/>
+                <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
+                <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
+                <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
+                <defs>
+                  <linearGradient id="paint0_linear" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#007BFF"/>
+                    <stop offset="1" stopColor="#00C2FF"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div className="flex flex-col mt-1">
+                <span className="font-extrabold text-foreground text-xl tracking-widest leading-none block">
+                  SYNGE<span className="text-[#00C2FF]">TI</span>
+                </span>
+                <span className="text-[9px] text-muted-foreground tracking-[0.1em] font-semibold mt-0.5 uppercase">Plataforma</span>
               </div>
             </>
           )}

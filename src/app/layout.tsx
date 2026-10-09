@@ -2,7 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'SINGETI - Sistema Integrado de Gestão de TI',
+  title: 'SYNGETI - Sistema Integrado de Gestão de TI',
   description: 'Plataforma centralizada de ITSM, CMDB, e gestão de TI',
 }
 

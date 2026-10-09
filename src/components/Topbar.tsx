@@ -5,18 +5,18 @@ import { ThemeSwitcher } from "./ThemeSwitcher";
 import { Menu } from "lucide-react";
 
 const MODULE_DATA: Record<string, { title: string, subtitle: string }> = {
-  'dashboard': { title: 'Módulo de Gestão', subtitle: 'SINGETI • Visão Geral e Indicadores' },
-  'cmdb': { title: 'Módulo de Inventário', subtitle: 'SINGETI • Gestão de Ativos e Licenças' },
-  'service-desk': { title: 'Módulo de Atendimento', subtitle: 'SINGETI • Service Desk e Chamados' },
-  'problems': { title: 'Módulo de Problemas', subtitle: 'SINGETI • Gestão de Incidentes Maiores' },
-  'changes': { title: 'Módulo de Mudanças', subtitle: 'SINGETI • Planejamento e Risco' },
-  'projects': { title: 'Módulo de Projetos', subtitle: 'SINGETI • Planejamento e Tarefas' },
-  'bookings': { title: 'Módulo de Reservas', subtitle: 'SINGETI • Alocação de Recursos' },
-  'contracts': { title: 'Módulo de Contratos', subtitle: 'SINGETI • Parceiros e Fornecedores' },
-  'knowledge': { title: 'Módulo de Conhecimento', subtitle: 'SINGETI • Wiki e Procedimentos' },
-  'connect': { title: 'CONNECT CHAT', subtitle: 'SINGETI • Comunicação Corporativa' },
-  'users': { title: 'Módulo de Cadastros', subtitle: 'SINGETI • Gestão de Colaboradores' },
-  'settings': { title: 'Módulo de Configurações', subtitle: 'SINGETI • Sistema e Acessos' },
+  'dashboard': { title: 'Módulo de Gestão', subtitle: 'SYNGETI • Visão Geral e Indicadores' },
+  'cmdb': { title: 'Módulo de Inventário', subtitle: 'SYNGETI • Gestão de Ativos e Licenças' },
+  'service-desk': { title: 'Módulo de Atendimento', subtitle: 'SYNGETI • Service Desk e Chamados' },
+  'problems': { title: 'Módulo de Problemas', subtitle: 'SYNGETI • Gestão de Incidentes Maiores' },
+  'changes': { title: 'Módulo de Mudanças', subtitle: 'SYNGETI • Planejamento e Risco' },
+  'projects': { title: 'Módulo de Projetos', subtitle: 'SYNGETI • Planejamento e Tarefas' },
+  'bookings': { title: 'Módulo de Reservas', subtitle: 'SYNGETI • Alocação de Recursos' },
+  'contracts': { title: 'Módulo de Contratos', subtitle: 'SYNGETI • Parceiros e Fornecedores' },
+  'knowledge': { title: 'Módulo de Conhecimento', subtitle: 'SYNGETI • Wiki e Procedimentos' },
+  'connect': { title: 'CONNECT CHAT', subtitle: 'SYNGETI • Comunicação Corporativa' },
+  'users': { title: 'Módulo de Cadastros', subtitle: 'SYNGETI • Gestão de Colaboradores' },
+  'settings': { title: 'Módulo de Configurações', subtitle: 'SYNGETI • Sistema e Acessos' },
 };
 
 export function Topbar({ userName, avatar }: { userName: string, avatar?: string | null }) {
@@ -28,7 +28,7 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
   
   const moduleInfo = MODULE_DATA[rootPath] || { 
     title: 'Módulo do Sistema', 
-    subtitle: 'SINGETI • Gestão Inteligente' 
+    subtitle: 'SYNGETI • Gestão Inteligente' 
   };
 
   return (

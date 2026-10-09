@@ -60,13 +60,30 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             {branding?.loginLogo ? (
-              <img src={branding.loginLogo} alt="SINGETI" className="h-12 object-contain" />
+              <img src={branding.loginLogo} alt="SYNGETI" className="h-12 object-contain" />
             ) : (
               <>
-                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
-                  <Network className="w-5 h-5 text-white" />
+                <svg width="40" height="46" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
+                  <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear)"/>
+                  <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
+                  <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
+                  <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
+                  <defs>
+                    <linearGradient id="paint0_linear" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#007BFF"/>
+                      <stop offset="1" stopColor="#00C2FF"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="flex flex-col">
+                  <span className="text-3xl font-extrabold tracking-widest text-white leading-none">
+                    SYNGE<span className="text-[#00C2FF]">TI</span>
+                  </span>
+                  <span className="text-[0.65rem] tracking-[0.2em] text-slate-400 font-semibold mt-1">
+                    GESTÃO DE TI E COMUNICAÇÃO INTERNA
+                  </span>
                 </div>
-                <span className="text-xl font-bold tracking-widest text-white">SINGETI</span>
               </>
             )}
           </div>
@@ -88,7 +105,7 @@ export default function LoginPage() {
 
           {/* Rodapé do lado esquerdo */}
           <div className="text-xs text-slate-500 font-medium">
-            © 2026 SINGETI. Todos os direitos reservados.
+            © 2026 SYNGETI. Todos os direitos reservados.
           </div>
         </div>
       </div>
