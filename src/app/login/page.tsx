@@ -37,6 +37,7 @@ export default function LoginPage() {
       setError("E-mail ou senha incorretos.");
       setLoading(false);
     } else {
+      sessionStorage.setItem("just_logged_in", "true");
       router.push("/dashboard");
       router.refresh();
     }
