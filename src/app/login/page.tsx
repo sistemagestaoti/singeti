@@ -58,7 +58,7 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             {branding?.loginLogo ? (
-              <img src={branding.loginLogo} alt="SYNGETI" className="h-12 object-contain" />
+              <img src={branding.loginLogo} alt="SYNGETI" className="w-full max-w-[350px] h-auto max-h-[350px] object-contain object-left" />
             ) : (
               <>
                 <svg width="40" height="46" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
