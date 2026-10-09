@@ -23,8 +23,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (department_id !== undefined) dataToUpdate.department_id = department_id || null;
     if (avatar !== undefined) dataToUpdate.avatar = avatar || null;
 
+    console.log("PUT /api/users/[id] received body password:", password ? "YES" : "NO");
+
     if (password) {
       dataToUpdate.password_hash = await bcrypt.hash(password, 10);
+      console.log("Updating password hash to:", dataToUpdate.password_hash);
     }
 
     const updatedUser = await prisma.user.update({

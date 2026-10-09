@@ -226,6 +226,7 @@ export default function UserForm({
                 required={!isEditing}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                autoComplete="new-password"
                 className="block w-full rounded-md border-0 py-2 px-3 pr-10 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm"
               />
               <button
