@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { User as UserIcon, Eye, EyeOff } from "lucide-react";
+import ImageCropperModal from "@/components/ImageCropperModal";
 
 export default function UserForm({
   roles,
@@ -22,6 +23,7 @@ export default function UserForm({
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [localDepartments, setLocalDepartments] = useState(departments);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const isEditing = !!initialData;
 
   const [formData, setFormData] = useState({
@@ -101,7 +103,44 @@ export default function UserForm({
     }
   };
 
+  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImageToCrop(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropComplete = async (croppedFile: File) => {
+    setImageToCrop(null);
+    const uploadData = new FormData();
+    uploadData.append("file", croppedFile);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: uploadData });
+      if (res.ok) {
+        const { url } = await res.json();
+        setFormData({ ...formData, avatar: url });
+      } else {
+        alert("Erro no upload da imagem recortada.");
+      }
+    } catch(err) {
+      console.error(err);
+      alert("Erro ao enviar a imagem.");
+    }
+  };
+
   return (
+    <>
+    {imageToCrop && (
+      <ImageCropperModal
+        imageSrc={imageToCrop}
+        onClose={() => setImageToCrop(null)}
+        onCropComplete={handleCropComplete}
+      />
+    )}
     <form onSubmit={handleSubmit} className="bg-surface shadow-sm border border-border rounded-xl p-6 space-y-8">
       
       <div>
@@ -122,24 +161,7 @@ export default function UserForm({
                 type="file" 
                 accept="image/*" 
                 className="hidden" 
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const uploadData = new FormData();
-                    uploadData.append("file", file);
-                    try {
-                      const res = await fetch("/api/upload", { method: "POST", body: uploadData });
-                      if (res.ok) {
-                        const { url } = await res.json();
-                        setFormData({ ...formData, avatar: url });
-                      } else {
-                        alert("Erro no upload");
-                      }
-                    } catch(err) {
-                      console.error(err);
-                    }
-                  }
-                }}
+                onChange={onFileSelect}
               />
             </label>
           </div>
@@ -152,24 +174,7 @@ export default function UserForm({
                   type="file" 
                   accept="image/*" 
                   className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const uploadData = new FormData();
-                      uploadData.append("file", file);
-                      try {
-                        const res = await fetch("/api/upload", { method: "POST", body: uploadData });
-                        if (res.ok) {
-                          const { url } = await res.json();
-                          setFormData({ ...formData, avatar: url });
-                        } else {
-                          alert("Erro no upload da imagem.");
-                        }
-                      } catch(err) {
-                        console.error(err);
-                      }
-                    }
-                  }}
+                  onChange={onFileSelect}
                 />
               </label>
               
@@ -335,5 +340,6 @@ export default function UserForm({
         </button>
       </div>
     </form>
+    </>
   );
 }
