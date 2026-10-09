@@ -32,6 +32,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       data: dataToUpdate
     });
 
+    if (password) {
+      const { sendPasswordNotification } = await import("@/lib/mailer");
+      await sendPasswordNotification(updatedUser.email, updatedUser.name, false);
+    }
+
     const { password_hash, ...userWithoutPassword } = updatedUser;
     return NextResponse.json(userWithoutPassword, { status: 200 });
   } catch (error: any) {

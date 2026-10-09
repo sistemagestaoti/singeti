@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { User as UserIcon } from "lucide-react";
+import { User as UserIcon, Eye, EyeOff } from "lucide-react";
 
 export default function UserForm({
   roles,
@@ -18,6 +18,7 @@ export default function UserForm({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const isEditing = !!initialData;
 
   const [formData, setFormData] = useState({
@@ -179,13 +180,27 @@ export default function UserForm({
             <label className="block text-sm font-medium leading-6 text-foreground">
               {isEditing ? "Nova Senha (deixe em branco para manter)" : "Senha Provisória *"}
             </label>
-            <input
-              type="password"
-              required={!isEditing}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="mt-2 block w-full rounded-md border-0 py-2 px-3 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm"
-            />
+            <div className="relative mt-2">
+              <input
+                type={showPassword ? "text" : "password"}
+                required={!isEditing}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="block w-full rounded-md border-0 py-2 px-3 pr-10 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground focus:outline-none"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div>

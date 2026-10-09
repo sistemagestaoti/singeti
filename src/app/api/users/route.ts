@@ -45,6 +45,10 @@ export async function POST(req: Request) {
       }
     });
 
+    // Enviar notificação de senha
+    const { sendPasswordNotification } = await import("@/lib/mailer");
+    await sendPasswordNotification(email, name, true);
+
     // Remove password hash from response
     const { password_hash, ...userWithoutPassword } = user;
 
