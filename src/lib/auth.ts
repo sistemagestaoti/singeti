@@ -16,7 +16,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const loginEmail = credentials.email.toLowerCase();
+        const loginEmail = credentials.email.toLowerCase().trim();
 
         const user = await prisma.user.findFirst({
           where: { 
