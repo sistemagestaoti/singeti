@@ -149,13 +149,11 @@ export default function LoginPage() {
 
           {/* Copy / Texto Central */}
           <div className="max-w-lg">
-            {!branding?.loginLogo && (
-              <h1 className="text-5xl font-extrabold text-white leading-tight tracking-tight mb-2">
-                Gestão Inteligente<br />
-                <span className="text-primary">para sua TI.</span>
-              </h1>
-            )}
-            <p className="mt-6 text-muted-foreground text-lg leading-relaxed">
+            <h1 className="text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight mb-4">
+              GESTÃO INTELIGENTE<br />
+              PARA A SUA <span className="text-primary">TI</span>
+            </h1>
+            <p className="mt-4 text-muted-foreground text-lg leading-relaxed">
               Centralize chamados, monitore ativos e gerencie toda a 
               operação de tecnologia da sua empresa em uma plataforma 
               unificada e de alta performance.
@@ -163,7 +161,7 @@ export default function LoginPage() {
           </div>
 
           {/* Rodapé do lado esquerdo */}
-          <div className="text-xs text-foreground0 font-medium">
+          <div className="text-xs text-muted-foreground/60 font-medium">
             © 2026 SYNGETI. Todos os direitos reservados.
           </div>
         </div>
