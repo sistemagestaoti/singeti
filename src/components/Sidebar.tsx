@@ -22,14 +22,20 @@ export function Sidebar() {
   const [iconError, setIconError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/branding")
-      .then(res => res.json())
-      .then(data => {
-        setBranding(data);
-        setLogoError(false);
-        setIconError(false);
-      })
-      .catch(console.error);
+    const fetchBrandingData = () => {
+      fetch("/api/branding")
+        .then(res => res.json())
+        .then(data => {
+          setBranding(data);
+          setLogoError(false);
+          setIconError(false);
+        })
+        .catch(console.error);
+    };
+
+    fetchBrandingData();
+    window.addEventListener("branding-updated", fetchBrandingData);
+    return () => window.removeEventListener("branding-updated", fetchBrandingData);
   }, []);
 
   const toggleMenu = (name: string) => {

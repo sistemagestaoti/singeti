@@ -7,7 +7,8 @@ import { getBranding } from "@/lib/branding";
 export default async function BrandingSettingsPage() {
   const session = await getServerSession(authOptions);
   
-  if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ADMINISTRADOR')) {
+  const role = (session?.user?.role || "").toUpperCase();
+  if (!session || (!role.includes('ADMIN') && !role.includes('GESTOR') && role !== 'TI')) {
     redirect("/dashboard");
   }
 

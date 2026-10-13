@@ -38,6 +38,9 @@ export default function BrandingClient({ initialData }: { initialData: BrandingD
       if (res.ok) {
         setData({ ...data, [type]: result.url });
         alert("Imagem substituída com sucesso!");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("branding-updated"));
+        }
         router.refresh();
       } else {
         alert(result.error || "Erro ao fazer upload");
@@ -66,6 +69,9 @@ export default function BrandingClient({ initialData }: { initialData: BrandingD
       if (res.ok) {
         setData({ ...data, [type]: null });
         alert("Padrão restaurado com sucesso!");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("branding-updated"));
+        }
         router.refresh();
       } else {
         alert("Erro ao restaurar padrão");
