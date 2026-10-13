@@ -14,7 +14,7 @@ if (!process.env.NEXTAUTH_URL) {
 export const AUTH_SECRET =
   process.env.NEXTAUTH_SECRET ||
   process.env.AUTH_SECRET ||
-  "syngeti-log-master-secret-auth-key-prod-2026";
+  "super-secret-key-123";
 
 const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
