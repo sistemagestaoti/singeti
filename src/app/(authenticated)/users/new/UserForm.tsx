@@ -44,12 +44,18 @@ export default function UserForm({
     setLoading(true);
 
     try {
-      const url = isEditing ? `/api/users/${initialData.id}` : "/api/users";
+      const url = isEditing && initialData?.id ? `/api/users/${initialData.id}` : "/api/users";
       const method = isEditing ? "PUT" : "POST";
 
-      const payload = { ...formData };
-      if (isEditing && !payload.password) {
-        delete (payload as any).password;
+      const payload: any = { ...formData };
+      if (isEditing) {
+        payload.id = initialData?.id;
+        if (!payload.password || payload.password.trim() === "") {
+          delete payload.password;
+        }
+      }
+      if (!payload.department_id || payload.department_id === "") {
+        payload.department_id = null;
       }
 
       const res = await fetch(url, {
@@ -59,8 +65,12 @@ export default function UserForm({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Erro ao salvar usuário");
+        let errorMsg = `Erro ao salvar usuário (Status ${res.status})`;
+        try {
+          const data = await res.json();
+          if (data?.error) errorMsg = data.error;
+        } catch {}
+        throw new Error(errorMsg);
       }
 
       router.push(`/users`);

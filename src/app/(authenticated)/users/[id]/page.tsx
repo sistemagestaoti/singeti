@@ -41,7 +41,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
         departments={departments} 
         jobTitles={jobTitles}
         companyId={user.company_id}
-        initialData={user}
+        initialData={JSON.parse(JSON.stringify(user))}
       />
     </div>
   );

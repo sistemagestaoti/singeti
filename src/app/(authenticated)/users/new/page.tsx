@@ -25,6 +25,12 @@ export default async function NewUserPage() {
     select: { company_id: true }
   });
 
+  let companyId = currentUser?.company_id;
+  if (!companyId) {
+    const defaultCompany = await prisma.company.findFirst();
+    companyId = defaultCompany?.id || "";
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="bg-surface p-6 rounded-xl border border-border shadow-sm">
@@ -33,10 +39,10 @@ export default async function NewUserPage() {
       </div>
       
       <UserForm 
-        roles={roles} 
-        departments={departments} 
+        roles={JSON.parse(JSON.stringify(roles))} 
+        departments={JSON.parse(JSON.stringify(departments))} 
         jobTitles={jobTitles}
-        companyId={currentUser?.company_id || ""}
+        companyId={companyId}
       />
     </div>
   );
