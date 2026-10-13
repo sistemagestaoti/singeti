@@ -28,6 +28,22 @@ export default function LoginPage() {
       .then(res => res.json())
       .then(data => setBranding(data))
       .catch(console.error);
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlError = params.get("error");
+      if (urlError) {
+        if (urlError === "Configuration") {
+          setError("Erro de configuração do servidor de autenticação. Por favor, verifique as credenciais ou contate o suporte.");
+        } else if (urlError === "CredentialsSignin") {
+          setError("Credenciais inválidas. Verifique seu login e senha.");
+        } else if (urlError === "SessionRequired") {
+          setError("Sessão expirada. Por favor, identifique-se novamente.");
+        } else {
+          setError("Falha na autenticação. Tente novamente.");
+        }
+      }
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

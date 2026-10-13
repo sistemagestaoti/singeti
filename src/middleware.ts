@@ -1,9 +1,16 @@
 import { withAuth } from "next-auth/middleware";
 
+const AUTH_SECRET =
+  process.env.NEXTAUTH_SECRET ||
+  process.env.AUTH_SECRET ||
+  "syngeti-log-master-secret-auth-key-prod-2026";
+
 export default withAuth({
   pages: {
     signIn: "/login",
+    error: "/login",
   },
+  secret: AUTH_SECRET,
 });
 
 export const config = {

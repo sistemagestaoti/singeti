@@ -3,6 +3,19 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
+// Resolução dinâmica de NEXTAUTH_URL para Vercel caso não esteja explícita no ambiente
+if (!process.env.NEXTAUTH_URL) {
+  const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  if (vercelDomain) {
+    process.env.NEXTAUTH_URL = `https://${vercelDomain}`;
+  }
+}
+
+export const AUTH_SECRET =
+  process.env.NEXTAUTH_SECRET ||
+  process.env.AUTH_SECRET ||
+  "syngeti-log-master-secret-auth-key-prod-2026";
+
 const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
 
@@ -157,10 +170,13 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  secret: AUTH_SECRET,
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 dias
   },
 };
