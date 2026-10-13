@@ -127,8 +127,9 @@ model User {
   articles_written KnowledgeArticle[] @relation("ArticleAuthor")
   bookings         Booking[]          @relation("UserBookings")
 
-  channels      ChatChannel[] @relation("ChannelMembers")
-  sent_messages ChatMessage[] @relation("SentMessages")
+  channels               ChatChannel[]          @relation("ChannelMembers")
+  sent_messages          ChatMessage[]          @relation("SentMessages")
+  password_reset_requests PasswordResetRequest[]
 
   @@map("users")
 }
@@ -615,4 +616,34 @@ model ChatMessage {
   updated_at DateTime @updatedAt
 
   @@map("chat_messages")
+}
+
+// ---------------------------------------------------------
+// FASE 8: GESTÃO E RECUPERAÇÃO DE ACESSO / SENHA
+// ---------------------------------------------------------
+
+model PasswordResetRequest {
+  id               String    @id @default(cuid())
+  protocol         String    @unique
+  user_id          String?
+  user_name        String
+  username         String
+  user_email       String
+  status           String    @default("PENDING") // PENDING, IN_PROGRESS, RESOLVED, CANCELLED
+  reset_token      String?   @unique
+  token_expires_at DateTime?
+  admin_id         String?
+  admin_name       String?
+  admin_notes      String?
+  history          String?   // JSON array com histórico de auditoria
+  ip_address       String?
+  user_agent       String?
+
+  user             User?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+  resolved_at      DateTime?
+
+  @@map("password_reset_requests")
 }

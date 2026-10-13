@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Network, Mail, Lock, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
+import { Network, Mail, Lock, Eye, EyeOff, ArrowRight, Check, KeyRound, X, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [branding, setBranding] = useState<any>(null);
   const [imageError, setImageError] = useState(false);
+
+  // Estados da Recuperação de Senha
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const [forgotIdentifier, setForgotIdentifier] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotError, setForgotError] = useState("");
 
   useEffect(() => {
     fetch("/api/branding")
@@ -38,9 +45,42 @@ export default function LoginPage() {
       setError("E-mail ou senha incorretos.");
       setLoading(false);
     } else {
-      sessionStorage.setItem("just_logged_in", "true");
+      sessionStorage.setItem("syngeti_session_active", "true");
       router.push("/dashboard");
       router.refresh();
+    }
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotMessage("");
+
+    if (!forgotIdentifier.trim()) {
+      setForgotError("Informe seu e-mail ou nome de usuário.");
+      return;
+    }
+
+    setForgotLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: forgotIdentifier.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Falha ao processar solicitação.");
+      }
+
+      setForgotMessage(data.message || "Solicitação encaminhada com sucesso.");
+    } catch (err: any) {
+      setForgotError(err?.message || "Erro ao conectar ao servidor.");
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -177,9 +217,18 @@ export default function LoginPage() {
                 </div>
                 <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Lembrar-me</span>
               </label>
-              <a href="#" className="text-xs text-primary hover:text-blue-400 font-medium transition-colors">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotOpen(true);
+                  setForgotError("");
+                  setForgotMessage("");
+                  setForgotIdentifier("");
+                }}
+                className="text-xs text-primary hover:text-blue-400 font-medium transition-colors"
+              >
                 Esqueceu a senha?
-              </a>
+              </button>
             </div>
 
             {error && (
@@ -201,6 +250,110 @@ export default function LoginPage() {
           </form>
         </div>
       </div>
+
+      {/* Modal - Recuperação de Senha */}
+      {isForgotOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[#0f172a] p-8 rounded-[24px] border border-border/80 shadow-2xl relative">
+            
+            {/* Fechar Modal */}
+            <button
+              type="button"
+              onClick={() => setIsForgotOpen(false)}
+              className="absolute top-6 right-6 text-muted-foreground hover:text-white transition-colors p-1 rounded-lg hover:bg-surface"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <KeyRound className="w-5 h-5 text-primary" />
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                Recuperação de Acesso
+              </span>
+            </div>
+
+            <h3 className="text-xl font-bold text-white mb-2">Esqueceu sua senha?</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed mb-6">
+              Informe seu e-mail ou nome de usuário cadastrado. Uma notificação será encaminhada à administração de TI para validação e atendimento seguro.
+            </p>
+
+            {forgotMessage ? (
+              <div className="space-y-6">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                    <span>Solicitação Encaminhada</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {forgotMessage}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsForgotOpen(false)}
+                  className="w-full bg-primary hover:bg-primary-hover text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+                >
+                  Concluir e Voltar ao Login
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                {forgotError && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2.5 text-red-400 text-xs font-medium">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-foreground ml-1">E-mail ou Usuário</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={forgotIdentifier}
+                      onChange={(e) => setForgotIdentifier(e.target.value)}
+                      placeholder="ex: joao.marcos ou compras@dlamb.ind.br"
+                      className="w-full bg-[#050D1B] border border-border text-foreground text-sm rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-muted-foreground"
+                      disabled={forgotLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotOpen(false)}
+                    disabled={forgotLoading}
+                    className="w-1/3 bg-surface hover:bg-surface-hover text-foreground text-xs font-semibold py-3 rounded-xl border border-border transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading || !forgotIdentifier.trim()}
+                    className="w-2/3 bg-primary hover:bg-primary-hover text-white text-xs font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-primary/20"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <span>Enviar Solicitação</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

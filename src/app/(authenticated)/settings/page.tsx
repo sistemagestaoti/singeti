@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, ShieldCheck, Users } from "lucide-react";
+import { Building2, ShieldCheck, Users, KeyRound } from "lucide-react";
 
 export default function SettingsPage() {
   return (
@@ -28,6 +28,16 @@ export default function SettingsPage() {
           <div>
             <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">Perfis de Acesso (Roles)</h3>
             <p className="text-sm text-muted-foreground mt-1">Configure os perfis de segurança e o que cada grupo pode acessar no sistema.</p>
+          </div>
+        </Link>
+
+        <Link href="/settings/password-resets" className="group bg-surface hover:bg-surface-hover transition-colors p-6 rounded-xl border border-border shadow-sm flex flex-col gap-4">
+          <div className="w-12 h-12 bg-primary/10 text-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+            <KeyRound className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">Recuperação de Senha</h3>
+            <p className="text-sm text-muted-foreground mt-1">Atenda e audite as solicitações de redefinição de acesso dos usuários.</p>
           </div>
         </Link>
 

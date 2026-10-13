@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import RoleManager from "./RoleManager";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function RolesPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");

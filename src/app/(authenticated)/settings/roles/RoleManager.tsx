@@ -15,6 +15,32 @@ const AVAILABLE_PERMISSIONS = [
   { id: "settings_admin", label: "Configurações - Acesso Total" },
 ];
 
+function parsePermissions(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(String);
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed)) return parsed.map(String);
+    if (typeof parsed === "object" && parsed !== null) {
+      if (parsed.all) return ["Acesso Total (All)"];
+      const items: string[] = [];
+      for (const [key, val] of Object.entries(parsed)) {
+        if (Array.isArray(val)) {
+          items.push(`${key} (${val.join(", ")})`);
+        } else if (typeof val === "boolean") {
+          if (val) items.push(key);
+        } else {
+          items.push(`${key}: ${String(val)}`);
+        }
+      }
+      return items.length > 0 ? items : ["Permissões configuradas"];
+    }
+    return [String(parsed)];
+  } catch (e) {
+    return [String(raw)];
+  }
+}
+
 export default function RoleManager({ 
   initialRoles 
 }: { 
@@ -78,7 +104,7 @@ export default function RoleManager({
             <li className="p-6 text-center text-muted-foreground">Nenhum perfil cadastrado.</li>
           )}
           {roles.map((role) => {
-            const perms = JSON.parse(role.permissions || "[]");
+            const perms = parsePermissions(role.permissions);
             return (
               <li key={role.id} className="p-4 hover:bg-surface-hover transition-colors">
                 <div className="flex justify-between items-start mb-3">
@@ -97,8 +123,8 @@ export default function RoleManager({
                   {perms.length === 0 ? (
                     <span className="text-xs text-muted-foreground italic">Sem acessos definidos</span>
                   ) : (
-                    perms.map((p: string) => (
-                      <span key={p} className="inline-flex items-center rounded-md bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground border border-accent">
+                    perms.map((p: string, idx: number) => (
+                      <span key={idx} className="inline-flex items-center rounded-md bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground border border-accent">
                         {p}
                       </span>
                     ))

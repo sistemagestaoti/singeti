@@ -71,6 +71,7 @@ export function Sidebar() {
         { name: "Usuários do Sistema", href: "/users" },
         { name: "Departamentos", href: "/settings/departments" },
         { name: "Perfis e Acessos", href: "/settings/roles" },
+        { name: "Recuperação de Senha", href: "/settings/password-resets" },
       ]
     },
     { 
