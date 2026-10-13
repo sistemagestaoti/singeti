@@ -16,19 +16,32 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const loginEmail = credentials.email.toLowerCase().trim();
+        const loginInput = credentials.email.trim();
+        const loginLower = loginInput.toLowerCase();
 
-        const user = await prisma.user.findFirst({
+        // Busca por email ou nome
+        let user = await prisma.user.findFirst({
           where: { 
             OR: [
-              { email: loginEmail },
-              { email: credentials.email }
+              { email: loginLower },
+              { email: loginInput },
+              { name: loginInput }
             ]
           },
           include: { role: true }
         });
 
+        // Fallback case-insensitive amplo
         if (!user) {
+          const allUsers = await prisma.user.findMany({ include: { role: true } });
+          user = allUsers.find(u => 
+            u.email.toLowerCase() === loginLower || 
+            u.name.toLowerCase() === loginLower
+          ) || null;
+        }
+
+        if (!user) {
+          console.warn(`Tentativa de login falhou: usuário "${loginInput}" não encontrado.`);
           return null;
         }
 
