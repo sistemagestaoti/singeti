@@ -3,7 +3,6 @@ import { Topbar } from "@/components/Topbar";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { RefreshLogout } from "@/components/RefreshLogout";
 
 import { prisma } from "@/lib/prisma";
 
@@ -18,14 +17,20 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { avatar: true }
-  });
+  let dbUser = null;
+  try {
+    if (session.user?.id) {
+      dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { avatar: true }
+      });
+    }
+  } catch (err) {
+    console.warn("Aviso ao buscar avatar do usuário:", err);
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <RefreshLogout />
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={session.user.name || "Admin"} avatar={dbUser?.avatar} />

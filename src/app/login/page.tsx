@@ -45,9 +45,7 @@ export default function LoginPage() {
       setError("E-mail ou senha incorretos.");
       setLoading(false);
     } else {
-      sessionStorage.setItem("syngeti_session_active", "true");
-      router.push("/dashboard");
-      router.refresh();
+      window.location.href = "/dashboard";
     }
   };
 
