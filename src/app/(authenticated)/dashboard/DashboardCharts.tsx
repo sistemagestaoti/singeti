@@ -1,54 +1,74 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function DashboardCharts({ 
   chartData 
 }: { 
   chartData: any[] 
 }) {
-  // Use explicit colors from the array if provided, otherwise fallback
-  const fallbackColors = ['var(--primary)', '#8B5CF6', 'var(--success)', 'var(--warning)', '#6366F1'];
+  const fallbackColors = ['#F59E0B', '#EF4444', '#6366F1', '#10B981', '#00C2FF'];
   
-  // Calculate total for center label
-  const total = chartData.reduce((sum, item) => sum + item.quantidade, 0);
+  // Total para o rótulo central
+  const total = chartData.reduce((sum, item) => sum + (item.quantidade || 0), 0);
 
   return (
-    <div className="flex-1 min-h-[250px] w-full relative">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="40%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={80}
-            paddingAngle={0}
-            dataKey="quantidade"
-            stroke="none"
-          >
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color || fallbackColors[index % fallbackColors.length]} />
-            ))}
-          </Pie>
-          <Tooltip 
-            contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: '8px', color: 'var(--foreground)' }}
-            itemStyle={{ color: 'var(--foreground)' }}
-          />
-          <Legend 
-            layout="vertical" 
-            verticalAlign="middle" 
-            align="right"
-            iconType="circle"
-            wrapperStyle={{ fontSize: '12px', color: 'var(--muted-foreground)' }}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      
-      {/* Center Total Label */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ left: '-10%' }}>
-        <span className="text-2xl font-bold text-foreground">{total}</span>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Total</span>
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full py-2">
+      {/* Círculo do gráfico com o número 48 perfeitamente centralizado */}
+      <div className="relative w-[180px] h-[180px] flex-shrink-0 flex items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={58}
+              outerRadius={78}
+              paddingAngle={2}
+              dataKey="quantidade"
+              stroke="none"
+            >
+              {chartData.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={entry.color || fallbackColors[index % fallbackColors.length]} 
+                />
+              ))}
+            </Pie>
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: 'var(--surface)', 
+                borderColor: 'var(--border)', 
+                borderRadius: '8px', 
+                color: 'var(--foreground)' 
+              }}
+              itemStyle={{ color: 'var(--foreground)' }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        
+        {/* Número Total 100% Centralizado no Vazio do Círculo */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+          <span className="text-3xl font-black text-foreground leading-none">{total}</span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Total</span>
+        </div>
+      </div>
+
+      {/* Legenda dos Dados alinhada ao lado */}
+      <div className="flex flex-col gap-2.5 min-w-[120px]">
+        {chartData.map((item, index) => {
+          const label = item.name || item.categoria || `Item ${index + 1}`;
+          const color = item.color || fallbackColors[index % fallbackColors.length];
+          return (
+            <div key={index} className="flex items-center gap-2 text-xs">
+              <span 
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-muted-foreground font-medium">{label}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -14,9 +14,10 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   
-  // Apenas admins podem alterar a identidade visual
-  if (!session || session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Apenas perfis administrativos podem alterar a identidade visual
+  const role = (session?.user?.role || "").toUpperCase();
+  if (!session || (role !== 'ADMIN' && role !== 'ADMINISTRADOR' && role !== 'GESTOR')) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
 
   try {
