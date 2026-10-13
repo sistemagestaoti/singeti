@@ -41,8 +41,8 @@
 }
 
 @layer base {
-  /* Dark Enterprise / Industrial Operations Theme */
-  :root, .light, .dark, .tokyo-night, .dlamb {
+  /* Dark Enterprise / Industrial Operations Theme (Default & Dark) */
+  :root, .dark {
     --background: #050D1B;
     --foreground: #F3F7FC;
     
@@ -75,6 +75,114 @@
     --warning: #F59E0B;
     --danger: #F43F5E;
     --info: #00D5F2;
+  }
+
+  /* Padrão / Modo Claro (Light) */
+  .light {
+    --background: #F4F6F9;
+    --foreground: #0B192C;
+    
+    --surface: #FFFFFF;
+    --surface-hover: #F0F4F8;
+    --surface-elevated: #FFFFFF;
+    
+    --primary: #1765F5;
+    --primary-hover: #1459D9;
+    --primary-foreground: #FFFFFF;
+    
+    --secondary: #E2E8F0;
+    --secondary-foreground: #1E293B;
+    
+    --muted: #EBF1F6;
+    --muted-foreground: #5A6E85;
+    
+    --accent: #E0F2FE;
+    --accent-foreground: #0369A1;
+    
+    --border: #CBD5E1;
+    --input: #FFFFFF;
+    --ring: #1765F5;
+
+    --sidebar-bg: #FFFFFF;
+    --sidebar-fg: #334155;
+    --sidebar-active: #EFF6FF;
+
+    --success: #16A34A;
+    --warning: #D97706;
+    --danger: #DC2626;
+    --info: #0284C7;
+  }
+
+  /* Tokyo Night Theme */
+  .tokyo-night {
+    --background: #1A1B26;
+    --foreground: #C0CAF5;
+    
+    --surface: #24283B;
+    --surface-hover: #292E42;
+    --surface-elevated: #2F354D;
+    
+    --primary: #7AA2F7;
+    --primary-hover: #6183C9;
+    --primary-foreground: #1A1B26;
+    
+    --secondary: #414868;
+    --secondary-foreground: #C0CAF5;
+    
+    --muted: #1F2335;
+    --muted-foreground: #A9B1D6;
+    
+    --accent: #292E42;
+    --accent-foreground: #BB9AF7;
+    
+    --border: #414868;
+    --input: #16161E;
+    --ring: #7AA2F7;
+
+    --sidebar-bg: #16161E;
+    --sidebar-fg: #A9B1D6;
+    --sidebar-active: #24283B;
+
+    --success: #9ECE6A;
+    --warning: #E0AF68;
+    --danger: #F7768E;
+    --info: #7DCFFF;
+  }
+
+  /* D'Lamb Sport Theme */
+  .dlamb {
+    --background: #121212;
+    --foreground: #FFFFFF;
+    
+    --surface: #1E1E1E;
+    --surface-hover: #2A2A2A;
+    --surface-elevated: #262626;
+    
+    --primary: #C5222A;
+    --primary-hover: #A01820;
+    --primary-foreground: #FFFFFF;
+    
+    --secondary: #2C2C2C;
+    --secondary-foreground: #D4D4D4;
+    
+    --muted: #262626;
+    --muted-foreground: #A3A3A3;
+    
+    --accent: #3A1518;
+    --accent-foreground: #FCA5A5;
+    
+    --border: #383838;
+    --input: #181818;
+    --ring: #C5222A;
+
+    --sidebar-bg: #181818;
+    --sidebar-fg: #D4D4D4;
+    --sidebar-active: #2A2A2A;
+
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --info: #38BDF8;
   }
 }
 

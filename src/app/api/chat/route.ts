@@ -30,13 +30,26 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { channelId, content } = body;
 
-  if (!channelId || !content) return new NextResponse("Missing fields", { status: 400 });
+  if (!channelId || !content || !content.trim()) {
+    return new NextResponse("Missing fields", { status: 400 });
+  }
+
+  // Resilient sender_id resolution
+  let senderId = session.user.id;
+  const userExists = await prisma.user.findUnique({ where: { id: senderId } });
+  if (!userExists && session.user.email) {
+    const userByEmail = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (userByEmail) senderId = userByEmail.id;
+  }
 
   const message = await prisma.chatMessage.create({
     data: {
-      content,
+      content: content.trim(),
       channel_id: channelId,
-      sender_id: session.user.id
+      sender_id: senderId
+    },
+    include: {
+      sender: { select: { name: true, avatar: true } }
     }
   });
 

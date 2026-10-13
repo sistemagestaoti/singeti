@@ -2,45 +2,83 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
-import { Monitor, Moon, Sun, Palette } from "lucide-react";
+import { Monitor, Moon, Sun, Palette, Check } from "lucide-react";
 
 export function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     setMounted(true);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   if (!mounted) {
     return <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />;
   }
 
+  const themes = [
+    { id: "dark", label: "SYNGETI Dark", icon: Moon, color: "text-[#00D5F2]" },
+    { id: "light", label: "Padrão Claro", icon: Sun, color: "text-amber-500" },
+    { id: "tokyo-night", label: "Tokyo Night", icon: Monitor, color: "text-[#bb9af7]" },
+    { id: "dlamb", label: "D'Lamb Sport", icon: Palette, color: "text-[#c5222a]" },
+  ];
+
+  const currentTheme = themes.find(t => t.id === theme) || themes[0];
+  const CurrentIcon = currentTheme.icon;
+
   return (
-    <div className="relative group">
-      <button className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring">
-        {theme === 'light' ? <Sun size={16} /> : 
-         theme === 'dark' ? <Moon size={16} /> : 
-         theme === 'tokyo-night' ? <Monitor size={16} className="text-[#bb9af7]" /> :
-         <Palette size={16} className="text-[#8a1c22]" />}
+    <div className="relative" ref={containerRef}>
+      <button 
+        onClick={() => setOpen(!open)}
+        title="Alternar tema visual"
+        aria-label="Alternar tema visual"
+        className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring border border-border/60"
+      >
+        <CurrentIcon size={16} className={currentTheme.color} />
       </button>
       
-      <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-        <div className="py-1">
-          <button onClick={() => setTheme('light')} className={`block w-full text-left px-4 py-2 text-sm ${theme === 'light' ? 'bg-accent text-accent-foreground font-semibold' : 'text-card-foreground hover:bg-muted'}`}>
-            <Sun size={14} className="inline mr-2" /> Padrão (Light)
-          </button>
-          <button onClick={() => setTheme('dark')} className={`block w-full text-left px-4 py-2 text-sm ${theme === 'dark' ? 'bg-accent text-accent-foreground font-semibold' : 'text-card-foreground hover:bg-muted'}`}>
-            <Moon size={14} className="inline mr-2" /> Black (Dark)
-          </button>
-          <button onClick={() => setTheme('tokyo-night')} className={`block w-full text-left px-4 py-2 text-sm ${theme === 'tokyo-night' ? 'bg-accent text-accent-foreground font-semibold' : 'text-card-foreground hover:bg-muted'}`}>
-            <Monitor size={14} className="inline mr-2 text-[#bb9af7]" /> Tokyo Night
-          </button>
-          <button onClick={() => setTheme('dlamb')} className={`block w-full text-left px-4 py-2 text-sm ${theme === 'dlamb' ? 'bg-accent text-accent-foreground font-semibold' : 'text-card-foreground hover:bg-muted'}`}>
-            <Palette size={14} className="inline mr-2 text-[#8a1c22]" /> D'Lamb Sport
-          </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-52 bg-surface border border-border rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+          <div className="px-3 py-1.5 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            Tema Visual
+          </div>
+          <div className="p-1 space-y-0.5">
+            {themes.map((t) => {
+              const Icon = t.icon;
+              const isSelected = theme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setTheme(t.id);
+                    setOpen(false);
+                  }}
+                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    isSelected 
+                      ? 'bg-primary/15 text-primary font-semibold' 
+                      : 'text-foreground hover:bg-surface-hover hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon size={15} className={t.color} />
+                    <span>{t.label}</span>
+                  </div>
+                  {isSelected && <Check size={14} className="text-primary" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
