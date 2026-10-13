@@ -1,6 +1,6 @@
 {
-  "loginLogo": "/branding/logo-hq-transparent.png",
-  "appLogo": "/branding/logo-hq-transparent.png",
+  "loginLogo": "/api/branding/logo",
+  "appLogo": "/api/branding/logo",
   "appIcon": "/branding/logo-icon.png",
   "favicon": "/branding/logo-icon.png",
   "loginBackground": null,

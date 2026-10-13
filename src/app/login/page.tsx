@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [branding, setBranding] = useState<any>(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     fetch("/api/branding")
@@ -58,8 +59,13 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-between h-full">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            {branding?.loginLogo ? (
-              <img src={branding.loginLogo} alt="SYNGETI" className="w-full max-w-[350px] h-auto max-h-[350px] object-contain object-left" />
+            {branding?.loginLogo && !imageError ? (
+              <img 
+                src={branding.loginLogo} 
+                alt="SYNGETI" 
+                onError={() => setImageError(true)}
+                className="w-full max-w-[350px] h-auto max-h-[350px] object-contain object-left" 
+              />
             ) : (
               <>
                 <svg width="40" height="46" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">

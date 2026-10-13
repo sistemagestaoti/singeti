@@ -17,6 +17,7 @@ export function Sidebar() {
     'Configurações': true,
   });
   const [branding, setBranding] = useState<any>(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     fetch("/api/branding")
@@ -99,8 +100,13 @@ export function Sidebar() {
       {/* Brand */}
       <div className="h-[72px] flex items-center justify-between px-5 border-b border-border/50">
         <div className="flex items-center gap-3">
-          {branding?.appLogo ? (
-            <img src={branding.appLogo} alt="SYNGETI" className="h-10 max-w-[180px] object-contain" />
+          {branding?.appLogo && !imageError ? (
+            <img 
+              src={branding.appLogo} 
+              alt="SYNGETI" 
+              onError={() => setImageError(true)}
+              className="h-10 max-w-[180px] object-contain" 
+            />
           ) : (
             <>
               <svg width="24" height="28" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
