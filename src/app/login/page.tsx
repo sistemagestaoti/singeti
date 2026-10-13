@@ -162,7 +162,7 @@ export default function LoginPage() {
 
           {/* Rodapé do lado esquerdo */}
           <div className="text-xs text-muted-foreground/60 font-medium">
-            © 2026 SYNGETI. Todos os direitos reservados.
+            © 2026 SYNGETI. Todos os direitos reservados. By IdeIA, Joao Marcos Alves
           </div>
         </div>
       </div>

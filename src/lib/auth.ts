@@ -171,6 +171,7 @@ export const authOptions: NextAuthOptions = {
     },
   },
   secret: AUTH_SECRET,
+  useSecureCookies: process.env.NODE_ENV === "production" || !!process.env.VERCEL,
   pages: {
     signIn: "/login",
     error: "/login",
