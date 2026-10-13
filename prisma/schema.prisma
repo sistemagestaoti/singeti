@@ -87,6 +87,7 @@ model Role {
 model User {
   id            String  @id @default(cuid())
   name          String
+  username      String? @unique
   email         String  @unique
   password_hash String
   job_title     String?

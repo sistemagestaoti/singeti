@@ -44,10 +44,12 @@ export async function POST(req: Request) {
     const cleanIdentifier = identifier.trim();
     const cleanLower = cleanIdentifier.toLowerCase();
 
-    // Localizar usuário com tolerância (e-mail ou nome)
+    // Localizar usuário com tolerância (usuário, e-mail ou nome)
     const user = await prisma.user.findFirst({
       where: {
         OR: [
+          { username: cleanLower },
+          { username: cleanIdentifier },
           { email: cleanLower },
           { name: cleanIdentifier },
           { name: { contains: cleanIdentifier } },
@@ -56,6 +58,7 @@ export async function POST(req: Request) {
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         status: true,
       }

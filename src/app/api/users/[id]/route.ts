@@ -60,10 +60,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "ID do usuário não fornecido" }, { status: 400 });
     }
 
-    const { name, email, password, job_title, phone, status, role_id, department_id, avatar } = body;
+    const { name, username, email, password, job_title, phone, status, role_id, department_id, avatar } = body;
 
     const dataToUpdate: any = {};
     if (name !== undefined) dataToUpdate.name = name;
+    if (username !== undefined) {
+      const cleanUsername = username && typeof username === "string" && username.trim() !== ""
+        ? username.trim().toLowerCase()
+        : null;
+      if (cleanUsername) {
+        const duplicate = await prisma.user.findFirst({
+          where: {
+            username: cleanUsername,
+            NOT: { id: userId }
+          }
+        });
+        if (duplicate) {
+          return NextResponse.json({ error: "Este nome de usuário já está em uso por outro usuário." }, { status: 400 });
+        }
+      }
+      dataToUpdate.username = cleanUsername;
+    }
     if (email !== undefined) dataToUpdate.email = email;
     if (job_title !== undefined) dataToUpdate.job_title = job_title || null;
     if (phone !== undefined) dataToUpdate.phone = phone || null;

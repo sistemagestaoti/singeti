@@ -35,10 +35,23 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { name, email, password, job_title, phone, status, role_id, department_id, company_id, avatar } = body;
+    const { name, username, email, password, job_title, phone, status, role_id, department_id, company_id, avatar } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: "Nome, e-mail e senha são obrigatórios" }, { status: 400 });
+    }
+
+    const cleanUsername = username && typeof username === "string" && username.trim() !== "" 
+      ? username.trim().toLowerCase() 
+      : null;
+
+    if (cleanUsername) {
+      const existingUsername = await prisma.user.findFirst({
+        where: { username: cleanUsername }
+      });
+      if (existingUsername) {
+        return NextResponse.json({ error: "Este nome de usuário já está em uso." }, { status: 400 });
+      }
     }
 
     // Fallback company_id if not supplied
@@ -78,6 +91,7 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
+        username: cleanUsername,
         email: email.trim().toLowerCase(),
         password_hash: hashedPassword,
         job_title: (job_title && job_title.trim() !== "") ? job_title.trim() : null,
@@ -105,7 +119,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("User creation error:", error);
     if (error?.code === "P2002") {
-      return NextResponse.json({ error: "Este e-mail já está cadastrado no sistema." }, { status: 400 });
+      return NextResponse.json({ error: "Este e-mail ou nome de usuário já está cadastrado no sistema." }, { status: 400 });
     }
     return NextResponse.json({ error: error?.message || "Erro ao cadastrar usuário" }, { status: 500 });
   }
@@ -119,7 +133,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { id, name, email, password, job_title, phone, status, role_id, department_id, avatar } = body;
+    const { id, name, username, email, password, job_title, phone, status, role_id, department_id, avatar } = body;
 
     if (!id) {
       return NextResponse.json({ error: "ID do usuário é obrigatório para atualização" }, { status: 400 });
@@ -127,6 +141,23 @@ export async function PUT(req: Request) {
 
     const dataToUpdate: any = {};
     if (name !== undefined) dataToUpdate.name = name.trim();
+    if (username !== undefined) {
+      const cleanUsername = username && typeof username === "string" && username.trim() !== ""
+        ? username.trim().toLowerCase()
+        : null;
+      if (cleanUsername) {
+        const duplicate = await prisma.user.findFirst({
+          where: {
+            username: cleanUsername,
+            NOT: { id }
+          }
+        });
+        if (duplicate) {
+          return NextResponse.json({ error: "Este nome de usuário já está em uso por outro usuário." }, { status: 400 });
+        }
+      }
+      dataToUpdate.username = cleanUsername;
+    }
     if (email !== undefined) dataToUpdate.email = email.trim().toLowerCase();
     if (job_title !== undefined) dataToUpdate.job_title = job_title ? job_title.trim() : null;
     if (phone !== undefined) dataToUpdate.phone = phone ? phone.trim() : null;

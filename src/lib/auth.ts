@@ -55,6 +55,8 @@ export const authOptions: NextAuthOptions = {
           user = await prisma.user.findFirst({
             where: {
               OR: [
+                { username: loginLower },
+                { username: loginInput },
                 { email: loginLower },
                 { email: loginInput },
                 { name: loginInput },
@@ -63,12 +65,13 @@ export const authOptions: NextAuthOptions = {
             include: { role: true },
           });
 
-          // Fallback case-insensitive amplo e por primeiro nome / sobrenome
+          // Fallback case-insensitive amplo e por primeiro nome / sobrenome / username
           if (!user) {
             const allUsers = await prisma.user.findMany({ include: { role: true } });
             user =
               allUsers.find(
                 (u) =>
+                  u.username?.toLowerCase() === loginLower ||
                   u.email.toLowerCase() === loginLower ||
                   u.name.toLowerCase() === loginLower ||
                   u.name.toLowerCase().includes(loginLower) ||

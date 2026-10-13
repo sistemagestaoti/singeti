@@ -11,13 +11,17 @@ export default function UserForm({
   departments,
   jobTitles = [],
   companyId,
-  initialData = null
+  initialData = null,
+  onSuccess,
+  onCancel,
 }: {
   roles: any[];
   departments: any[];
   jobTitles?: string[];
   companyId: string;
   initialData?: any;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -28,6 +32,7 @@ export default function UserForm({
 
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
+    username: initialData?.username || "",
     email: initialData?.email || "",
     password: "", // Senha vazia por padrão na edição
     job_title: initialData?.job_title || "",
@@ -73,7 +78,11 @@ export default function UserForm({
         throw new Error(errorMsg);
       }
 
-      router.push(`/users`);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push(`/users`);
+      }
       router.refresh();
     } catch (error: any) {
       alert(error.message);
@@ -204,11 +213,12 @@ export default function UserForm({
 
         <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
           
-          <div className="col-span-full">
+          <div>
             <label className="block text-sm font-medium leading-6 text-foreground">Nome Completo *</label>
             <input
               type="text"
               required
+              placeholder="Ex: João Marcos Alves"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="mt-2 block w-full rounded-md border-0 py-2 px-3 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm"
@@ -216,10 +226,26 @@ export default function UserForm({
           </div>
 
           <div>
+            <label className="block text-sm font-medium leading-6 text-foreground">
+              Usuário (Login de Acesso) *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="Ex: joao.marcos ou admin"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
+              className="mt-2 block w-full rounded-md border-0 py-2 px-3 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm font-mono"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Identificador único utilizado para autenticação no sistema.</p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium leading-6 text-foreground">E-mail *</label>
             <input
               type="email"
               required
+              placeholder="usuario@empresa.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="mt-2 block w-full rounded-md border-0 py-2 px-3 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm"
@@ -337,7 +363,10 @@ export default function UserForm({
       <div className="mt-8 flex justify-end gap-x-4 border-t border-border pt-6">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => {
+            if (onCancel) onCancel();
+            else router.back();
+          }}
           className="text-sm font-bold leading-6 text-muted-foreground hover:text-foreground"
         >
           Cancelar
