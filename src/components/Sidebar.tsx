@@ -18,12 +18,17 @@ export function Sidebar() {
     'Configurações': true,
   });
   const [branding, setBranding] = useState<any>(null);
-  const [imageError, setImageError] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+  const [iconError, setIconError] = useState(false);
 
   useEffect(() => {
     fetch("/api/branding")
       .then(res => res.json())
-      .then(data => setBranding(data))
+      .then(data => {
+        setBranding(data);
+        setLogoError(false);
+        setIconError(false);
+      })
       .catch(console.error);
   }, []);
 
@@ -100,65 +105,83 @@ export function Sidebar() {
   return (
     <aside className={`${isCollapsed ? 'w-[76px]' : 'w-[280px]'} bg-sidebar border-r border-border h-full flex flex-col transition-all duration-300 relative select-none`}>
       {/* Brand Header */}
-      <div className={`h-[72px] flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between px-4'} border-b border-border/50`}>
+      <div className={`h-[72px] flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between px-3.5'} border-b border-border/50`}>
         {!isCollapsed ? (
-          /* PARTE INTERNA: Logotipo que acompanha o tamanho do retângulo superior esquerdo */
-          <div className="flex-1 flex items-center h-full mr-2 overflow-hidden">
-            {branding?.appLogo && !imageError ? (
-              <img 
-                src={branding.appLogo} 
-                alt="SYNGETI" 
-                onError={() => setImageError(true)}
-                className="max-h-[50px] w-auto max-w-[215px] object-contain object-left transition-all" 
-              />
-            ) : (
-              <div className="flex items-center gap-3">
-                {branding?.appIcon ? (
-                  <img src={branding.appIcon} alt="Ícone" className="w-9 h-9 object-contain flex-shrink-0" />
-                ) : (
-                  <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-                    <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
-                    <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear)"/>
-                    <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
-                    <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
-                    <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
-                    <defs>
-                      <linearGradient id="paint0_linear" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#007BFF"/>
-                        <stop offset="1" stopColor="#00C2FF"/>
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                )}
-                <div className="flex flex-col mt-0.5">
-                  <span className="font-extrabold text-foreground text-xl tracking-widest leading-none block">
+          <div className="flex items-center gap-3 flex-1 h-full min-w-0 mr-1.5">
+            {/* CAMPO SEPARADO SOMENTE PARA O ÍCONE (que o usuário subir ou padrão) */}
+            <div className="w-10 h-10 rounded-xl bg-surface/50 border border-border/60 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden p-1">
+              {branding?.appIcon && !iconError ? (
+                <img 
+                  src={branding.appIcon} 
+                  alt="Ícone" 
+                  onError={() => setIconError(true)}
+                  className="w-full h-full object-contain" 
+                />
+              ) : (
+                <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                  <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
+                  <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear)"/>
+                  <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
+                  <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
+                  <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
+                  <defs>
+                    <linearGradient id="paint0_linear" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#007BFF"/>
+                      <stop offset="1" stopColor="#00C2FF"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              )}
+            </div>
+
+            {/* ÁREA CIRCULADA EM VERMELHO: SOMENTE A IMAGEM DO LOGOTIPO */}
+            <div className="flex-1 h-full flex items-center overflow-hidden min-w-0">
+              {branding?.appLogo && !logoError ? (
+                <img 
+                  src={branding.appLogo} 
+                  alt="Logotipo" 
+                  onError={() => setLogoError(true)}
+                  className="max-h-[48px] w-auto max-w-full object-contain object-left transition-all" 
+                />
+              ) : (
+                <div className="flex flex-col justify-center min-w-0">
+                  <span className="font-extrabold text-foreground text-xl tracking-wider leading-none block truncate">
                     SYNGE<span className="text-[#00C2FF]">TI</span>
                   </span>
-                  <span className="text-[9px] text-muted-foreground tracking-[0.1em] font-semibold mt-0.5 uppercase">Plataforma</span>
+                  <span className="text-[9px] text-muted-foreground tracking-[0.14em] font-semibold mt-1 uppercase truncate">
+                    GESTÃO INTEGRADA DE TI
+                  </span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ) : (
-          /* PARTE EXTERNA: Somente o Ícone exibido no modo compacto */
+          /* MODO RECOLHIDO: SOMENTE O ÍCONE */
           <div className="flex items-center justify-center w-full">
-            {branding?.appIcon ? (
-              <img src={branding.appIcon} alt="Ícone" className="w-9 h-9 object-contain" />
-            ) : (
-              <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
-                <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear_icon)"/>
-                <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
-                <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
-                <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
-                <defs>
-                  <linearGradient id="paint0_linear_icon" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#007BFF"/>
-                    <stop offset="1" stopColor="#00C2FF"/>
-                  </linearGradient>
-                </defs>
-              </svg>
-            )}
+            <div className="w-10 h-10 rounded-xl bg-surface/50 border border-border/60 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden p-1">
+              {branding?.appIcon && !iconError ? (
+                <img 
+                  src={branding.appIcon} 
+                  alt="Ícone" 
+                  onError={() => setIconError(true)}
+                  className="w-full h-full object-contain" 
+                />
+              ) : (
+                <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
+                  <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear_icon)"/>
+                  <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
+                  <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
+                  <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
+                  <defs>
+                    <linearGradient id="paint0_linear_icon" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#007BFF"/>
+                      <stop offset="1" stopColor="#00C2FF"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              )}
+            </div>
           </div>
         )}
 
