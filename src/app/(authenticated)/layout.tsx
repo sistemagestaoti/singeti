@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
+import { SessionGuard } from "@/components/SessionGuard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -31,6 +32,7 @@ export default async function AuthenticatedLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <SessionGuard />
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={session.user.name || "Admin"} avatar={dbUser?.avatar} />

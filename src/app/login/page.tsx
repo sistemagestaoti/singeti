@@ -24,6 +24,11 @@ export default function LoginPage() {
   const [forgotError, setForgotError] = useState("");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("syngeti_session_active");
+      sessionStorage.removeItem("syngeti_login_time");
+    }
+
     fetch("/api/branding")
       .then(res => res.json())
       .then(data => setBranding(data))
@@ -61,6 +66,12 @@ export default function LoginPage() {
       setError("E-mail ou senha incorretos.");
       setLoading(false);
     } else {
+      // Ativa flag de sessão para a aba do navegador
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("syngeti_session_active", "true");
+        sessionStorage.setItem("syngeti_login_time", Date.now().toString());
+      }
+
       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const callback = params?.get("callbackUrl") || "/dashboard";
       window.location.href = callback;
