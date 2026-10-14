@@ -11,6 +11,8 @@ type User = {
   avatar?: string | null;
   job_title?: string | null;
   status?: string | null;
+  isOnline?: boolean;
+  lastSeen?: number | null;
 };
 
 type ChannelMember = {
@@ -53,7 +55,7 @@ function UserAvatar({ name, url, className = "w-8 h-8" }: { name: string; url?: 
 
 export default function ChatInterface({ 
   currentUser, 
-  users, 
+  users: initialUsers, 
   channels: initialChannels,
   mainChannelId
 }: { 
@@ -63,6 +65,7 @@ export default function ChatInterface({
   mainChannelId: string;
 }) {
   const [channels, setChannels] = useState<Channel[]>(initialChannels);
+  const [userList, setUserList] = useState<User[]>(initialUsers);
   const [activeChannelId, setActiveChannelId] = useState(mainChannelId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -70,10 +73,35 @@ export default function ChatInterface({
   const [creatingDM, setCreatingDM] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Keep channels in sync if props change
+  // Keep channels and users in sync if props change
   useEffect(() => {
     setChannels(initialChannels);
   }, [initialChannels]);
+
+  useEffect(() => {
+    setUserList(initialUsers);
+  }, [initialUsers]);
+
+  // Polling em segundo plano para manter a lista de todos os usuários e o status Online/Offline sempre atualizados
+  const fetchUsersAndPresence = async () => {
+    try {
+      const res = await fetch("/api/chat/users");
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.users && Array.isArray(data.users)) {
+          setUserList(data.users);
+        }
+      }
+    } catch (e) {
+      // Ignora erro momentâneo de conexão
+    }
+  };
+
+  useEffect(() => {
+    fetchUsersAndPresence();
+    const interval = setInterval(fetchUsersAndPresence, 5000); // Atualiza presença a cada 5s
+    return () => clearInterval(interval);
+  }, []);
 
   // Find active channel
   const activeChannel = useMemo(() => {
@@ -85,11 +113,11 @@ export default function ChatInterface({
     if (!activeChannel || activeChannel.is_group) return null;
     const otherMember = activeChannel.members?.find(m => m.id !== currentUser.id);
     if (otherMember) {
-      const fullUser = users.find(u => u.id === otherMember.id);
+      const fullUser = userList.find(u => u.id === otherMember.id || (u.email && u.email === otherMember.email));
       return fullUser || otherMember;
     }
     return null;
-  }, [activeChannel, currentUser.id, users]);
+  }, [activeChannel, currentUser.id, userList]);
 
   // Fetch messages for active channel
   const fetchMessages = async () => {
@@ -115,16 +143,29 @@ export default function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Filtered lists
+  // Filtered lists and presence metrics
   const filteredUsers = useMemo(() => {
-    if (!search.trim()) return users;
-    const term = search.toLowerCase();
-    return users.filter(u => 
-      u.name.toLowerCase().includes(term) || 
-      u.email.toLowerCase().includes(term) ||
-      (u.job_title && u.job_title.toLowerCase().includes(term))
-    );
-  }, [users, search]);
+    let list = userList;
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      list = list.filter(u => 
+        u.name.toLowerCase().includes(term) || 
+        u.email.toLowerCase().includes(term) ||
+        (u.job_title && u.job_title.toLowerCase().includes(term))
+      );
+    }
+    return list;
+  }, [userList, search]);
+
+  const onlineCount = useMemo(() => {
+    return userList.filter(u => u.isOnline).length;
+  }, [userList]);
+
+  const isTargetOnline = useMemo(() => {
+    if (!activeDMUser) return false;
+    const match = userList.find(u => u.id === activeDMUser.id || (u.email && u.email.toLowerCase() === activeDMUser.email?.toLowerCase()));
+    return !!match?.isOnline;
+  }, [activeDMUser, userList]);
 
   const groupChannels = useMemo(() => {
     return channels.filter(c => c.is_group);
@@ -213,9 +254,12 @@ export default function ChatInterface({
               <MessageSquare className="w-4 h-4 text-primary" />
               SYNGETI Connect
             </h2>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-              {users.length + 1} online
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold flex items-center gap-1.5 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                {onlineCount} {onlineCount === 1 ? 'online' : 'online'}
+              </span>
+            </div>
           </div>
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -270,8 +314,8 @@ export default function ChatInterface({
               <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 Mensagens Diretas
               </span>
-              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
-                {filteredUsers.length}
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                {userList.length} cadastrados
               </span>
             </div>
             
@@ -295,16 +339,36 @@ export default function ChatInterface({
                         }`}
                       >
                         <div className="relative flex-shrink-0">
-                          <UserAvatar name={user.name} url={user.avatar} className="w-7 h-7" />
-                          <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full" />
+                          <UserAvatar name={user.name} url={user.avatar} className="w-8 h-8" />
+                          {user.isOnline ? (
+                            <span 
+                              className="w-3 h-3 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full shadow-sm ring-1 ring-emerald-400/50" 
+                              title="Online agora"
+                            />
+                          ) : (
+                            <span 
+                              className="w-3 h-3 bg-zinc-600 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full opacity-60" 
+                              title="Offline"
+                            />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="truncate font-medium group-hover:text-primary transition-colors">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="truncate font-semibold text-xs group-hover:text-primary transition-colors">
                               {user.name}
                             </span>
+                            {user.isOnline ? (
+                              <span className="text-[9px] font-extrabold text-emerald-500 uppercase tracking-wider flex-shrink-0 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Online
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wider flex-shrink-0">
+                                Offline
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground block truncate">
+                          <span className="text-[10px] text-muted-foreground block truncate mt-0.5">
                             {user.job_title || user.email}
                           </span>
                         </div>
@@ -322,11 +386,14 @@ export default function ChatInterface({
         <div className="p-3 border-t border-border bg-surface-elevated/40 flex items-center gap-3">
           <div className="relative">
             <UserAvatar name={currentUser.name} url={currentUser.avatar} className="w-8 h-8" />
-            <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full" />
+            <span className="w-2.5 h-2.5 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full shadow-sm ring-1 ring-emerald-400/50" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-foreground truncate">{currentUser.name}</div>
-            <div className="text-[10px] text-emerald-500 font-medium">Conectado (Você)</div>
+            <div className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Conectado (Você)
+            </div>
           </div>
         </div>
 
@@ -347,9 +414,13 @@ export default function ChatInterface({
                 <UserAvatar 
                   name={activeDMUser?.name || "Usuário"} 
                   url={activeDMUser?.avatar} 
-                  className="w-9 h-9" 
+                  className="w-10 h-10" 
                 />
-                <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full" />
+                {isTargetOnline ? (
+                  <span className="w-3 h-3 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full ring-1 ring-emerald-400/50 shadow-sm" />
+                ) : (
+                  <span className="w-3 h-3 bg-zinc-600 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full opacity-60" />
+                )}
               </div>
             )}
             
@@ -361,12 +432,34 @@ export default function ChatInterface({
                   `@ ${activeDMUser?.name || "Chat Direto"}`
                 )}
               </h2>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {activeChannel?.is_group 
-                  ? "Canal público para comunicação geral da equipe de TI"
-                  : (activeDMUser?.job_title ? `${activeDMUser.job_title} • ${activeDMUser.email}` : activeDMUser?.email || "Conversa privada em tempo real")
-                }
-              </p>
+              {activeChannel?.is_group ? (
+                <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                  <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    {onlineCount} {onlineCount === 1 ? 'membro online' : 'membros online'}
+                  </span>
+                  <span>•</span>
+                  <span>Canal público da equipe de TI</span>
+                </p>
+              ) : (
+                <div className="flex items-center gap-2 text-[11px] truncate mt-0.5">
+                  {isTargetOnline ? (
+                    <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Online agora
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground font-medium flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+                      Offline
+                    </span>
+                  )}
+                  <span className="text-muted-foreground/40">•</span>
+                  <span className="text-muted-foreground truncate">
+                    {activeDMUser?.job_title ? `${activeDMUser.job_title} • ${activeDMUser.email}` : activeDMUser?.email || "Conversa direta"}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

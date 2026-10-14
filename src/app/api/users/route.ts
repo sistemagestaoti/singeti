@@ -104,6 +104,29 @@ export async function POST(req: Request) {
       }
     });
 
+    // Sincronizar criacao no Supabase para contingencia e consistencia
+    try {
+      const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
+      fetch(`${SUPABASE_URL}/rest/v1/users`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          password_hash: hashedPassword,
+          role: "USUARIO",
+          status: user.status
+        })
+      }).catch(() => {});
+    } catch {}
+
     // Enviar notificação de senha de forma não-bloqueante
     try {
       const { sendPasswordNotification } = await import("@/lib/mailer");

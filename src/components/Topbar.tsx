@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { Menu } from "lucide-react";
@@ -21,6 +22,16 @@ const MODULE_DATA: Record<string, { title: string, subtitle: string }> = {
 
 export function Topbar({ userName, avatar }: { userName: string, avatar?: string | null }) {
   const pathname = usePathname();
+
+  useEffect(() => {
+    // Registra presença do usuário ativo no sistema
+    const sendHeartbeat = () => {
+      fetch("/api/chat/presence", { method: "POST" }).catch(() => {});
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Format pathname into module mapping
   const pathSegments = pathname?.split('/').filter(Boolean) || [];

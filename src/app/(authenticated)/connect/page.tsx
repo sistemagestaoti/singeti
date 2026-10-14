@@ -29,11 +29,15 @@ export default async function ConnectPage() {
     avatar: null
   };
 
-  // Fetch all other users for direct message list
-  const users = await prisma.user.findMany({
-    where: { 
-      id: { not: currentUser.id }
-    },
+  // Marcar presença do usuário logado
+  const { recordUserPresence, isUserOnline, getUserLastSeen } = await import("@/lib/presence");
+  recordUserPresence(session.user.id, session.user.name || undefined, session.user.email || undefined);
+
+  const currentUserId = currentUser.id;
+  const currentUserEmail = session.user.email?.toLowerCase();
+
+  // Fetch all other users from Prisma
+  const prismaUsers = await prisma.user.findMany({
     select: { 
       id: true, 
       name: true, 
@@ -43,6 +47,54 @@ export default async function ConnectPage() {
       status: true
     },
     orderBy: { name: 'asc' }
+  });
+
+  const userMap = new Map<string, any>();
+  for (const u of prismaUsers) {
+    userMap.set(u.email.toLowerCase(), { ...u });
+  }
+
+  // Tentar unificar com usuários cadastrados no Supabase
+  try {
+    const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const supaUsers: any[] = await res.json();
+      for (const su of supaUsers) {
+        const email = (su.email || "").toLowerCase();
+        if (email && !userMap.has(email)) {
+          userMap.set(email, {
+            id: su.id,
+            name: su.name,
+            email: su.email,
+            avatar: su.avatar || null,
+            job_title: su.job_title || su.role || "Usuário",
+            status: su.status || "ACTIVE",
+          });
+        }
+      }
+    }
+  } catch {}
+
+  const users = Array.from(userMap.values())
+    .filter(u => {
+      const isMeById = u.id === currentUserId || u.id === session.user.id;
+      const isMeByEmail = currentUserEmail && u.email.toLowerCase() === currentUserEmail;
+      return !isMeById && !isMeByEmail;
+    })
+    .map(u => ({
+      ...u,
+      isOnline: isUserOnline(u.id, u.email),
+      lastSeen: getUserLastSeen(u.id, u.email),
+    }));
+
+  users.sort((a, b) => {
+    if (a.isOnline === b.isOnline) return a.name.localeCompare(b.name);
+    return a.isOnline ? -1 : 1;
   });
 
   // Ensure there's a global "Geral" channel
