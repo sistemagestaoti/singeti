@@ -182,9 +182,10 @@ model Asset {
   supplierId String?
   Contract   Contract? @relation(fields: [contractId], references: [id])
   contractId String?
-  Project    Project?  @relation(fields: [projectId], references: [id])
+  Project    Project?     @relation(fields: [projectId], references: [id])
   projectId  String?
   Booking    Booking[]
+  ticket_items TicketItem[]
 
   @@map("assets")
 }
@@ -315,6 +316,7 @@ model Ticket {
 
   // Timeline
   comments TicketComment[]
+  items    TicketItem[]
 
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
@@ -326,6 +328,26 @@ model Ticket {
   changeId    String?
 
   @@map("tickets")
+}
+
+model TicketItem {
+  id          String   @id @default(cuid())
+  ticket_id   String
+  description String
+  quantity    Int      @default(1)
+  category    String?
+  asset_id    String?
+  unit        String?  @default("UN")
+  notes       String?
+  status      String?  @default("PENDING")
+
+  ticket Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  asset  Asset? @relation(fields: [asset_id], references: [id], onDelete: SetNull)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("ticket_items")
 }
 
 model TicketComment {

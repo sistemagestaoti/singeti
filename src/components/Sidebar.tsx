@@ -19,12 +19,36 @@ export function Sidebar() {
   });
   const [branding, setBranding] = useState<any>(null);
   const [imageError, setImageError] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
 
   useEffect(() => {
     fetch("/api/branding")
       .then(res => res.json())
       .then(data => setBranding(data))
       .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch("/api/chat/sync");
+        if (res.ok) {
+          const data = await res.json();
+          if (mounted && typeof data.totalUnread === "number") {
+            setUnreadChatCount(data.totalUnread);
+          }
+        }
+      } catch {
+        // Silently catch background polling errors
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 4000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const toggleMenu = (name: string) => {
@@ -183,13 +207,16 @@ export function Sidebar() {
                 key={item.name}
                 href={targetHref}
                 title={item.name}
-                className={`flex items-center justify-center w-full h-11 rounded-xl transition-all duration-200 ${
+                className={`flex items-center justify-center w-full h-11 rounded-xl transition-all duration-200 relative ${
                   active 
                     ? 'bg-primary/10 text-primary border border-primary/20' 
                     : 'text-muted-foreground hover:bg-sidebar-active/50 hover:text-foreground'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
+                {item.name === "CONNECT CHAT" && unreadChatCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-sidebar animate-pulse" />
+                )}
               </Link>
             );
           }
@@ -207,6 +234,11 @@ export function Sidebar() {
                   </span>
                 </div>
               </div>
+              {item.name === "CONNECT CHAT" && unreadChatCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                  {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                </span>
+              )}
               {hasSubItems && (
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
               )}

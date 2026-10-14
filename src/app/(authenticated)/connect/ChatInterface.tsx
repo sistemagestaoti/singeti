@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { User as UserIcon, Search, Hash, MessageSquare, Send, Circle } from "lucide-react";
+import { User as UserIcon, Search, Hash, MessageSquare, Send, Circle, Check, CheckCheck, Bell, X } from "lucide-react";
 import Image from "next/image";
 
 type User = {
@@ -26,6 +26,8 @@ type Channel = {
   name: string | null;
   is_group: boolean;
   members?: ChannelMember[];
+  unreadCount?: number;
+  lastMessage?: any;
 };
 
 type Message = {
@@ -34,6 +36,7 @@ type Message = {
   sender: { name: string; avatar?: string | null };
   created_at: string;
   sender_id: string;
+  is_read?: boolean;
 };
 
 function UserAvatar({ name, url, className = "w-8 h-8" }: { name: string; url?: string | null; className?: string }) {
@@ -68,12 +71,70 @@ export default function ChatInterface({
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [creatingDM, setCreatingDM] = useState(false);
+  const [unreadByChannel, setUnreadByChannel] = useState<Record<string, number>>({});
+  const [unreadByUser, setUnreadByUser] = useState<Record<string, number>>({});
+  const [inAppNotification, setInAppNotification] = useState<{
+    id: string;
+    channelId: string;
+    senderName: string;
+    content: string;
+  } | null>(null);
+  const lastAlertedMsgId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Keep channels in sync if props change
   useEffect(() => {
     setChannels(initialChannels);
   }, [initialChannels]);
+
+  // Sync polling for real-time channels, badges and notifications
+  const fetchSync = async () => {
+    try {
+      const res = await fetch("/api/chat/sync");
+      if (!res.ok) return;
+      const data = await res.json();
+
+      setUnreadByChannel(data.unreadByChannel || {});
+      setUnreadByUser(data.unreadByUser || {});
+
+      if (data.channels && Array.isArray(data.channels)) {
+        setChannels(prev => {
+          const map = new Map<string, Channel>();
+          prev.forEach(c => map.set(c.id, c));
+          data.channels.forEach((c: Channel) => {
+            const existing = map.get(c.id);
+            map.set(c.id, { ...existing, ...c });
+          });
+          return Array.from(map.values());
+        });
+      }
+
+      // In-app alert for newly received messages in another channel
+      if (data.latestUnread && data.latestUnread.channel_id !== activeChannelId) {
+        if (lastAlertedMsgId.current !== data.latestUnread.id) {
+          lastAlertedMsgId.current = data.latestUnread.id;
+          setInAppNotification({
+            id: data.latestUnread.id,
+            channelId: data.latestUnread.channel_id,
+            senderName: data.latestUnread.sender?.name || "Usuário",
+            content: data.latestUnread.content
+          });
+          // Auto-hide alert after 6s
+          setTimeout(() => {
+            setInAppNotification(prev => prev?.id === data.latestUnread.id ? null : prev);
+          }, 6000);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao sincronizar chat:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSync();
+    const syncInterval = setInterval(fetchSync, 2500);
+    return () => clearInterval(syncInterval);
+  }, [activeChannelId]);
 
   // Find active channel
   const activeChannel = useMemo(() => {
@@ -99,6 +160,8 @@ export default function ChatInterface({
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
+        // Clear unread for active channel locally
+        setUnreadByChannel(prev => ({ ...prev, [activeChannelId]: 0 }));
       }
     } catch (err) {
       console.error("Erro ao carregar mensagens:", err);
@@ -107,7 +170,7 @@ export default function ChatInterface({
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 3000); // Polling a cada 3 segundos
+    const interval = setInterval(fetchMessages, 2500);
     return () => clearInterval(interval);
   }, [activeChannelId]);
 
@@ -245,18 +308,29 @@ export default function ChatInterface({
             <ul className="space-y-1">
               {groupChannels.map(channel => {
                 const isActive = activeChannelId === channel.id;
+                const unread = unreadByChannel[channel.id] || channel.unreadCount || 0;
                 return (
                   <li key={channel.id}>
                     <button
-                      onClick={() => setActiveChannelId(channel.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                      onClick={() => {
+                        setActiveChannelId(channel.id);
+                        setUnreadByChannel(prev => ({ ...prev, [channel.id]: 0 }));
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                         isActive 
                           ? 'bg-primary text-primary-foreground shadow-sm' 
                           : 'text-foreground hover:bg-surface-hover hover:text-foreground'
                       }`}
                     >
-                      <Hash className={`w-4 h-4 ${isActive ? 'text-white' : 'text-primary'}`} />
-                      <span className="truncate">{channel.name || "Geral"}</span>
+                      <div className="flex items-center gap-2.5 truncate">
+                        <Hash className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-primary'}`} />
+                        <span className="truncate">{channel.name || "Geral"}</span>
+                      </div>
+                      {!isActive && unread > 0 && (
+                        <span className="ml-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
@@ -283,31 +357,42 @@ export default function ChatInterface({
               <ul className="space-y-1">
                 {filteredUsers.map(user => {
                   const active = isUserActive(user.id);
+                  const unread = unreadByUser[user.id] || 0;
                   return (
                     <li key={user.id}>
                       <button
-                        onClick={() => handleSelectUser(user)}
+                        onClick={() => {
+                          handleSelectUser(user);
+                          setUnreadByUser(prev => ({ ...prev, [user.id]: 0 }));
+                        }}
                         disabled={creatingDM}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all text-left group ${
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all text-left group ${
                           active 
                             ? 'bg-primary/15 text-primary border border-primary/30 font-semibold' 
                             : 'text-foreground hover:bg-surface-hover'
                         }`}
                       >
-                        <div className="relative flex-shrink-0">
-                          <UserAvatar name={user.name} url={user.avatar} className="w-7 h-7" />
-                          <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="truncate font-medium group-hover:text-primary transition-colors">
-                              {user.name}
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="relative flex-shrink-0">
+                            <UserAvatar name={user.name} url={user.avatar} className="w-7 h-7" />
+                            <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="truncate font-medium group-hover:text-primary transition-colors">
+                                {user.name}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground block truncate">
+                              {user.job_title || user.email}
                             </span>
                           </div>
-                          <span className="text-[10px] text-muted-foreground block truncate">
-                            {user.job_title || user.email}
-                          </span>
                         </div>
+                        {!active && unread > 0 && (
+                          <span className="ml-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 animate-pulse">
+                            {unread > 99 ? '99+' : unread}
+                          </span>
+                        )}
                       </button>
                     </li>
                   );
@@ -333,7 +418,7 @@ export default function ChatInterface({
       </div>
 
       {/* Área Principal de Conversa */}
-      <div className="flex-1 flex flex-col h-full bg-background min-w-0">
+      <div className="flex-1 flex flex-col h-full bg-background min-w-0 relative">
         
         {/* Topbar da Conversa Ativa */}
         <div className="h-16 px-6 border-b border-border bg-surface flex justify-between items-center z-10 shadow-sm flex-shrink-0">
@@ -370,6 +455,41 @@ export default function ChatInterface({
             </div>
           </div>
         </div>
+
+        {/* Notificação Flutuante de Nova Mensagem em outro canal */}
+        {inAppNotification && (
+          <div className="mx-6 mt-3 bg-primary/10 border border-primary/30 rounded-xl p-3 flex items-center justify-between shadow-sm animate-in fade-in duration-200 z-20">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-foreground">
+                  Nova mensagem de <span className="text-primary">{inAppNotification.senderName}</span>
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{inAppNotification.content}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+              <button 
+                onClick={() => {
+                  setActiveChannelId(inAppNotification.channelId);
+                  setInAppNotification(null);
+                }}
+                className="px-3 py-1 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors"
+              >
+                Ver conversa
+              </button>
+              <button 
+                onClick={() => setInAppNotification(null)}
+                className="text-muted-foreground hover:text-foreground p-1"
+                title="Fechar aviso"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* Feed de Mensagens */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
@@ -416,7 +536,22 @@ export default function ChatInterface({
                           : 'bg-surface border border-border text-foreground rounded-tl-sm shadow-sm'
                       }`}
                     >
-                      {msg.content}
+                      <div>{msg.content}</div>
+                      {isMe && (
+                        <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-white/80 select-none">
+                          {msg.is_read ? (
+                            <span className="flex items-center gap-0.5 text-emerald-200" title="Mensagem lida pelo destinatário">
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              <span className="text-[9px]">Lida</span>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-0.5 text-white/70" title="Mensagem enviada">
+                              <Check className="w-3.5 h-3.5" />
+                              <span className="text-[9px]">Enviada</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

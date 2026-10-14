@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import TicketTimeline from "./TicketTimeline";
 import TicketActionClient from "./TicketActionClient";
+import TicketItemsManager from "./TicketItemsManager";
 
 export default async function TicketViewPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -23,6 +24,14 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
       category: true,
       asset: true,
       department: true,
+      items: {
+        include: {
+          asset: true
+        },
+        orderBy: {
+          created_at: 'asc'
+        }
+      },
       comments: {
         include: {
           author: true,
@@ -61,7 +70,7 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Main Content: Description and Timeline */}
+        {/* Main Content: Description, Items and Timeline */}
         <div className="flex-1 space-y-6">
           <div className="bg-surface shadow-sm rounded-xl border border-border p-6">
             <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Descrição Original</h3>
@@ -69,6 +78,9 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
               {ticket.description}
             </div>
           </div>
+
+          {/* Gerenciamento Dinâmico de Itens do Chamado */}
+          <TicketItemsManager ticketId={ticket.id} initialItems={ticket.items || []} />
 
           <TicketTimeline ticketId={ticket.id} comments={ticket.comments} currentUser={session.user} currentStatus={ticket.status} />
         </div>
