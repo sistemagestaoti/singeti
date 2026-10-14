@@ -31,7 +31,15 @@ export async function middleware(req: NextRequest) {
   if (!token) {
     const signInUrl = new URL("/login", req.url);
     signInUrl.searchParams.set("callbackUrl", req.nextUrl.pathname + req.nextUrl.search);
-    return NextResponse.redirect(signInUrl);
+    const response = NextResponse.redirect(signInUrl);
+
+    // Limpa quaisquer cookies inflados ou fragmentados remanescentes no navegador para evitar 494
+    for (const cookie of req.cookies.getAll()) {
+      if (cookie.name.includes("session-token")) {
+        response.cookies.delete(cookie.name);
+      }
+    }
+    return response;
   }
 
   return NextResponse.next();
