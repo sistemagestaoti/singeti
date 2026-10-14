@@ -18,15 +18,14 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
-  // Utiliza avatar já presente na sessão JWT sem consultar o banco a cada navegação de aba
-  let userAvatar = (session.user as any)?.avatar || session.user?.image;
-  if (userAvatar === undefined && session.user?.id) {
+  let userAvatar = null;
+  if (session.user?.id) {
     try {
       const dbUser = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { avatar: true }
       });
-      userAvatar = dbUser?.avatar;
+      userAvatar = dbUser?.avatar || null;
     } catch (err) {
       console.warn("Aviso ao buscar avatar do usuário:", err);
     }

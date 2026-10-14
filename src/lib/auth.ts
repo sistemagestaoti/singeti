@@ -146,7 +146,6 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
-          avatar: user.avatar || null,
           role: user.role?.name || user.role || "ADMINISTRADOR",
         };
       },
@@ -157,7 +156,6 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
-        token.avatar = (user as any).avatar;
       }
       return token;
     },
@@ -167,9 +165,7 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.id as string,
           role: token.role as string,
-          image: (token.avatar as string) || session.user?.image,
         };
-        (session.user as any).avatar = token.avatar;
       }
       return session;
     },
