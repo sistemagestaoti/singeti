@@ -10,7 +10,19 @@ export default function DashboardCharts({
   const fallbackColors = ['#F59E0B', '#EF4444', '#6366F1', '#10B981', '#00C2FF'];
   
   // Total para o rótulo central
-  const total = chartData.reduce((sum, item) => sum + (item.quantidade || 0), 0);
+  const total = chartData ? chartData.reduce((sum, item) => sum + (item.quantidade || 0), 0) : 0;
+
+  if (!chartData || chartData.length === 0 || total === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground w-full flex-1">
+        <div className="relative w-[140px] h-[140px] rounded-full border-2 border-dashed border-border/60 flex flex-col items-center justify-center mb-3">
+          <span className="text-3xl font-black text-foreground leading-none">0</span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Total</span>
+        </div>
+        <p className="text-xs text-muted-foreground">Nenhum chamado categorizado</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full py-2">
