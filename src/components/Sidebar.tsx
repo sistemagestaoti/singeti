@@ -102,62 +102,56 @@ export function Sidebar() {
       {/* Brand Header */}
       <div className={`h-[72px] flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between px-4'} border-b border-border/50`}>
         {!isCollapsed ? (
-          /* PARTE INTERNA: Logotipo que acompanha o tamanho do retângulo superior esquerdo */
-          <div className="flex-1 flex items-center h-full mr-2 overflow-hidden">
-            {branding?.appLogo && !imageError ? (
-              <img 
-                src={branding.appLogo} 
-                alt="SYNGETI" 
-                onError={() => setImageError(true)}
-                className="max-h-[50px] w-auto max-w-[215px] object-contain object-left transition-all" 
-              />
-            ) : (
-              <div className="flex items-center gap-3">
-                {branding?.appIcon ? (
-                  <img src={branding.appIcon} alt="Ícone" className="w-9 h-9 object-contain flex-shrink-0" />
-                ) : (
-                  <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-                    <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
-                    <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear)"/>
-                    <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
-                    <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
-                    <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
-                    <defs>
-                      <linearGradient id="paint0_linear" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#007BFF"/>
-                        <stop offset="1" stopColor="#00C2FF"/>
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                )}
-                <div className="flex flex-col mt-0.5">
+          /* Ícone e Logotipo separados lado a lado */
+          <div className="flex-1 flex items-center gap-3 h-full mr-2 overflow-hidden">
+            {/* 1. Ícone separado à esquerda */}
+            <div className="flex-shrink-0 flex items-center justify-center">
+              {branding?.appIcon ? (
+                <img 
+                  src={branding.appIcon} 
+                  alt="Ícone SYNGETI" 
+                  className="w-9 h-9 object-contain" 
+                />
+              ) : (
+                <img 
+                  src="/branding/logo-icon.png" 
+                  alt="Ícone SYNGETI" 
+                  className="w-9 h-9 object-contain"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+              )}
+            </div>
+
+            {/* 2. Logotipo separado à direita */}
+            <div className="flex items-center overflow-hidden">
+              {branding?.appLogo && branding.appLogo !== '/api/branding/logo' && !imageError ? (
+                <img 
+                  src={branding.appLogo} 
+                  alt="SYNGETI" 
+                  onError={() => setImageError(true)}
+                  className="max-h-[34px] w-auto max-w-[155px] object-contain object-left transition-all" 
+                />
+              ) : (
+                <div className="flex flex-col">
                   <span className="font-extrabold text-foreground text-xl tracking-widest leading-none block">
                     SYNGE<span className="text-[#00C2FF]">TI</span>
                   </span>
-                  <span className="text-[9px] text-muted-foreground tracking-[0.1em] font-semibold mt-0.5 uppercase">Plataforma</span>
+                  <span className="text-[9px] text-muted-foreground tracking-[0.1em] font-semibold mt-0.5 uppercase">
+                    Gestão de TI
+                  </span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ) : (
-          /* PARTE EXTERNA: Somente o Ícone exibido no modo compacto */
+          /* Somente o Ícone exibido no modo compacto */
           <div className="flex items-center justify-center w-full">
             {branding?.appIcon ? (
-              <img src={branding.appIcon} alt="Ícone" className="w-9 h-9 object-contain" />
+              <img src={branding.appIcon} alt="Ícone SYNGETI" className="w-9 h-9 object-contain" />
             ) : (
-              <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
-                <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear_icon)"/>
-                <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
-                <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
-                <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
-                <defs>
-                  <linearGradient id="paint0_linear_icon" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#007BFF"/>
-                    <stop offset="1" stopColor="#00C2FF"/>
-                  </linearGradient>
-                </defs>
-              </svg>
+              <img src="/branding/logo-icon.png" alt="Ícone SYNGETI" className="w-9 h-9 object-contain" />
             )}
           </div>
         )}
