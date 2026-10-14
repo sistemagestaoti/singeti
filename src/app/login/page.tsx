@@ -61,7 +61,9 @@ export default function LoginPage() {
       setError("E-mail ou senha incorretos.");
       setLoading(false);
     } else {
-      window.location.href = "/dashboard";
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const callback = params?.get("callbackUrl") || "/dashboard";
+      window.location.href = callback;
     }
   };
 

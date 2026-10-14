@@ -20,6 +20,48 @@ export async function GET() {
     });
 
     const safeUsers = users.map(({ password_hash, ...u }) => u);
+
+    // Mesclar usuários do Supabase caso não estejam no SQLite
+    try {
+      const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
+      const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store'
+      });
+      if (supaRes.ok) {
+        const supaUsers: any[] = await supaRes.json();
+        for (const su of supaUsers) {
+          const exists = safeUsers.some(
+            (u) => u.email?.toLowerCase() === su.email?.toLowerCase() || u.name?.toLowerCase() === su.name?.toLowerCase()
+          );
+          if (!exists && su.email) {
+            safeUsers.push({
+              id: su.id,
+              name: su.name,
+              username: su.email.split('@')[0],
+              email: su.email,
+              job_title: "Usuário Sincronizado",
+              phone: null,
+              avatar: null,
+              status: su.status || "ACTIVE",
+              role_id: "cmuzufxvw00056rszopy3001p",
+              department_id: null,
+              location_id: null,
+              company_id: null,
+              manager_id: null,
+              created_at: su.created_at,
+              updated_at: su.created_at,
+              role: { id: "cmuzufxvw00056rszopy3001p", name: su.role || "ADMINISTRADOR", description: null, permissions: '{"all":true}' },
+              department: null
+            } as any);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Aviso ao buscar usuários do Supabase:", e);
+    }
+
     return NextResponse.json(safeUsers);
   } catch (error: any) {
     console.error("GET /api/users error:", error);
@@ -110,6 +152,31 @@ export async function POST(req: Request) {
       await sendPasswordNotification(user.email, user.name, true);
     } catch (mailErr) {
       console.error("Aviso: Falha ao enviar e-mail de nova conta (ignorado):", mailErr);
+    }
+
+    // Sincronizar no Supabase para persistência garantida na nuvem
+    try {
+      const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
+      await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          password_hash: user.password_hash,
+          role: "ADMINISTRADOR",
+          status: user.status
+        })
+      });
+    } catch (supaErr) {
+      console.warn("Aviso ao sincronizar usuário no Supabase:", supaErr);
     }
 
     // Remove password hash from response

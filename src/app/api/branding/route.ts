@@ -3,11 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
-import { getBranding, saveBranding } from '@/lib/branding';
+import { getBrandingAsync, saveBrandingAsync } from '@/lib/branding';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET() {
-  const data = getBranding();
+  const data = await getBrandingAsync();
   return NextResponse.json(data);
 }
 
@@ -30,16 +30,18 @@ export async function POST(request: Request) {
     }
 
     if (action === 'restore') {
-      const current = getBranding();
+      const current = await getBrandingAsync();
       const oldPath = current[type as keyof typeof current] as string | null;
       
-      // Remover arquivo antigo se existir e não for default (embora defaults não estejam na pasta uploads)
+      // Remover arquivo antigo se existir
       if (oldPath && oldPath.startsWith('/branding/')) {
-        const fullPath = path.join(process.cwd(), 'public', oldPath);
-        if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+        try {
+          const fullPath = path.join(process.cwd(), 'public', oldPath);
+          if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+        } catch {}
       }
 
-      saveBranding({ [type]: null });
+      await saveBrandingAsync({ [type]: null });
       return NextResponse.json({ success: true, url: null });
     }
 
@@ -63,11 +65,6 @@ export async function POST(request: Request) {
       const filename = `${type}_${uuidv4()}${ext}`;
       const uploadDir = path.join(process.cwd(), 'public', 'branding');
       
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      const filepath = path.join(uploadDir, filename);
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       
@@ -79,21 +76,24 @@ export async function POST(request: Request) {
         }
       }
 
-      fs.writeFileSync(filepath, buffer);
-
-      const publicUrl = `/branding/${filename}`;
-
-      // Remover arquivo antigo
-      const current = getBranding();
-      const oldPath = current[type as keyof typeof current] as string | null;
-      if (oldPath && oldPath.startsWith('/branding/')) {
-        const fullOldPath = path.join(process.cwd(), 'public', oldPath);
-        if (fs.existsSync(fullOldPath)) fs.unlinkSync(fullOldPath);
+      // Tenta gravar arquivo local se o sistema de arquivos permitir (ambiente dev)
+      try {
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const filepath = path.join(uploadDir, filename);
+        fs.writeFileSync(filepath, buffer);
+      } catch (e) {
+        // Ignora erro de gravação em disco em ambientes serverless read-only
       }
 
-      saveBranding({ [type]: publicUrl });
+      // Converte para Data URI persistente no banco do Supabase
+      const base64 = buffer.toString('base64');
+      const persistentUrl = `data:${file.type};base64,${base64}`;
+
+      await saveBrandingAsync({ [type]: persistentUrl });
       
-      return NextResponse.json({ success: true, url: publicUrl });
+      return NextResponse.json({ success: true, url: persistentUrl });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

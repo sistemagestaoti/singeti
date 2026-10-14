@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import BrandingClient from "./BrandingClient";
-import { getBranding } from "@/lib/branding";
+import { getBrandingAsync } from "@/lib/branding";
 
 export default async function BrandingSettingsPage() {
   const session = await getServerSession(authOptions);
@@ -11,7 +11,7 @@ export default async function BrandingSettingsPage() {
     redirect("/dashboard");
   }
 
-  const initialData = getBranding();
+  const initialData = await getBrandingAsync();
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500 max-w-5xl mx-auto w-full">

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./sqlite.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------
@@ -647,4 +648,17 @@ model PasswordResetRequest {
   resolved_at      DateTime?
 
   @@map("password_reset_requests")
+}
+
+// ---------------------------------------------------------
+// FASE 9: CONFIGURAÇÕES E BRANDING DO SISTEMA
+// ---------------------------------------------------------
+
+model SystemSetting {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String   // Armazena JSON de configuração ou Data URI base64
+  updated_at DateTime @updatedAt
+
+  @@map("system_settings")
 }

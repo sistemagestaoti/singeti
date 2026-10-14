@@ -16,8 +16,8 @@ export async function middleware(req: NextRequest) {
   for (const secret of SECRETS_TO_TRY) {
     try {
       token =
-        (await getToken({ req, secret, cookieName: "__Secure-next-auth.session-token" })) ||
-        (await getToken({ req, secret, cookieName: "next-auth.session-token" })) ||
+        (await getToken({ req, secret, cookieName: "__Secure-next-auth.session-token", secureCookie: true })) ||
+        (await getToken({ req, secret, cookieName: "next-auth.session-token", secureCookie: false })) ||
         (await getToken({ req, secret }));
       if (token) break;
     } catch {
