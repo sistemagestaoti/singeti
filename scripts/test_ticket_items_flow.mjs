@@ -9,10 +9,13 @@ async function runTicketItemsTest() {
     // 1. Obter usuário e departamento para vincular o chamado
     const user = await prisma.user.findFirst();
     const dept = await prisma.department.findFirst();
+    const company = await prisma.company.findFirst();
 
     if (!user) throw new Error("Nenhum usuário cadastrado encontrado.");
+    if (!company) throw new Error("Nenhuma empresa cadastrada encontrada.");
 
     console.log(`[PASS] Usuário solicitante: ${user.name} (${user.id})`);
+    console.log(`[PASS] Empresa: ${company.name} (${company.id})`);
 
     // 2. Gerar código do chamado
     const count = await prisma.ticket.count();
@@ -30,8 +33,9 @@ async function runTicketItemsTest() {
         urgency: "MEDIUM",
         impact: "LOW",
         priority: "MEDIUM",
-        requester_id: user.id,
-        department_id: dept?.id || null,
+        requester: { connect: { id: user.id } },
+        company: { connect: { id: company.id } },
+        ...(dept ? { department: { connect: { id: dept.id } } } : {}),
         items: {
           create: [
             {
