@@ -10,7 +10,8 @@ export async function PUT(
   const resolvedParams = await params;
   const session = await getServerSession(authOptions);
   
-  if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'TECHNICIAN')) {
+  const role = (session?.user?.role || "").toUpperCase();
+  if (!session || (!role.includes('ADMIN') && !role.includes('GESTOR') && !role.includes('TEC') && role !== 'TI')) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -87,7 +88,8 @@ export async function DELETE(
   const resolvedParams = await params;
   const session = await getServerSession(authOptions);
   
-  if (!session || session.user.role !== 'ADMIN') {
+  const role = (session?.user?.role || "").toUpperCase();
+  if (!session || (!role.includes('ADMIN') && !role.includes('GESTOR') && role !== 'TI')) {
     return NextResponse.json({ error: "Unauthorized. Admins only." }, { status: 401 });
   }
 

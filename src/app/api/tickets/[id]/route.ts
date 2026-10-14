@@ -31,10 +31,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Adiciona comentário se houver conteúdo
     if (content && content.trim().length > 0) {
+      const { resolveCurrentUser } = await import("@/lib/currentUser");
+      const user = await resolveCurrentUser(session);
+      const authorId = user ? user.id : session.user.id;
+
       await prisma.ticketComment.create({
         data: {
           ticket_id: resolvedParams.id,
-          author_id: session.user.id,
+          author_id: authorId,
           content: content,
           is_internal: is_internal || false
         }

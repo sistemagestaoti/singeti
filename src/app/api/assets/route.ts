@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       warranty_end: body.warranty_end ? new Date(body.warranty_end) : null,
       purchase_value: body.purchase_value ? parseFloat(body.purchase_value) : null,
       notes: body.notes || null,
-      company_id: body.company_id,
+      company_id: body.company_id || (await prisma.company.findFirst())?.id,
       location_id: body.location_id || null,
       department_id: body.department_id || null,
       user_id: body.user_id || null,

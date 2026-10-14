@@ -47,7 +47,7 @@ export function getBranding(): BrandingData {
   // 2. Tentar ler do repositorio / diretorio da aplicacao
   const candidatePaths = [
     LOCAL_DATA_FILE,
-    path.join(__dirname, '..', '..', 'data', 'branding.json'),
+    ...(typeof __dirname !== 'undefined' ? [path.join(__dirname, '..', '..', 'data', 'branding.json')] : []),
     '/var/task/data/branding.json',
   ];
 

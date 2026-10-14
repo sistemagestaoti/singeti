@@ -10,20 +10,32 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     
-    // To satisfy Prisma required relations that aren't in the form
-    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-    if (!user) throw new Error("User not found");
+    const { resolveCurrentUser } = await import("@/lib/currentUser");
+    const user = await resolveCurrentUser(session);
+    if (!user) throw new Error("Usuário não encontrado");
 
     const dataToSave = { ...body };
 
-    // Inject company_id and other relations if needed by schema:
-    
-    
     dataToSave.company_id = user.company_id;
-dataToSave.code = "CT-" + Date.now();
-dataToSave.start_date = new Date();
-dataToSave.end_date = new Date();
-dataToSave.supplier_id = (await prisma.supplier.findFirst({where: {company_id: user.company_id}}))?.id || "unknown";
+    if (!dataToSave.code) dataToSave.code = "CT-" + Date.now();
+    if (!dataToSave.start_date) dataToSave.start_date = new Date();
+    else dataToSave.start_date = new Date(dataToSave.start_date);
+    if (!dataToSave.end_date) dataToSave.end_date = new Date(Date.now() + 365 * 24 * 3600 * 1000);
+    else dataToSave.end_date = new Date(dataToSave.end_date);
+
+    if (!dataToSave.supplier_id) {
+      let supplier = await prisma.supplier.findFirst({ where: { company_id: user.company_id } });
+      if (!supplier) {
+        supplier = await prisma.supplier.create({
+          data: {
+            name: "Fornecedor Padrão de Tecnologia",
+            company_id: user.company_id,
+            status: "ACTIVE"
+          }
+        });
+      }
+      dataToSave.supplier_id = supplier.id;
+    }
     
     
     

@@ -10,23 +10,35 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     
-    // To satisfy Prisma required relations that aren't in the form
-    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-    if (!user) throw new Error("User not found");
+    const { resolveCurrentUser } = await import("@/lib/currentUser");
+    const user = await resolveCurrentUser(session);
+    if (!user) throw new Error("Usuário não encontrado");
 
     const dataToSave = { ...body };
 
-    // Inject company_id and other relations if needed by schema:
-    
-    
-    
-    
-    
-    
     dataToSave.user_id = user.id;
-dataToSave.asset_id = (await prisma.asset.findFirst({where: {company_id: user.company_id}}))?.id || "unknown";
-dataToSave.start_time = new Date();
-dataToSave.end_time = new Date();
+
+    if (!dataToSave.asset_id) {
+      let asset = await prisma.asset.findFirst({ where: { company_id: user.company_id } });
+      if (!asset) {
+        asset = await prisma.asset.create({
+          data: {
+            internal_id: "AST-BKG-01",
+            name: "Equipamento Geral / Sala de Reunião",
+            type: "OTHER",
+            status: "IN_USE",
+            company_id: user.company_id,
+          }
+        });
+      }
+      dataToSave.asset_id = asset.id;
+    }
+
+    if (!dataToSave.start_time) dataToSave.start_time = new Date();
+    else dataToSave.start_time = new Date(dataToSave.start_time);
+
+    if (!dataToSave.end_time) dataToSave.end_time = new Date(Date.now() + 3600000);
+    else dataToSave.end_time = new Date(dataToSave.end_time);
 
     const newRecord = await prisma.booking.create({
       data: dataToSave

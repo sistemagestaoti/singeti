@@ -10,20 +10,15 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     
-    // To satisfy Prisma required relations that aren't in the form
-    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-    if (!user) throw new Error("User not found");
+    const { resolveCurrentUser } = await import("@/lib/currentUser");
+    const user = await resolveCurrentUser(session);
+    if (!user) throw new Error("Usuário não encontrado");
 
     const dataToSave = { ...body };
 
-    // Inject company_id and other relations if needed by schema:
-    
-    
-    
-    
     dataToSave.company_id = user.company_id;
-dataToSave.manager_id = user.id;
-dataToSave.code = "PRJ-" + Date.now();
+    dataToSave.manager_id = user.id;
+    if (!dataToSave.code) dataToSave.code = "PRJ-" + Date.now();
     
     
 

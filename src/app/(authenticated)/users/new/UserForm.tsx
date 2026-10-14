@@ -344,17 +344,30 @@ export default function UserForm({
           </div>
 
           <div className="col-span-full">
-            <label className="block text-sm font-medium leading-6 text-foreground">Perfil de Acesso do Sistema (Role) *</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium leading-6 text-foreground">Perfil de Acesso do Sistema (Role) *</label>
+              <a 
+                href="/settings/roles" 
+                target="_blank" 
+                rel="noreferrer"
+                className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+              >
+                ⚙️ Criar ou Personalizar Perfis (Leitura / Edição)
+              </a>
+            </div>
             <select
               required
               value={formData.role_id}
               onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
-              className="mt-2 block w-full rounded-md border-0 py-2 pl-3 pr-10 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm font-bold bg-muted"
+              className="mt-1 block w-full rounded-md border-0 py-2.5 pl-3 pr-10 text-foreground ring-1 ring-inset ring-input focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm font-bold bg-muted"
             >
               {roles.map(r => (
-                <option key={r.id} value={r.id}>{r.name} - {r.description}</option>
+                <option key={r.id} value={r.id}>{r.name} — {r.description || "Sem descrição"}</option>
               ))}
             </select>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Define o nível exato de permissão do colaborador em cada módulo (Somente Leitura, Leitura e Edição, ou Sem Acesso).
+            </p>
           </div>
 
         </div>

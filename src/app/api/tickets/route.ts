@@ -16,8 +16,9 @@ export async function POST(req: Request) {
     const count = await prisma.ticket.count();
     const code = `CH-${String(count + 1).padStart(7, '0')}`;
 
-    // Buscar o ID da empresa associada ao usuário para multi-tenancy
-    const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+    // Buscar o usuário real e sua empresa para multi-tenancy
+    const { resolveCurrentUser } = await import("@/lib/currentUser");
+    const user = await resolveCurrentUser(session);
     if (!user) {
       return NextResponse.json({ error: "Usuário inválido" }, { status: 400 });
     }
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
         description: body.description,
         type: body.type,
         priority: body.priority,
-        requester_id: session.user.id,
+        requester_id: user.id,
         company_id: user.company_id,
         asset_id: body.asset_id || null,
         group_id: body.group_id || null,
