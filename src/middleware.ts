@@ -2,27 +2,30 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Lista de chaves suportadas para descriptografia de sessão resiliente no Edge Runtime da Vercel
-const SECRETS_TO_TRY = [
-  process.env.NEXTAUTH_SECRET,
-  process.env.AUTH_SECRET,
-  "super-secret-key-123",
-  "syngeti-log-master-secret-auth-key-prod-2026",
-].filter(Boolean) as string[];
+const PRIMARY_SECRET =
+  process.env.NEXTAUTH_SECRET ||
+  process.env.AUTH_SECRET ||
+  "super-secret-key-123";
 
 export async function middleware(req: NextRequest) {
   let token = null;
 
-  for (const secret of SECRETS_TO_TRY) {
+  // Verificação direta e de alta velocidade baseada no cookie presente na requisição
+  const isSecure = req.cookies.has("__Secure-next-auth.session-token");
+  const cookieName = isSecure ? "__Secure-next-auth.session-token" : "next-auth.session-token";
+
+  try {
+    token = await getToken({
+      req,
+      secret: PRIMARY_SECRET,
+      cookieName,
+      secureCookie: isSecure,
+    });
+  } catch {
+    // Fallback genérico caso haja divergência
     try {
-      token =
-        (await getToken({ req, secret, cookieName: "__Secure-next-auth.session-token", secureCookie: true })) ||
-        (await getToken({ req, secret, cookieName: "next-auth.session-token", secureCookie: false })) ||
-        (await getToken({ req, secret }));
-      if (token) break;
-    } catch {
-      // Tenta a próxima chave em caso de divergência de criptografia
-    }
+      token = await getToken({ req, secret: PRIMARY_SECRET });
+    } catch {}
   }
 
   if (!token) {

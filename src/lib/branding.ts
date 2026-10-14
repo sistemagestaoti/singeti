@@ -22,21 +22,34 @@ const DEFAULT_BRANDING: BrandingData = {
   updatedAt: Date.now(),
 };
 
+let cachedBranding: BrandingData | null = null;
+let lastBrandingFetch = 0;
+const BRANDING_CACHE_TTL = 60000; // 60 segundos de cache em memória
+
 export async function getBrandingAsync(): Promise<BrandingData> {
+  const now = Date.now();
+  if (cachedBranding && (now - lastBrandingFetch < BRANDING_CACHE_TTL)) {
+    return cachedBranding;
+  }
+
   // 1. Tenta buscar no banco de dados persistente (Supabase PostgreSQL)
   try {
     const setting = await prisma.systemSetting.findUnique({
       where: { key: 'branding' }
     });
     if (setting?.value) {
-      return JSON.parse(setting.value);
+      cachedBranding = JSON.parse(setting.value);
+      lastBrandingFetch = now;
+      return cachedBranding!;
     }
   } catch (err) {
     console.warn('Aviso ao consultar branding no banco:', err);
   }
 
   // 2. Fallback para arquivo local
-  return getBranding();
+  cachedBranding = getBranding();
+  lastBrandingFetch = now;
+  return cachedBranding;
 }
 
 export function getBranding(): BrandingData {
@@ -55,6 +68,8 @@ export function getBranding(): BrandingData {
 export async function saveBrandingAsync(data: Partial<BrandingData>): Promise<BrandingData> {
   const current = await getBrandingAsync();
   const updated = { ...current, ...data, updatedAt: Date.now() };
+  cachedBranding = updated;
+  lastBrandingFetch = Date.now();
 
   // 1. Grava no banco de dados persistente (Supabase PostgreSQL)
   try {

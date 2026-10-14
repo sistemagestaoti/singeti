@@ -18,16 +18,18 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
-  let dbUser = null;
-  try {
-    if (session.user?.id) {
-      dbUser = await prisma.user.findUnique({
+  // Utiliza avatar já presente na sessão JWT sem consultar o banco a cada navegação de aba
+  let userAvatar = (session.user as any)?.avatar || session.user?.image;
+  if (userAvatar === undefined && session.user?.id) {
+    try {
+      const dbUser = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { avatar: true }
       });
+      userAvatar = dbUser?.avatar;
+    } catch (err) {
+      console.warn("Aviso ao buscar avatar do usuário:", err);
     }
-  } catch (err) {
-    console.warn("Aviso ao buscar avatar do usuário:", err);
   }
 
   return (
@@ -35,7 +37,7 @@ export default async function AuthenticatedLayout({
       <SessionGuard />
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar userName={session.user.name || "Admin"} avatar={dbUser?.avatar} />
+        <Topbar userName={session.user.name || "Admin"} avatar={userAvatar} />
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto w-full">
             {children}

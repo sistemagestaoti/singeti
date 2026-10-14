@@ -7,7 +7,7 @@ interface TicketItem {
   id: string;
   description: string;
   quantity: number;
-  unit: string;
+  unit?: string | null;
   category?: string | null;
   notes?: string | null;
   asset_id?: string | null;

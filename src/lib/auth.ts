@@ -64,39 +64,23 @@ export const authOptions: NextAuthOptions = {
 
         let user: any = null;
 
-        // 1. Tenta buscar no banco principal via Prisma
+        // 1. Busca direta e rápida no banco PostgreSQL (index-assisted case-insensitive)
         try {
           user = await prisma.user.findFirst({
             where: {
               OR: [
-                { username: loginLower },
-                { username: loginInput },
-                { email: loginLower },
-                { email: loginInput },
-                { name: loginInput },
+                { email: { equals: loginInput, mode: "insensitive" } },
+                { username: { equals: loginInput, mode: "insensitive" } },
+                { name: { equals: loginInput, mode: "insensitive" } },
               ],
             },
             include: { role: true },
           });
-
-          // Fallback case-insensitive amplo e por primeiro nome / sobrenome / username
-          if (!user) {
-            const allUsers = await prisma.user.findMany({ include: { role: true } });
-            user =
-              allUsers.find(
-                (u) =>
-                  u.username?.toLowerCase() === loginLower ||
-                  u.email.toLowerCase() === loginLower ||
-                  u.name.toLowerCase() === loginLower ||
-                  u.name.toLowerCase().includes(loginLower) ||
-                  loginLower.includes(u.name.toLowerCase())
-              ) || null;
-          }
         } catch (dbError) {
           console.error("Aviso: Falha ao consultar banco local Prisma:", dbError);
         }
 
-        // 2. Se não encontrou no Prisma (ou deu erro no SQLite), tenta no Supabase
+        // 2. Se não encontrou no Prisma (ex: falha temporária de conexão), tenta no Supabase REST
         if (!user) {
           const supaUser = await fetchSupabaseUser(loginInput);
           if (supaUser) {
@@ -104,6 +88,7 @@ export const authOptions: NextAuthOptions = {
               id: supaUser.id,
               name: supaUser.name,
               email: supaUser.email,
+              avatar: supaUser.avatar,
               password_hash: supaUser.password_hash,
               role: { name: supaUser.role || "ADMINISTRADOR" },
             };
@@ -117,6 +102,7 @@ export const authOptions: NextAuthOptions = {
               id: "admin-master",
               name: "Administrador do Sistema",
               email: "administrador",
+              avatar: null,
               role: "ADMINISTRADOR",
             };
           }
@@ -129,6 +115,7 @@ export const authOptions: NextAuthOptions = {
               id: "cmv80ctuu0001han3auvimpr8",
               name: "Alan Patrick Puhle",
               email: "alan.puhle@dlamb.ind.br",
+              avatar: null,
               role: "ADMINISTRADOR",
             };
           }
@@ -159,6 +146,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
+          avatar: user.avatar || null,
           role: user.role?.name || user.role || "ADMINISTRADOR",
         };
       },
@@ -169,6 +157,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.avatar = (user as any).avatar;
       }
       return token;
     },
@@ -178,7 +167,9 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.id as string,
           role: token.role as string,
+          image: (token.avatar as string) || session.user?.image,
         };
+        (session.user as any).avatar = token.avatar;
       }
       return session;
     },

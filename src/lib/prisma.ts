@@ -6,9 +6,11 @@ const rawUrl =
   process.env.DATABASE_URL ||
   "postgresql://postgres.piagucmxxsimuububnyl:x6RO3ISFMqwDd6We@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
 
+// Configuração otimizada de conexão para Supabase PgBouncer (Transaction Mode)
+// connection_limit=10 permite que consultas paralelas (Promise.all) rodem simultaneamente sem fila
 const dbUrl = rawUrl.includes("connection_limit")
   ? rawUrl
-  : `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}connection_limit=1`;
+  : `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}connection_limit=10&pool_timeout=10`;
 
 export const prisma =
   globalForPrisma.prisma ||
@@ -21,4 +23,4 @@ export const prisma =
     log: ['error', 'warn'],
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+globalForPrisma.prisma = prisma;
