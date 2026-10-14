@@ -55,7 +55,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (body.impact !== undefined) updateData.impact = body.impact;
     if (body.priority !== undefined) updateData.priority = body.priority;
     if (body.assigned_to_id !== undefined) updateData.assigned_to_id = body.assigned_to_id || null;
-    if (body.group_id !== undefined) updateData.group_id = body.group_id || null;
+    if (body.group_id !== undefined || body.department_id !== undefined) {
+      updateData.group_id = body.group_id !== undefined ? (body.group_id || null) : (body.department_id || null);
+    }
     if (body.category_id !== undefined) updateData.category_id = body.category_id || null;
     if (body.asset_id !== undefined) updateData.asset_id = body.asset_id || null;
 
@@ -135,10 +137,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Adiciona comentário se houver conteúdo
     if (content && content.trim().length > 0) {
+      let authorId = session.user.id;
+      // Valida se o authorId realmente existe no banco para evitar erro de foreign key
+      const userExists = await prisma.user.findUnique({
+        where: { id: authorId },
+        select: { id: true }
+      });
+
+      if (!userExists) {
+        // Se a sessão tem um id que não está no banco (ex: token de teste ou id alterado), busca pelo email
+        if (session.user.email) {
+          const userByEmail = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true }
+          });
+          if (userByEmail) authorId = userByEmail.id;
+        }
+      }
+
       await prisma.ticketComment.create({
         data: {
           ticket_id: resolvedParams.id,
-          author_id: session.user.id,
+          author_id: authorId,
           content: content.trim(),
           is_internal: is_internal || false
         }
@@ -148,7 +168,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
     console.error("Ticket update error:", error);
-    return NextResponse.json({ error: "Erro ao atualizar chamado" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erro ao atualizar chamado" }, { status: 500 });
   }
 }
 

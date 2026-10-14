@@ -93,7 +93,7 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
             <dl className="space-y-5">
               <div>
                 <dt className="text-xs font-bold text-muted-foreground uppercase">Solicitante</dt>
-                <dd className="mt-1 text-sm font-medium text-foreground">{ticket.requester.name}</dd>
+                <dd className="mt-1 text-sm font-medium text-foreground">{ticket.requester?.name || 'Não informado'}</dd>
               </div>
               
               <div>
