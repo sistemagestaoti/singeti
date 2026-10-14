@@ -8,7 +8,7 @@ const isProd = process.env.NODE_ENV === "production" || isVercel;
 
 // Resolução dinâmica de NEXTAUTH_URL para Vercel caso não esteja explícita no ambiente ou aponte para localhost
 if (isVercel || (isProd && (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes("localhost")))) {
-  const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || "singeti.vercel.app";
+  const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || "syngeti.vercel.app";
   process.env.NEXTAUTH_URL = `https://${vercelDomain}`;
 }
 

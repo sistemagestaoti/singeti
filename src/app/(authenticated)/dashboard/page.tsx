@@ -17,58 +17,65 @@ export default async function DashboardPage() {
   // Capitalize first letter
   const formattedDate = currentDate.charAt(0).toUpperCase() + currentDate.slice(1);
 
-  // Fetch true stats
-  const chamadosAbertos = await prisma.ticket.count({ where: { status: { in: ["NEW", "OPEN"] } } });
-  const emAtendimento = await prisma.ticket.count({ where: { status: "IN_PROGRESS" } });
-  
   // Start of today
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
-  const resolvidosHoje = await prisma.ticket.count({ 
-    where: { 
-      status: "RESOLVED",
-      resolved_at: { gte: startOfToday }
-    }
-  });
 
-  const equipamentosAtivos = await prisma.asset.count({ where: { status: "IN_USE" } });
+  // Execução de consultas simultâneas em paralelo (reduz latência em até 80%)
+  const [
+    chamadosAbertos,
+    emAtendimento,
+    resolvidosHoje,
+    equipamentosAtivos,
+    ticketsByCategory,
+    categories,
+    ultimosChamados,
+    equipamentosRecentes,
+  ] = await Promise.all([
+    prisma.ticket.count({ where: { status: { in: ["NEW", "OPEN"] } } }),
+    prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
+    prisma.ticket.count({
+      where: {
+        status: "RESOLVED",
+        resolved_at: { gte: startOfToday },
+      },
+    }),
+    prisma.asset.count({ where: { status: "IN_USE" } }),
+    prisma.ticket.groupBy({
+      by: ["category_id"],
+      _count: { id: true },
+    }),
+    prisma.ticketCategory.findMany(),
+    prisma.ticket.findMany({
+      take: 5,
+      orderBy: { created_at: "desc" },
+    }),
+    prisma.asset.findMany({
+      take: 4,
+      orderBy: { created_at: "desc" },
+      include: { department: true },
+    }),
+  ]);
 
-  // Chamados por Categoria (Pie Chart Data)
-  const ticketsByCategory = await prisma.ticket.groupBy({
-    by: ['category_id'],
-    _count: { id: true }
-  });
-  const categories = await prisma.ticketCategory.findMany();
-  
-  const chartData = ticketsByCategory.map(t => {
-    const cat = categories.find(c => c.id === t.category_id);
+  const chartData = ticketsByCategory.map((t) => {
+    const cat = categories.find((c) => c.id === t.category_id);
     return {
       name: cat ? cat.name : "Outros",
-      quantidade: t._count.id
+      quantidade: t._count.id,
     };
   });
 
   // Se não houver chamados, colocar um dado mockado só para o gráfico ficar bonito como na imagem
-  const finalChartData = chartData.length > 0 ? chartData : [
-    { name: "Hardware", quantidade: 18, color: "var(--primary)" },
-    { name: "Software", quantidade: 12, color: "#8B5CF6" },
-    { name: "Rede", quantidade: 7, color: "var(--success)" },
-    { name: "Acesso", quantidade: 5, color: "var(--warning)" },
-    { name: "Outros", quantidade: 6, color: "#6366F1" }
-  ];
-
-  // Últimos Chamados
-  let ultimosChamados = await prisma.ticket.findMany({
-    take: 5,
-    orderBy: { created_at: 'desc' }
-  });
-
-  // Equipamentos Recentes
-  let equipamentosRecentes = await prisma.asset.findMany({
-    take: 4,
-    orderBy: { created_at: 'desc' },
-    include: { department: true }
-  });
+  const finalChartData =
+    chartData.length > 0
+      ? chartData
+      : [
+          { name: "Hardware", quantidade: 18, color: "var(--primary)" },
+          { name: "Software", quantidade: 12, color: "#8B5CF6" },
+          { name: "Rede", quantidade: 7, color: "var(--success)" },
+          { name: "Acesso", quantidade: 5, color: "var(--warning)" },
+          { name: "Outros", quantidade: 6, color: "#6366F1" },
+        ];
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">

@@ -131,7 +131,7 @@ export default function UserManager({
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden flex-shrink-0">
                           {u.avatar ? (
-                            <Image src={u.avatar} alt={u.name} width={40} height={40} className="w-full h-full object-cover" />
+                            <Image src={u.avatar} alt={u.name} width={40} height={40} className="w-full h-full object-cover" unoptimized />
                           ) : (
                             u.name.charAt(0).toUpperCase()
                           )}

@@ -40,7 +40,7 @@ function UserAvatar({ name, url, className = "w-8 h-8" }: { name: string; url?: 
   if (url) {
     return (
       <div className={`${className} rounded-full overflow-hidden border border-border flex-shrink-0 bg-surface relative`}>
-        <Image src={url} alt={name} width={40} height={40} className="w-full h-full object-cover" />
+        <Image src={url} alt={name} width={40} height={40} className="w-full h-full object-cover" unoptimized />
       </div>
     );
   }

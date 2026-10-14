@@ -8,7 +8,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function GET() {
   const data = await getBrandingAsync();
-  return NextResponse.json(data);
+  return NextResponse.json(data, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+    },
+  });
 }
 
 export async function POST(request: Request) {
