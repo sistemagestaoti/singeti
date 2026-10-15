@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     include: {
       sender: { select: { id: true, name: true, avatar: true } }
     },
-    orderBy: { created_at: 'asc' }
+    orderBy: { created_at: 'asc' },
+    take: 100
   });
 
   return NextResponse.json(messages);

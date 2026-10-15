@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       orderBy: { updated_at: 'desc' }
     });
 
-    // Count unread messages per channel
+    // Count unread messages per channel (limited to latest 50 to keep polling fast)
     const unreadMessages = await prisma.chatMessage.findMany({
       where: {
         is_read: false,
@@ -69,7 +69,8 @@ export async function GET(request: Request) {
         created_at: true,
         sender: { select: { name: true, avatar: true } }
       },
-      orderBy: { created_at: 'desc' }
+      orderBy: { created_at: 'desc' },
+      take: 50
     });
 
     const unreadByChannel: Record<string, number> = {};

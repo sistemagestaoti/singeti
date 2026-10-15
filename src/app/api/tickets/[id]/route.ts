@@ -127,8 +127,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id: resolvedParams.id },
       data: updateData,
       include: {
-        requester: true,
-        assigned_to: true,
+        requester: { select: { id: true, name: true, email: true, avatar: true } },
+        assigned_to: { select: { id: true, name: true, email: true, avatar: true } },
         category: true,
         asset: true,
         department: true,

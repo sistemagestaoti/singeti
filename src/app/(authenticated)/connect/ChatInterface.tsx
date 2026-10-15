@@ -84,6 +84,7 @@ export default function ChatInterface({
 
   // Polling em segundo plano para manter a lista de todos os usuários e o status Online/Offline sempre atualizados
   const fetchUsersAndPresence = async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
     try {
       const res = await fetch("/api/chat/users");
       if (res.ok) {
@@ -99,8 +100,13 @@ export default function ChatInterface({
 
   useEffect(() => {
     fetchUsersAndPresence();
-    const interval = setInterval(fetchUsersAndPresence, 5000); // Atualiza presença a cada 5s
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchUsersAndPresence, 8000); // Atualiza presença a cada 8s
+    const handleVis = () => { if (!document.hidden) fetchUsersAndPresence(); };
+    document.addEventListener("visibilitychange", handleVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVis);
+    };
   }, []);
 
   // Find active channel
@@ -122,6 +128,7 @@ export default function ChatInterface({
   // Fetch messages for active channel
   const fetchMessages = async () => {
     if (!activeChannelId) return;
+    if (typeof document !== "undefined" && document.hidden) return;
     try {
       const res = await fetch(`/api/chat?channelId=${activeChannelId}`);
       if (res.ok) {
@@ -135,8 +142,13 @@ export default function ChatInterface({
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 3000); // Polling a cada 3 segundos
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchMessages, 3500); // Polling inteligente a cada 3.5 segundos
+    const handleVis = () => { if (!document.hidden) fetchMessages(); };
+    document.addEventListener("visibilitychange", handleVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVis);
+    };
   }, [activeChannelId]);
 
   useEffect(() => {
