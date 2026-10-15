@@ -66,6 +66,10 @@ export function getBranding(): BrandingData {
   return globalThis.__brandingCache;
 }
 
+export async function getBrandingAsync(): Promise<BrandingData> {
+  return getBranding();
+}
+
 export function saveBranding(data: Partial<BrandingData>): BrandingData {
   const current = getBranding();
   const updated: BrandingData = {
