@@ -96,11 +96,17 @@ export default function TicketDetailClient({
         body: JSON.stringify(fields),
       });
 
-      if (!res.ok) throw new Error("Erro ao atualizar chamado");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Erro ao atualizar chamado");
+      }
 
       const updated = await res.json();
       setTicket(updated);
-      if (fields.status) setStatus(fields.status);
+      if (fields.status) {
+        setStatus(fields.status);
+        setCommentStatusTarget(fields.status);
+      }
       if (fields.assigned_to_id !== undefined) setAssignedToId(fields.assigned_to_id || "");
       if (fields.priority) setPriority(fields.priority);
       if (fields.urgency) setUrgency(fields.urgency);
@@ -109,12 +115,18 @@ export default function TicketDetailClient({
       if (fields.group_id !== undefined) setGroupId(fields.group_id || "");
       if (fields.asset_id !== undefined) setAssetId(fields.asset_id || "");
 
-      // Refresh comments to fetch new audit entries
-      const resUpdated = await fetch(`/api/tickets/${ticket.id}`);
-      if (resUpdated.ok) {
-        const full = await resUpdated.json();
-        setComments(full.comments || []);
+      if (updated.comments && Array.isArray(updated.comments)) {
+        setComments(updated.comments);
+      } else {
+        // Refresh comments to fetch new audit entries
+        const resUpdated = await fetch(`/api/tickets/${ticket.id}`);
+        if (resUpdated.ok) {
+          const full = await resUpdated.json();
+          setComments(full.comments || []);
+        }
       }
+
+      router.refresh();
     } catch (err: any) {
       alert(err.message || "Falha na atualização");
     } finally {
@@ -139,20 +151,27 @@ export default function TicketDetailClient({
         }),
       });
 
-      if (!res.ok) throw new Error("Erro ao registrar comentário");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Erro ao registrar comentário");
+      }
 
       setCommentText("");
       if (commentStatusTarget !== status) {
         setStatus(commentStatusTarget);
       }
 
-      // Reload ticket comments
+      // Reload ticket comments and status
       const resUpdated = await fetch(`/api/tickets/${ticket.id}`);
       if (resUpdated.ok) {
         const full = await resUpdated.json();
         setTicket(full);
+        setStatus(full.status);
+        setCommentStatusTarget(full.status);
         setComments(full.comments || []);
       }
+
+      router.refresh();
     } catch (err: any) {
       alert(err.message || "Erro ao adicionar comentário");
     } finally {
