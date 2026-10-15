@@ -218,7 +218,7 @@ export default function TicketDetailClient({
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-12">
       
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface p-6 rounded-2xl border border-border shadow-xs gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface p-4 sm:p-6 rounded-2xl border border-border shadow-xs gap-4">
         <div className="flex items-center gap-4">
           <Link
             href="/service-desk"

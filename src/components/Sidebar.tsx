@@ -7,14 +7,16 @@ import {
   LayoutDashboard, Server, HeadphonesIcon, 
   AlertTriangle, ArrowRightLeft, CalendarClock, 
   Briefcase, MessageSquare, BookOpen, Settings, 
-  Users, ChevronDown, ChevronRight, FileText, Database, Shield
+  Users, ChevronDown, ChevronRight, FileText, Database, Shield, X
 } from "lucide-react";
+import { useMobileMenu } from "./AuthenticatedShell";
 
 // Cache em memória do branding para evitar fetch repetido a cada troca de aba
 let brandingMemoryCache: any = null;
 let brandingCacheFetching = false;
 
 export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
+  const { isMobileOpen, closeMobileMenu } = useMobileMenu();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
@@ -142,61 +144,69 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
   ];
 
   return (
-    <aside className={`${isCollapsed ? 'w-[76px]' : 'w-[280px]'} bg-sidebar border-r border-border h-full flex flex-col transition-all duration-300 relative select-none`}>
+    <aside
+      className={`
+        fixed inset-y-0 left-0 z-50 bg-sidebar border-r border-border h-full flex flex-col transition-transform duration-300 select-none
+        ${isMobileOpen ? "translate-x-0 w-[280px] shadow-2xl" : "-translate-x-full"}
+        md:relative md:z-20 md:translate-x-0
+        ${isCollapsed ? "md:w-[76px]" : "md:w-[280px]"}
+      `}
+    >
       {/* Brand Header */}
-      <div className={`h-[72px] flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between px-3.5'} border-b border-border/50`}>
-        {!isCollapsed ? (
-          <div className="flex items-center gap-3 flex-1 h-full min-w-0 mr-1.5">
-            {/* CAMPO SEPARADO SOMENTE PARA O ÍCONE (que o usuário subir ou padrão) */}
-            <div className="w-10 h-10 rounded-xl bg-surface/50 border border-border/60 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden p-1">
-              {branding?.appIcon && !iconError ? (
-                <img 
-                  src={branding.appIcon} 
-                  alt="Ícone" 
-                  onError={() => setIconError(true)}
-                  className="w-full h-full object-contain" 
-                />
-              ) : (
-                <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-                  <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
-                  <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear)"/>
-                  <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
-                  <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
-                  <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
-                  <defs>
-                    <linearGradient id="paint0_linear" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#007BFF"/>
-                      <stop offset="1" stopColor="#00C2FF"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
-              )}
-            </div>
-
-            {/* ÁREA CIRCULADA EM VERMELHO: SOMENTE A IMAGEM DO LOGOTIPO */}
-            <div className="flex-1 h-full flex items-center overflow-hidden min-w-0">
-              {branding?.appLogo && !logoError ? (
-                <img 
-                  src={branding.appLogo} 
-                  alt="Logotipo" 
-                  onError={() => setLogoError(true)}
-                  className="max-h-[48px] w-auto max-w-full object-contain object-left transition-all" 
-                />
-              ) : (
-                <div className="flex flex-col justify-center min-w-0">
-                  <span className="font-extrabold text-foreground text-xl tracking-wider leading-none block truncate">
-                    SYNGE<span className="text-[#00C2FF]">TI</span>
-                  </span>
-                  <span className="text-[9px] text-muted-foreground tracking-[0.14em] font-semibold mt-1 uppercase truncate">
-                    GESTÃO INTEGRADA DE TI
-                  </span>
-                </div>
-              )}
-            </div>
+      <div className={`h-[60px] sm:h-[72px] flex items-center ${isCollapsed ? 'md:justify-center md:px-2' : ''} justify-between px-3.5 border-b border-border/50`}>
+        {/* Expanded mode or Mobile drawer (always expanded on mobile) */}
+        <div className={`items-center gap-3 flex-1 h-full min-w-0 mr-1.5 ${isCollapsed ? 'hidden md:hidden' : 'flex'}`}>
+          {/* CAMPO SEPARADO SOMENTE PARA O ÍCONE */}
+          <div className="w-10 h-10 rounded-xl bg-surface/50 border border-border/60 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden p-1">
+            {branding?.appIcon && !iconError ? (
+              <img 
+                src={branding.appIcon} 
+                alt="Ícone" 
+                onError={() => setIconError(true)}
+                className="w-full h-full object-contain" 
+              />
+            ) : (
+              <svg width="26" height="30" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
+                <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear)"/>
+                <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
+                <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
+                <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
+                <defs>
+                  <linearGradient id="paint0_linear" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#007BFF"/>
+                    <stop offset="1" stopColor="#00C2FF"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            )}
           </div>
-        ) : (
-          /* MODO RECOLHIDO: SOMENTE O ÍCONE */
-          <div className="flex items-center justify-center w-full">
+
+          {/* ÁREA DO LOGOTIPO */}
+          <div className="flex-1 h-full flex items-center overflow-hidden min-w-0">
+            {branding?.appLogo && !logoError ? (
+              <img 
+                src={branding.appLogo} 
+                alt="Logotipo" 
+                onError={() => setLogoError(true)}
+                className="max-h-[44px] w-auto max-w-full object-contain object-left transition-all" 
+              />
+            ) : (
+              <div className="flex flex-col justify-center min-w-0">
+                <span className="font-extrabold text-foreground text-xl tracking-wider leading-none block truncate">
+                  SYNGE<span className="text-[#00C2FF]">TI</span>
+                </span>
+                <span className="text-[9px] text-muted-foreground tracking-[0.14em] font-semibold mt-1 uppercase truncate">
+                  GESTÃO INTEGRADA DE TI
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Collapsed Mode (Desktop only) */}
+        {isCollapsed && (
+          <div className="hidden md:flex items-center justify-center w-full">
             <div className="w-10 h-10 rounded-xl bg-surface/50 border border-border/60 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden p-1">
               {branding?.appIcon && !iconError ? (
                 <img 
@@ -224,9 +234,22 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
           </div>
         )}
 
+        {/* Mobile close drawer button */}
+        <button
+          type="button"
+          onClick={closeMobileMenu}
+          className="md:hidden w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors ml-auto shrink-0"
+          title="Fechar menu"
+          aria-label="Fechar menu lateral"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Desktop collapse/expand button */}
         <button 
+          type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="w-7 h-7 rounded bg-surface border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors flex-shrink-0"
+          className="hidden md:flex w-7 h-7 rounded bg-surface border border-border items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors shrink-0"
           title={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
         >
           <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`} />
@@ -234,7 +257,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       </div>
 
       {/* Nav */}
-      <nav className={`flex-1 overflow-y-auto py-6 ${isCollapsed ? 'px-2' : 'px-3'} space-y-2 custom-scrollbar`}>
+      <nav className={`flex-1 overflow-y-auto py-5 ${isCollapsed ? 'md:px-2 px-3' : 'px-3'} space-y-1.5 custom-scrollbar`}>
         {navItems.map((item) => {
           const hasSubItems = !!item.subItems;
           const active = hasSubItems 
@@ -244,13 +267,14 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
           const isExpanded = expandedMenus[item.name];
 
           if (isCollapsed) {
-            // Renderização no modo recolhido
+            // Renderização no modo recolhido (desktop apenas)
             const targetHref = item.href || item.subItems?.[0]?.href || '#';
             return (
               <Link
                 key={item.name}
                 href={targetHref}
                 prefetch={true}
+                onClick={closeMobileMenu}
                 title={item.name}
                 className={`flex items-center justify-center w-full h-11 rounded-xl transition-all duration-200 ${
                   active 
@@ -291,7 +315,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                     e.preventDefault();
                     toggleMenu(item.name);
                   }}
-                  className={`w-full text-left flex items-center px-3 py-3 rounded-lg transition-all duration-200 group
+                  className={`w-full text-left flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group
                     ${active ? 'bg-sidebar-active/30' : 'hover:bg-sidebar-active/50'}`}
                 >
                   {ItemContent}
@@ -300,7 +324,8 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                 <Link
                   href={item.href!}
                   prefetch={true}
-                  className={`flex items-center px-3 py-3 rounded-xl transition-all duration-200 group
+                  onClick={closeMobileMenu}
+                  className={`flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 group
                     ${active 
                       ? 'bg-primary/10 border-l-4 border-primary rounded-l-none' 
                       : 'border-l-4 border-transparent hover:bg-sidebar-active/50'
@@ -322,6 +347,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                         key={subItem.name}
                         href={subItem.href}
                         prefetch={true}
+                        onClick={closeMobileMenu}
                         className={`pl-11 pr-3 py-2 text-xs font-semibold rounded-lg transition-all duration-200
                           ${subActive 
                             ? 'bg-primary/10 text-primary' 

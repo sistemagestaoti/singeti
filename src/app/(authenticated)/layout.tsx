@@ -1,6 +1,4 @@
-import { Sidebar } from "@/components/Sidebar";
-import { Topbar } from "@/components/Topbar";
-import { SessionGuard } from "@/components/SessionGuard";
+import { AuthenticatedShell } from "@/components/AuthenticatedShell";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -37,17 +35,12 @@ export default async function AuthenticatedLayout({
   const branding = getBranding();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <SessionGuard />
-      <Sidebar initialBranding={branding} />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar userName={session.user.name || "Admin"} avatar={userAvatar} />
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
-          <div className="max-w-7xl mx-auto w-full">
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
+    <AuthenticatedShell
+      userName={session.user.name || "Admin"}
+      userAvatar={userAvatar}
+      initialBranding={branding}
+    >
+      {children}
+    </AuthenticatedShell>
   );
 }

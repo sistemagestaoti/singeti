@@ -277,47 +277,47 @@ export default function ServiceDeskClient({
     <div className="flex flex-col gap-6">
       
       {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface p-6 rounded-2xl border border-border shadow-xs gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface p-4 sm:p-6 rounded-2xl border border-border shadow-xs gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-              <HeadphonesIcon className="w-5 h-5" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+              <HeadphonesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">Service Desk / Chamados</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Service Desk / Chamados</h1>
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:line-clamp-none">
                 Central de atendimento ITIL para gestão de incidentes, requisições e suporte técnico.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
           <button
             type="button"
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 bg-surface-elevated hover:bg-surface-hover text-foreground px-4 py-2.5 rounded-xl text-xs font-bold border border-border transition-colors shadow-xs"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-surface-elevated hover:bg-surface-hover text-foreground px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold border border-border transition-colors shadow-xs"
             title="Exportar dados para planilha CSV"
           >
-            <Download className="w-4 h-4 text-muted-foreground" />
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
             <span>Exportar CSV</span>
           </button>
 
           <Link
             href="/service-desk/new"
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors shadow-sm"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-primary text-primary-foreground px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors shadow-xs shrink-0"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>+ Abrir Chamado</span>
           </Link>
         </div>
       </div>
 
       {/* KPI Metrics Dashboard Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
         <div 
           onClick={() => { setFilterStatus("ALL"); setFilterPriority("ALL"); setFilterAssignee("ALL"); }}
-          className="bg-surface hover:bg-surface-hover p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
+          className="bg-surface hover:bg-surface-hover p-3 sm:p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
         >
           <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase">
             <span>Total</span>

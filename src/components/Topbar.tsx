@@ -21,8 +21,11 @@ const MODULE_DATA: Record<string, { title: string, subtitle: string }> = {
   'settings': { title: 'Módulo de Configurações', subtitle: 'SYNGETI • Sistema e Acessos' },
 };
 
+import { useMobileMenu } from "./AuthenticatedShell";
+
 export function Topbar({ userName, avatar }: { userName: string, avatar?: string | null }) {
   const pathname = usePathname();
+  const { toggleMobileMenu } = useMobileMenu();
   const heartbeatStarted = useRef(false);
   const [avatarError, setAvatarError] = useState(false);
 
@@ -49,30 +52,36 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
   };
 
   return (
-    <header className="h-[72px] bg-background border-b border-border flex items-center justify-between px-6 sticky top-0 z-30 transition-colors duration-300">
+    <header className="h-[60px] sm:h-[72px] bg-background border-b border-border flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 transition-colors duration-300">
       
       {/* Title area (Hamburger + Titles) */}
-      <div className="flex items-center gap-4">
-        <button className="w-10 h-10 rounded-lg bg-surface border border-border flex items-center justify-center text-foreground hover:bg-surface-hover transition-colors shadow-sm">
+      <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1 mr-2">
+        <button 
+          type="button"
+          onClick={toggleMobileMenu}
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-surface border border-border flex items-center justify-center text-foreground hover:bg-surface-hover transition-colors shadow-xs shrink-0"
+          title="Abrir menu de navegação"
+          aria-label="Abrir menu lateral"
+        >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex flex-col">
-          <h1 className="text-xl font-bold text-foreground leading-tight">
+        <div className="flex flex-col min-w-0">
+          <h1 className="text-sm sm:text-lg md:text-xl font-bold text-foreground leading-tight truncate">
             {moduleInfo.title}
           </h1>
-          <p className="text-xs font-semibold text-muted-foreground uppercase mt-0.5">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase mt-0.5 truncate hidden sm:block">
             {moduleInfo.subtitle}
           </p>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center space-x-5">
+      <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
         <ThemeSwitcher />
         
-        <div className="flex items-center space-x-3 border-l border-border pl-5">
-          <div className="text-sm text-right hidden sm:block">
-            <p className="font-bold text-foreground leading-tight">{userName}</p>
+        <div className="flex items-center space-x-2 sm:space-x-3 border-l border-border pl-2 sm:pl-4">
+          <div className="text-sm text-right hidden lg:block">
+            <p className="font-bold text-foreground leading-tight truncate max-w-[120px]">{userName}</p>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase">Admin</p>
           </div>
           
@@ -81,10 +90,10 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
               src={avatar} 
               alt={userName} 
               onError={() => setAvatarError(true)}
-              className="w-10 h-10 rounded-lg object-cover border border-border shadow-sm bg-surface" 
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover border border-border shadow-xs bg-surface shrink-0" 
             />
           ) : (
-            <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-extrabold shadow-sm">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-extrabold text-xs sm:text-sm shadow-xs shrink-0">
               {userName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -98,7 +107,7 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
               }
               signOut({ callbackUrl: "/login" });
             }}
-            className="ml-2 text-xs font-bold text-danger hover:text-danger/80 transition-colors cursor-pointer"
+            className="px-2 py-1 rounded text-xs font-bold text-danger hover:bg-danger/10 transition-colors cursor-pointer shrink-0"
           >
             Sair
           </button>
