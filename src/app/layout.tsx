@@ -20,6 +20,25 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         {branding?.favicon && <link rel="icon" href={branding.favicon} />}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined') {
+                window.addEventListener('unhandledrejection', function(event) {
+                  var msg = (event && event.reason && (event.reason.message || event.reason)) || '';
+                  if (typeof msg === 'string' && (
+                    msg.indexOf('A listener indicated an asynchronous response') !== -1 ||
+                    msg.indexOf('message channel closed') !== -1 ||
+                    msg.indexOf('Extension context invalidated') !== -1
+                  )) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                  }
+                });
+              }
+            `,
+          }}
+        />
       </head>
       <body className="h-full text-foreground bg-background antialiased transition-colors duration-300">
         <ThemeProvider

@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import { getBranding } from "@/lib/branding";
 
 // Memoiza a busca de avatar por ciclo de render (evita queries duplicadas na mesma request)
 const getUserAvatar = cache(async (userId: string): Promise<string | null> => {
@@ -33,11 +34,12 @@ export default async function AuthenticatedLayout({
 
   // Busca avatar com cache por ciclo de render
   const userAvatar = session.user?.id ? await getUserAvatar(session.user.id) : null;
+  const branding = getBranding();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <SessionGuard />
-      <Sidebar />
+      <Sidebar initialBranding={branding} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={session.user.name || "Admin"} avatar={userAvatar} />
         <main className="flex-1 overflow-y-auto p-6 md:p-8">

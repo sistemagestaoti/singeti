@@ -604,9 +604,23 @@ export default function ServiceDeskClient({
 
                         {/* Status */}
                         <td className="px-5 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold border ${statusInfo.badge}`}>
-                            {statusInfo.label}
-                          </span>
+                          <select
+                            value={ticket.status}
+                            disabled={actionLoadingId === ticket.id}
+                            onChange={(e) => handleQuickStatusChange(ticket.id, e.target.value)}
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold border cursor-pointer focus:ring-2 focus:ring-primary shadow-xs transition-all ${statusInfo.badge}`}
+                            title="Clique para alterar status imediatamente"
+                          >
+                            <option value="NEW" className="bg-surface text-foreground font-semibold">Novo</option>
+                            <option value="TRIAGE" className="bg-surface text-foreground font-semibold">Em Triagem</option>
+                            <option value="ASSIGNED" className="bg-surface text-foreground font-semibold">Atribuído / Fila</option>
+                            <option value="IN_PROGRESS" className="bg-surface text-foreground font-semibold">Em Atendimento</option>
+                            <option value="WAITING_USER" className="bg-surface text-foreground font-semibold">Aguardando Usuário</option>
+                            <option value="WAITING_VENDOR" className="bg-surface text-foreground font-semibold">Aguardando Fornecedor</option>
+                            <option value="RESOLVED" className="bg-surface text-foreground font-semibold">Resolvido</option>
+                            <option value="CLOSED" className="bg-surface text-foreground font-semibold">Fechado</option>
+                            <option value="CANCELED" className="bg-surface text-foreground font-semibold">Cancelado</option>
+                          </select>
                         </td>
 
                         {/* Priority */}

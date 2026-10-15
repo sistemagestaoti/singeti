@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -24,6 +24,7 @@ const MODULE_DATA: Record<string, { title: string, subtitle: string }> = {
 export function Topbar({ userName, avatar }: { userName: string, avatar?: string | null }) {
   const pathname = usePathname();
   const heartbeatStarted = useRef(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   useEffect(() => {
     // Inicia heartbeat uma única vez por sessão — não a cada troca de aba
@@ -75,8 +76,13 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
             <p className="text-[11px] font-semibold text-muted-foreground uppercase">Admin</p>
           </div>
           
-          {avatar ? (
-            <img src={avatar} alt={userName} className="w-10 h-10 rounded-lg object-cover border border-border shadow-sm bg-surface" />
+          {avatar && !avatarError ? (
+            <img 
+              src={avatar} 
+              alt={userName} 
+              onError={() => setAvatarError(true)}
+              className="w-10 h-10 rounded-lg object-cover border border-border shadow-sm bg-surface" 
+            />
           ) : (
             <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-extrabold shadow-sm">
               {userName.charAt(0).toUpperCase()}

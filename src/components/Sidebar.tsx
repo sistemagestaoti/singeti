@@ -14,17 +14,20 @@ import {
 let brandingMemoryCache: any = null;
 let brandingCacheFetching = false;
 
-export function Sidebar() {
+export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     'Cadastros': true,
     'Configurações': true,
   });
-  const [branding, setBranding] = useState<any>(brandingMemoryCache);
+  if (initialBranding && !brandingMemoryCache) {
+    brandingMemoryCache = initialBranding;
+  }
+  const [branding, setBranding] = useState<any>(initialBranding || brandingMemoryCache);
   const [logoError, setLogoError] = useState(false);
   const [iconError, setIconError] = useState(false);
-  const hasFetched = useRef(false);
+  const hasFetched = useRef(!!initialBranding || !!brandingMemoryCache);
 
   useEffect(() => {
     const fetchBrandingData = (force = false) => {
@@ -52,7 +55,7 @@ export function Sidebar() {
         });
     };
 
-    // Só faz fetch na primeira montagem real (não em cada troca de aba)
+    // Só faz fetch na primeira montagem real se não veio pelo SSR
     if (!hasFetched.current) {
       hasFetched.current = true;
       fetchBrandingData();

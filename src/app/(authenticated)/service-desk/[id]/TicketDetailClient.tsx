@@ -625,6 +625,29 @@ export default function TicketDetailClient({
               {savingProperty && <span className="text-primary text-[10px] lowercase animate-pulse">salvando...</span>}
             </h3>
 
+            {/* Status do Chamado */}
+            <div>
+              <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
+                Status do Chamado
+              </label>
+              <select
+                value={status}
+                disabled={savingProperty}
+                onChange={(e) => updateTicketProperty({ status: e.target.value })}
+                className="w-full text-xs font-bold rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-foreground focus:ring-2 focus:ring-primary cursor-pointer shadow-xs transition-colors"
+              >
+                <option value="NEW">🟢 Novo</option>
+                <option value="TRIAGE">🟣 Em Triagem</option>
+                <option value="ASSIGNED">🔵 Atribuído / Fila</option>
+                <option value="IN_PROGRESS">🟡 Em Atendimento</option>
+                <option value="WAITING_USER">🟠 Aguardando Usuário</option>
+                <option value="WAITING_VENDOR">🟤 Aguardando Fornecedor</option>
+                <option value="RESOLVED">✅ Resolvido</option>
+                <option value="CLOSED">⚪ Fechado / Encerrado</option>
+                <option value="CANCELED">❌ Cancelado</option>
+              </select>
+            </div>
+
             {/* Requester */}
             <div>
               <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
