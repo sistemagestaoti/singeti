@@ -5,7 +5,12 @@ import { getBranding, saveBranding } from '@/lib/branding';
 
 export async function GET() {
   const data = getBranding();
-  return NextResponse.json(data);
+  return NextResponse.json(data, {
+    headers: {
+      // Cache por 60s, aceita stale por até 5min enquanto revalida em background
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+    },
+  });
 }
 
 export async function POST(request: Request) {

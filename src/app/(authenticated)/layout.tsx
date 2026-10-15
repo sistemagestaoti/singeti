@@ -4,8 +4,21 @@ import { SessionGuard } from "@/components/SessionGuard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+
+// Memoiza a busca de avatar por ciclo de render (evita queries duplicadas na mesma request)
+const getUserAvatar = cache(async (userId: string): Promise<string | null> => {
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatar: true },
+    });
+    return dbUser?.avatar || null;
+  } catch {
+    return null;
+  }
+});
 
 export default async function AuthenticatedLayout({
   children,
@@ -13,23 +26,13 @@ export default async function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   const session = await getServerSession(authOptions);
-  
+
   if (!session) {
     redirect("/login");
   }
 
-  let userAvatar = null;
-  if (session.user?.id) {
-    try {
-      const dbUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { avatar: true }
-      });
-      userAvatar = dbUser?.avatar || null;
-    } catch (err) {
-      console.warn("Aviso ao buscar avatar do usuário:", err);
-    }
-  }
+  // Busca avatar com cache por ciclo de render
+  const userAvatar = session.user?.id ? await getUserAvatar(session.user.id) : null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

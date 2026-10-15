@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -23,9 +23,13 @@ const MODULE_DATA: Record<string, { title: string, subtitle: string }> = {
 
 export function Topbar({ userName, avatar }: { userName: string, avatar?: string | null }) {
   const pathname = usePathname();
+  const heartbeatStarted = useRef(false);
 
   useEffect(() => {
-    // Registra presença do usuário ativo no sistema
+    // Inicia heartbeat uma única vez por sessão — não a cada troca de aba
+    if (heartbeatStarted.current) return;
+    heartbeatStarted.current = true;
+
     const sendHeartbeat = () => {
       fetch("/api/chat/presence", { method: "POST" }).catch(() => {});
     };

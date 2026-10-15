@@ -22,12 +22,19 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 async function fetchSupabaseUser(loginInput: string) {
   try {
+    // Timeout de 3s para não bloquear o login quando o Supabase estiver lento
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
       headers: {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${SUPABASE_KEY}`,
       },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (!res.ok) return null;
     const users: any[] = await res.json();
     const lower = loginInput.toLowerCase();

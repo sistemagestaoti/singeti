@@ -74,7 +74,8 @@ export default function LoginPage() {
 
       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const callback = params?.get("callbackUrl") || "/dashboard";
-      window.location.href = callback;
+      // Usa router.push para navegação SPA (sem reload completo)
+      router.push(callback);
     }
   };
 

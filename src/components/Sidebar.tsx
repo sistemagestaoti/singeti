@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -10,6 +10,10 @@ import {
   Users, ChevronDown, ChevronRight, FileText, Database, Shield
 } from "lucide-react";
 
+// Cache em memória do branding para evitar fetch repetido a cada troca de aba
+let brandingMemoryCache: any = null;
+let brandingCacheFetching = false;
+
 export function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -17,25 +21,51 @@ export function Sidebar() {
     'Cadastros': true,
     'Configurações': true,
   });
-  const [branding, setBranding] = useState<any>(null);
+  const [branding, setBranding] = useState<any>(brandingMemoryCache);
   const [logoError, setLogoError] = useState(false);
   const [iconError, setIconError] = useState(false);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    const fetchBrandingData = () => {
+    const fetchBrandingData = (force = false) => {
+      // Usa cache em memória — evita request HTTP a cada troca de aba
+      if (!force && brandingMemoryCache) {
+        setBranding(brandingMemoryCache);
+        return;
+      }
+      // Evita requests duplicadas simultâneas
+      if (brandingCacheFetching && !force) return;
+
+      brandingCacheFetching = true;
       fetch("/api/branding")
         .then(res => res.json())
         .then(data => {
+          brandingMemoryCache = data;
+          brandingCacheFetching = false;
           setBranding(data);
           setLogoError(false);
           setIconError(false);
         })
-        .catch(console.error);
+        .catch(err => {
+          brandingCacheFetching = false;
+          console.error(err);
+        });
     };
 
-    fetchBrandingData();
-    window.addEventListener("branding-updated", fetchBrandingData);
-    return () => window.removeEventListener("branding-updated", fetchBrandingData);
+    // Só faz fetch na primeira montagem real (não em cada troca de aba)
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchBrandingData();
+    }
+
+    // Quando o usuário atualiza o branding, força re-fetch
+    const handleBrandingUpdated = () => {
+      brandingMemoryCache = null;
+      fetchBrandingData(true);
+    };
+
+    window.addEventListener("branding-updated", handleBrandingUpdated);
+    return () => window.removeEventListener("branding-updated", handleBrandingUpdated);
   }, []);
 
   const toggleMenu = (name: string) => {
