@@ -27,7 +27,7 @@ export default function TicketTimeline({
     setLoading(true);
 
     try {
-      await fetch(`/api/tickets/${ticketId}`, {
+      const res = await fetch(`/api/tickets/${ticketId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -37,10 +37,15 @@ export default function TicketTimeline({
         })
       });
 
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Falha ao registrar atualização no chamado");
+      }
+
       setContent("");
       router.refresh();
-    } catch (error) {
-      alert("Erro ao adicionar nota.");
+    } catch (error: any) {
+      alert(error.message || "Erro ao adicionar nota.");
     } finally {
       setLoading(false);
     }
@@ -65,13 +70,13 @@ export default function TicketTimeline({
                   <div className="relative flex items-start space-x-3">
                     <div className="relative">
                       <div className={`flex h-10 w-10 items-center justify-center rounded-full ring-8 ring-surface ${comment.is_internal ? 'bg-warning/20 text-warning' : 'bg-primary/20 text-primary'}`}>
-                        <span className="font-bold text-sm">{comment.author.name.charAt(0).toUpperCase()}</span>
+                        <span className="font-bold text-sm">{(comment.author?.name || 'S').charAt(0).toUpperCase()}</span>
                       </div>
                     </div>
                     <div className="min-w-0 flex-1 bg-surface-elevated p-4 rounded-xl border border-border">
                       <div className="flex justify-between items-start">
                         <div>
-                          <span className="font-medium text-foreground">{comment.author.name}</span>
+                          <span className="font-medium text-foreground">{comment.author?.name || 'Sistema / Usuário'}</span>
                           {comment.is_internal && <span className="ml-2 inline-flex items-center rounded-md bg-warning/10 px-2 py-1 text-xs font-bold text-warning border border-warning/20">Nota Interna</span>}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground font-medium">

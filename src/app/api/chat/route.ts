@@ -12,10 +12,30 @@ export async function GET(request: Request) {
 
   if (!channelId) return new NextResponse("Missing channelId", { status: 400 });
 
+  // Resolve current user ID
+  let currentUserId = session.user.id;
+  const userExists = await prisma.user.findUnique({ where: { id: currentUserId } });
+  if (!userExists && session.user.email) {
+    const userByEmail = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (userByEmail) currentUserId = userByEmail.id;
+  }
+
+  // Mark all unread messages in this channel sent by others as read
+  await prisma.chatMessage.updateMany({
+    where: {
+      channel_id: channelId,
+      sender_id: { not: currentUserId },
+      is_read: false
+    },
+    data: {
+      is_read: true
+    }
+  });
+
   const messages = await prisma.chatMessage.findMany({
     where: { channel_id: channelId },
     include: {
-      sender: { select: { name: true, avatar: true } }
+      sender: { select: { id: true, name: true, avatar: true } }
     },
     orderBy: { created_at: 'asc' }
   });
@@ -49,9 +69,15 @@ export async function POST(request: Request) {
       sender_id: senderId
     },
     include: {
-      sender: { select: { name: true, avatar: true } }
+      sender: { select: { id: true, name: true, avatar: true } }
     }
   });
+
+  // Touch channel updated_at so recent channels sort to the top
+  await prisma.chatChannel.update({
+    where: { id: channelId },
+    data: { updated_at: new Date() }
+  }).catch(() => {});
 
   return NextResponse.json(message);
 }

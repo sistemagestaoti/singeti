@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./sqlite.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------
@@ -181,9 +182,10 @@ model Asset {
   supplierId String?
   Contract   Contract? @relation(fields: [contractId], references: [id])
   contractId String?
-  Project    Project?  @relation(fields: [projectId], references: [id])
+  Project    Project?     @relation(fields: [projectId], references: [id])
   projectId  String?
   Booking    Booking[]
+  ticket_items TicketItem[]
 
   @@map("assets")
 }
@@ -314,6 +316,7 @@ model Ticket {
 
   // Timeline
   comments TicketComment[]
+  items    TicketItem[]
 
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
@@ -325,6 +328,26 @@ model Ticket {
   changeId    String?
 
   @@map("tickets")
+}
+
+model TicketItem {
+  id          String   @id @default(cuid())
+  ticket_id   String
+  description String
+  quantity    Int      @default(1)
+  category    String?
+  asset_id    String?
+  unit        String?  @default("UN")
+  notes       String?
+  status      String?  @default("PENDING")
+
+  ticket Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  asset  Asset? @relation(fields: [asset_id], references: [id], onDelete: SetNull)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("ticket_items")
 }
 
 model TicketComment {
@@ -647,4 +670,17 @@ model PasswordResetRequest {
   resolved_at      DateTime?
 
   @@map("password_reset_requests")
+}
+
+// ---------------------------------------------------------
+// FASE 9: CONFIGURAÇÕES E BRANDING DO SISTEMA
+// ---------------------------------------------------------
+
+model SystemSetting {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String   // Armazena JSON de configuração ou Data URI base64
+  updated_at DateTime @updatedAt
+
+  @@map("system_settings")
 }

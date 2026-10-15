@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { Menu } from "lucide-react";
 
@@ -78,9 +79,19 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
             </div>
           )}
 
-          <a href="/api/auth/signout" className="ml-2 text-xs font-bold text-danger hover:text-danger/80 transition-colors">
+          <button 
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                sessionStorage.removeItem("syngeti_session_active");
+                sessionStorage.removeItem("syngeti_login_time");
+              }
+              signOut({ callbackUrl: "/login" });
+            }}
+            className="ml-2 text-xs font-bold text-danger hover:text-danger/80 transition-colors cursor-pointer"
+          >
             Sair
-          </a>
+          </button>
         </div>
       </div>
     </header>

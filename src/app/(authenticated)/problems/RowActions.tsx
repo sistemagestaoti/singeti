@@ -20,10 +20,12 @@ export default function RowActions({ id, route }: { id: string, route: string })
     }
   };
 
+  const viewPath = route === "tickets" ? `/service-desk/${id}` : route === "assets" ? `/cmdb/${id}` : `/${route}/${id}`;
+
   return (
     <div className="flex justify-end gap-2">
       <Link 
-        href={`/${route}/${id}`} 
+        href={viewPath} 
         className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
         title="Visualizar/Editar"
       >

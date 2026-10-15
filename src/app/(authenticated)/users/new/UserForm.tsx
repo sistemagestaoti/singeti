@@ -168,7 +168,7 @@ export default function UserForm({
         <div className="flex items-center gap-6 mb-6">
           <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-surface shadow-sm bg-muted flex items-center justify-center flex-shrink-0 relative group cursor-pointer">
             {formData.avatar ? (
-              <Image src={formData.avatar} alt="Avatar" width={80} height={80} className="w-full h-full object-cover" />
+              <Image src={formData.avatar} alt="Avatar" width={80} height={80} className="w-full h-full object-cover" unoptimized />
             ) : (
               <UserIcon className="w-8 h-8 text-muted-foreground" />
             )}

@@ -3,12 +3,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
-// Resolução dinâmica de NEXTAUTH_URL para Vercel caso não esteja explícita no ambiente
-if (!process.env.NEXTAUTH_URL) {
-  const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
-  if (vercelDomain) {
-    process.env.NEXTAUTH_URL = `https://${vercelDomain}`;
-  }
+const isVercel = !!process.env.VERCEL;
+const isProd = process.env.NODE_ENV === "production" || isVercel;
+
+// Resolução dinâmica de NEXTAUTH_URL para Vercel caso não esteja explícita no ambiente ou aponte para localhost
+if (isVercel || (isProd && (!process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL.includes("localhost")))) {
+  const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || "syngeti.vercel.app";
+  process.env.NEXTAUTH_URL = `https://${vercelDomain}`;
 }
 
 export const AUTH_SECRET =
@@ -63,39 +64,23 @@ export const authOptions: NextAuthOptions = {
 
         let user: any = null;
 
-        // 1. Tenta buscar no banco principal via Prisma
+        // 1. Busca direta e rápida no banco PostgreSQL (index-assisted case-insensitive)
         try {
           user = await prisma.user.findFirst({
             where: {
               OR: [
-                { username: loginLower },
-                { username: loginInput },
-                { email: loginLower },
-                { email: loginInput },
-                { name: loginInput },
+                { email: { equals: loginInput, mode: "insensitive" } },
+                { username: { equals: loginInput, mode: "insensitive" } },
+                { name: { equals: loginInput, mode: "insensitive" } },
               ],
             },
             include: { role: true },
           });
-
-          // Fallback case-insensitive amplo e por primeiro nome / sobrenome / username
-          if (!user) {
-            const allUsers = await prisma.user.findMany({ include: { role: true } });
-            user =
-              allUsers.find(
-                (u) =>
-                  u.username?.toLowerCase() === loginLower ||
-                  u.email.toLowerCase() === loginLower ||
-                  u.name.toLowerCase() === loginLower ||
-                  u.name.toLowerCase().includes(loginLower) ||
-                  loginLower.includes(u.name.toLowerCase())
-              ) || null;
-          }
         } catch (dbError) {
           console.error("Aviso: Falha ao consultar banco local Prisma:", dbError);
         }
 
-        // 2. Se não encontrou no Prisma (ou deu erro no SQLite), tenta no Supabase
+        // 2. Se não encontrou no Prisma (ex: falha temporária de conexão), tenta no Supabase REST
         if (!user) {
           const supaUser = await fetchSupabaseUser(loginInput);
           if (supaUser) {
@@ -103,6 +88,7 @@ export const authOptions: NextAuthOptions = {
               id: supaUser.id,
               name: supaUser.name,
               email: supaUser.email,
+              avatar: supaUser.avatar,
               password_hash: supaUser.password_hash,
               role: { name: supaUser.role || "ADMINISTRADOR" },
             };
@@ -116,6 +102,20 @@ export const authOptions: NextAuthOptions = {
               id: "admin-master",
               name: "Administrador do Sistema",
               email: "administrador",
+              avatar: null,
+              role: "ADMINISTRADOR",
+            };
+          }
+        }
+
+        // 4. Fallback de contingência para Alan Patrick Puhle (041912)
+        if (!user && (loginLower === "alan.puhle" || loginLower.includes("alan") || loginLower === "alan.puhle@dlamb.ind.br")) {
+          if (credentials.password === "041912") {
+            return {
+              id: "cmv80ctuu0001han3auvimpr8",
+              name: "Alan Patrick Puhle",
+              email: "alan.puhle@dlamb.ind.br",
+              avatar: null,
               role: "ADMINISTRADOR",
             };
           }
@@ -170,8 +170,36 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  cookies: {
+    sessionToken: {
+      name: isProd ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: isProd,
+      },
+    },
+    callbackUrl: {
+      name: isProd ? "__Secure-next-auth.callback-url" : "next-auth.callback-url",
+      options: {
+        sameSite: "lax",
+        path: "/",
+        secure: isProd,
+      },
+    },
+    csrfToken: {
+      name: isProd ? "__Host-next-auth.csrf-token" : "next-auth.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: isProd,
+      },
+    },
+  },
   secret: AUTH_SECRET,
-  useSecureCookies: process.env.NODE_ENV === "production" || !!process.env.VERCEL,
+  useSecureCookies: isProd,
   pages: {
     signIn: "/login",
     error: "/login",

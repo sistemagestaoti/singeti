@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Check, X, Trash2, Edit2 } from "lucide-react";
 
 export default function TicketActionClient({ ticketId, currentStatus }: { ticketId: string, currentStatus: string }) {
@@ -50,6 +51,13 @@ export default function TicketActionClient({ ticketId, currentStatus }: { ticket
 
   return (
     <div className="flex gap-2 flex-wrap mt-4 sm:mt-0">
+      <Link
+        href={`/service-desk/${ticketId}/edit`}
+        className="bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-primary/20 transition-colors"
+        title="Editar dados e itens do chamado"
+      >
+        <Edit2 className="w-4 h-4" /> Editar Chamado
+      </Link>
       {currentStatus !== 'RESOLVED' && currentStatus !== 'CLOSED' && (
         <button 
           onClick={() => handleStatusChange('RESOLVED', 'Resolver')} 
