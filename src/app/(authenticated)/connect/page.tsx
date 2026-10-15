@@ -61,6 +61,7 @@ export default async function ConnectPage() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(1500),
     });
     if (res.ok) {
       const supaUsers: any[] = await res.json();
