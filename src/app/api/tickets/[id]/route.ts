@@ -132,25 +132,43 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         category: true,
         asset: true,
         department: true,
+        comments: {
+          include: {
+            author: { select: { id: true, name: true, email: true, avatar: true } }
+          },
+          orderBy: { created_at: "asc" }
+        }
       }
     });
 
-    // Registra notas de auditoria na timeline se houver alterações importantes
-    if (auditLogs.length > 0 && user) {
-      await prisma.ticketComment.create({
-        data: {
-          ticket_id: resolvedParams.id,
-          author_id: user.id,
-          content: auditLogs.join(" "),
-          is_internal: true
+    // Registra notas de auditoria na timeline de forma resiliente
+    if (auditLogs.length > 0) {
+      try {
+        let authorId = user?.id;
+        if (!authorId || authorId === "admin-master") {
+          const fallbackUser = await prisma.user.findFirst();
+          authorId = fallbackUser?.id || session.user.id;
         }
-      });
+
+        if (authorId) {
+          await prisma.ticketComment.create({
+            data: {
+              ticket_id: resolvedParams.id,
+              author_id: authorId,
+              content: auditLogs.join(" "),
+              is_internal: true
+            }
+          });
+        }
+      } catch (auditError) {
+        console.warn("Aviso: Falha não-bloqueante ao registrar nota de auditoria:", auditError);
+      }
     }
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error: any) {
     console.error("PATCH /api/tickets/[id] error:", error);
-    return NextResponse.json({ error: "Erro ao atualizar chamado" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erro ao atualizar chamado" }, { status: 500 });
   }
 }
 
@@ -165,7 +183,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const body = await req.json();
     const { content, is_internal, status } = body;
     const user = await resolveCurrentUser(session);
-    const authorId = user ? user.id : session.user.id;
+    
+    let authorId = user?.id;
+    if (!authorId || authorId === "admin-master") {
+      const fallbackUser = await prisma.user.findFirst();
+      authorId = fallbackUser?.id || session.user.id;
+    }
     
     // Atualiza status se foi solicitado juntamente com o comentário
     if (status) {
@@ -174,6 +197,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         updateData.resolved_at = new Date();
       } else if (status === 'CLOSED') {
         updateData.closed_at = new Date();
+      } else {
+        updateData.resolved_at = null;
+        updateData.closed_at = null;
       }
       
       await prisma.ticket.update({
@@ -202,7 +228,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
     console.error("Ticket update/comment error:", error);
-    return NextResponse.json({ error: "Erro ao registrar interação" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erro ao registrar interação" }, { status: 500 });
   }
 }
 
