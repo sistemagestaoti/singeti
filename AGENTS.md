@@ -20,3 +20,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - No modo compacto/recolhido da barra lateral, deve ser exibido **exclusivamente o ícone**, centralizado.
 - O logotipo empilhado vertical com fundo (`logo-hq-transparent.png`) pertence exclusivamente à tela de login (`/login`).
 
+## 3. Fluxo de Git e Deploy Remoto
+- **REGRA MANDATÓRIA:** Todas as modificações, implementações e testes devem ser realizados e mantidos exclusivamente no ambiente LOCAL.
+- **NUNCA FAZER PUSH PARA O GITHUB SEM SOLICITAÇÃO:** Jamais executar `git push` para o GitHub de forma proativa. O envio remoto só deve ser executado quando o usuário solicitar explicitamente (ex.: "suba no github", "faça push").
+
+
