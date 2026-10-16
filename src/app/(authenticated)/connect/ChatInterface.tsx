@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { User as UserIcon, Search, Hash, MessageSquare, Send, Circle } from "lucide-react";
+import { User as UserIcon, Search, Hash, MessageSquare, Send, Circle, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 
 type User = {
@@ -71,6 +71,7 @@ export default function ChatInterface({
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [creatingDM, setCreatingDM] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Keep channels and users in sync if props change
@@ -185,6 +186,7 @@ export default function ChatInterface({
 
   // Handle clicking on a user in the Direct Messages list
   const handleSelectUser = async (targetUser: User) => {
+    setMobileView('chat');
     // 1. Look for existing DM channel with this user
     const existing = channels.find(c => 
       !c.is_group && 
@@ -255,12 +257,12 @@ export default function ChatInterface({
   };
 
   return (
-    <div className="flex h-full bg-background border-t border-border overflow-hidden">
+    <div className="flex-1 h-full min-h-0 flex bg-background border-0 sm:border border-border sm:rounded-xl overflow-hidden shadow-xs">
       {/* Sidebar de Canais e Usuários */}
-      <div className="w-80 border-r border-border bg-surface flex flex-col h-full flex-shrink-0">
+      <div className={`${mobileView === 'list' ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-border bg-surface flex-col h-full flex-shrink-0 min-h-0`}>
         
         {/* Header da Sidebar com Busca */}
-        <div className="p-4 border-b border-border space-y-3">
+        <div className="p-3.5 sm:p-4 border-b border-border space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold text-foreground tracking-wider uppercase flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-primary" />
@@ -286,7 +288,7 @@ export default function ChatInterface({
         </div>
 
         {/* Listas Roláveis */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-6 min-h-0">
           
           {/* 1. Canais de Equipe */}
           <div>
@@ -304,7 +306,10 @@ export default function ChatInterface({
                 return (
                   <li key={channel.id}>
                     <button
-                      onClick={() => setActiveChannelId(channel.id)}
+                      onClick={() => {
+                        setActiveChannelId(channel.id);
+                        setMobileView('chat');
+                      }}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                         isActive 
                           ? 'bg-primary text-primary-foreground shadow-sm' 
@@ -412,21 +417,32 @@ export default function ChatInterface({
       </div>
 
       {/* Área Principal de Conversa */}
-      <div className="flex-1 flex flex-col h-full bg-background min-w-0">
+      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex flex-1 flex-col h-full bg-background min-w-0 min-h-0`}>
         
         {/* Topbar da Conversa Ativa */}
-        <div className="h-16 px-6 border-b border-border bg-surface flex justify-between items-center z-10 shadow-sm flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="h-16 px-3.5 sm:px-6 border-b border-border bg-surface flex justify-between items-center z-10 shadow-sm flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Botão Voltar para Lista de Conversas no Mobile */}
+            <button
+              type="button"
+              onClick={() => setMobileView('list')}
+              className="md:hidden p-2 -ml-1 mr-0.5 rounded-lg hover:bg-surface-hover text-foreground/80 hover:text-foreground transition-colors flex items-center justify-center flex-shrink-0"
+              aria-label="Voltar para a lista de conversas"
+              title="Voltar"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
             {activeChannel?.is_group ? (
-              <div className="w-9 h-9 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold">
+              <div className="w-9 h-9 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold flex-shrink-0">
                 <Hash className="w-5 h-5" />
               </div>
             ) : (
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <UserAvatar 
                   name={activeDMUser?.name || "Usuário"} 
                   url={activeDMUser?.avatar} 
-                  className="w-10 h-10" 
+                  className="w-9 h-9 sm:w-10 sm:h-10" 
                 />
                 {isTargetOnline ? (
                   <span className="w-3 h-3 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full ring-1 ring-emerald-400/50 shadow-sm" />
@@ -436,7 +452,7 @@ export default function ChatInterface({
               </div>
             )}
             
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h2 className="text-sm font-bold text-foreground truncate flex items-center gap-2">
                 {activeChannel?.is_group ? (
                   `# ${activeChannel.name || "Geral"}`
@@ -446,28 +462,28 @@ export default function ChatInterface({
               </h2>
               {activeChannel?.is_group ? (
                 <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
-                  <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                  <span className="text-emerald-500 font-semibold flex items-center gap-1 flex-shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     {onlineCount} {onlineCount === 1 ? 'membro online' : 'membros online'}
                   </span>
-                  <span>•</span>
-                  <span>Canal público da equipe de TI</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span className="hidden sm:inline truncate">Canal público da equipe de TI</span>
                 </p>
               ) : (
                 <div className="flex items-center gap-2 text-[11px] truncate mt-0.5">
                   {isTargetOnline ? (
-                    <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <span className="text-emerald-500 font-semibold flex items-center gap-1 flex-shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                       Online agora
                     </span>
                   ) : (
-                    <span className="text-muted-foreground font-medium flex items-center gap-1">
+                    <span className="text-muted-foreground font-medium flex items-center gap-1 flex-shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
                       Offline
                     </span>
                   )}
-                  <span className="text-muted-foreground/40">•</span>
-                  <span className="text-muted-foreground truncate">
+                  <span className="text-muted-foreground/40 hidden sm:inline">•</span>
+                  <span className="text-muted-foreground truncate hidden sm:inline">
                     {activeDMUser?.job_title ? `${activeDMUser.job_title} • ${activeDMUser.email}` : activeDMUser?.email || "Conversa direta"}
                   </span>
                 </div>
@@ -477,9 +493,9 @@ export default function ChatInterface({
         </div>
         
         {/* Feed de Mensagens */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-3 sm:space-y-4 custom-scrollbar min-h-0">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-16">
+            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-16 px-4">
               <MessageSquare className="w-12 h-12 text-muted-foreground/30 mb-3" />
               <p className="text-sm font-semibold text-foreground">Nenhuma mensagem neste canal ainda.</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm">
@@ -495,15 +511,15 @@ export default function ChatInterface({
               return (
                 <div 
                   key={msg.id} 
-                  className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'} ${isSameSenderAsPrev ? 'mt-1' : 'mt-5'}`}
+                  className={`flex gap-2 sm:gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'} ${isSameSenderAsPrev ? 'mt-1' : 'mt-4 sm:mt-5'}`}
                 >
                   {!isSameSenderAsPrev ? (
-                    <UserAvatar name={msg.sender.name} url={msg.sender.avatar} className="w-8 h-8 mt-1 flex-shrink-0" />
+                    <UserAvatar name={msg.sender.name} url={msg.sender.avatar} className="w-7 h-7 sm:w-8 sm:h-8 mt-1 flex-shrink-0" />
                   ) : (
-                    <div className="w-8 h-8 flex-shrink-0" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0" />
                   )}
                   
-                  <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                  <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%]`}>
                     {!isSameSenderAsPrev && (
                       <div className="flex items-baseline gap-2 mb-1 px-1">
                         <span className="text-xs font-bold text-foreground">
@@ -515,10 +531,10 @@ export default function ChatInterface({
                       </div>
                     )}
                     <div 
-                      className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap ${
+                      className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap shadow-xs ${
                         isMe 
-                          ? 'bg-primary text-white rounded-tr-sm shadow-sm' 
-                          : 'bg-surface border border-border text-foreground rounded-tl-sm shadow-sm'
+                          ? 'bg-primary text-white rounded-tr-xs' 
+                          : 'bg-surface border border-border text-foreground rounded-tl-xs'
                       }`}
                     >
                       {msg.content}
@@ -532,25 +548,26 @@ export default function ChatInterface({
         </div>
 
         {/* Formulário de Envio */}
-        <div className="p-4 bg-surface border-t border-border flex-shrink-0">
-          <form onSubmit={sendMessage} className="flex items-center gap-3 max-w-5xl mx-auto">
+        <div className="p-2.5 sm:p-4 bg-surface border-t border-border flex-shrink-0">
+          <form onSubmit={sendMessage} className="flex items-center gap-2 sm:gap-3 max-w-5xl mx-auto">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 activeChannel?.is_group 
-                  ? `Digite sua mensagem para #${activeChannel.name || "Geral"}...` 
-                  : `Digite sua mensagem para ${activeDMUser?.name || "usuário"}...`
+                  ? `Mensagem #${activeChannel.name || "Geral"}...` 
+                  : `Mensagem para ${activeDMUser?.name || "usuário"}...`
               }
-              className="flex-1 border border-border bg-background rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground"
+              className="flex-1 border border-border bg-background rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground"
             />
             <button
               type="submit"
               disabled={!input.trim()}
-              className="bg-primary text-white rounded-xl px-5 py-3 text-sm font-semibold hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2 flex-shrink-0"
+              className="bg-primary text-white rounded-xl px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
+              title="Enviar mensagem"
             >
-              <span>Enviar</span>
+              <span className="hidden sm:inline">Enviar</span>
               <Send className="w-4 h-4" />
             </button>
           </form>

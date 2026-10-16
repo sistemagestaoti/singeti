@@ -63,11 +63,19 @@ export function AuthenticatedShell({
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Topbar userName={userName} avatar={userAvatar} />
-          <main className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8">
-            <div className="max-w-7xl mx-auto w-full">
-              {children}
-            </div>
-          </main>
+          {pathname?.startsWith("/connect") ? (
+            <main className="flex-1 overflow-hidden p-0 sm:p-3 md:p-6 flex flex-col min-h-0">
+              <div className="max-w-7xl mx-auto w-full h-full flex flex-col flex-1 min-h-0">
+                {children}
+              </div>
+            </main>
+          ) : (
+            <main className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8">
+              <div className="max-w-7xl mx-auto w-full">
+                {children}
+              </div>
+            </main>
+          )}
         </div>
       </div>
     </MobileMenuContext.Provider>

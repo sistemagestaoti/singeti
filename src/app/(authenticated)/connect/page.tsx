@@ -126,13 +126,13 @@ export default async function ConnectPage() {
   });
 
   return (
-    <main className="flex-1 overflow-hidden h-full">
+    <div className="flex-1 overflow-hidden h-full min-h-0 flex flex-col">
       <ChatInterface 
         currentUser={currentUser} 
         users={users}
         channels={channels}
         mainChannelId={mainChannel.id}
       />
-    </main>
+    </div>
   );
 }
