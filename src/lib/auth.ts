@@ -149,11 +149,17 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // NUNCA incluir avatar em base64 (data:image) ou strings longas no cookie JWT do NextAuth
+        // Cookies de sessão HTTP suportam no máximo ~4KB. Base64 causa erro fatal 494 REQUEST_HEADER_TOO_LARGE na Vercel.
+        const safeAvatar = (user.avatar && typeof user.avatar === "string" && !user.avatar.startsWith("data:") && user.avatar.length < 300) 
+          ? user.avatar 
+          : null;
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
-          image: user.avatar || null,
+          image: safeAvatar,
           role: user.role?.name || user.role || "ADMINISTRADOR",
         };
       },
@@ -164,7 +170,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
-        token.picture = (user as any).image || (user as any).avatar || null;
+        const img = (user as any).image;
+        token.picture = (img && typeof img === "string" && !img.startsWith("data:") && img.length < 300) ? img : null;
       }
       return token;
     },
@@ -174,7 +181,9 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.id as string,
           role: token.role as string,
-          image: (token.picture as string) || null,
+          image: (token.picture && typeof token.picture === "string" && !token.picture.startsWith("data:") && token.picture.length < 300) 
+            ? token.picture 
+            : null,
         };
       }
       return session;

@@ -32,6 +32,17 @@ export default function LoginPage() {
       sessionStorage.removeItem("syngeti_session_active");
       sessionStorage.removeItem("syngeti_login_time");
 
+      // Limpeza defensiva de cookies fragmentados acessíveis pelo cliente
+      try {
+        const cookies = document.cookie.split(";");
+        for (const c of cookies) {
+          const cookieName = c.split("=")[0].trim();
+          if (cookieName.includes("session-token") || cookieName.includes("next-auth")) {
+            document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          }
+        }
+      } catch {}
+
       // Carrega usuário salvo se a opção Lembrar-me estiver ativa
       const savedUser = localStorage.getItem("syngeti_saved_user");
       const isRemembered = localStorage.getItem("syngeti_remember_me") === "true";

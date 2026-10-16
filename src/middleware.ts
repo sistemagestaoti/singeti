@@ -8,6 +8,17 @@ const PRIMARY_SECRET =
   "super-secret-key-123";
 
 export async function middleware(req: NextRequest) {
+  // Se o usuário está acessando a página de login, limpa quaisquer fragmentos de cookies de sessão
+  if (req.nextUrl.pathname === "/login") {
+    const response = NextResponse.next();
+    for (const cookie of req.cookies.getAll()) {
+      if (cookie.name.includes("session-token")) {
+        response.cookies.delete(cookie.name);
+      }
+    }
+    return response;
+  }
+
   let token = null;
 
   // Verificação direta e de alta velocidade baseada no cookie presente na requisição
@@ -47,6 +58,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    "/login",
     "/dashboard/:path*",
     "/cmdb/:path*",
     "/service-desk/:path*",
