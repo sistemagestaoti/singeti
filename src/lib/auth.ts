@@ -153,6 +153,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
+          image: user.avatar || null,
           role: user.role?.name || user.role || "ADMINISTRADOR",
         };
       },
@@ -163,6 +164,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.picture = (user as any).image || (user as any).avatar || null;
       }
       return token;
     },
@@ -172,6 +174,7 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.id as string,
           role: token.role as string,
+          image: (token.picture as string) || null,
         };
       }
       return session;

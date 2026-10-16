@@ -16,7 +16,7 @@ let brandingMemoryCache: any = null;
 let brandingCacheFetching = false;
 
 export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
-  const { isMobileOpen, closeMobileMenu } = useMobileMenu();
+  const { isMobileOpen, closeMobileMenu, navigatingTo, startNavigation } = useMobileMenu();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
@@ -78,6 +78,12 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
   };
 
   const isCurrent = (path: string) => pathname?.startsWith(path);
+  const isNavActive = (path: string) => {
+    if (navigatingTo) {
+      return navigatingTo === path || navigatingTo.startsWith(path + "/");
+    }
+    return isCurrent(path);
+  };
 
   const navItems = [
     { 
@@ -261,8 +267,8 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
         {navItems.map((item) => {
           const hasSubItems = !!item.subItems;
           const active = hasSubItems 
-            ? item.subItems!.some(sub => isCurrent(sub.href))
-            : item.href && isCurrent(item.href);
+            ? item.subItems!.some(sub => isNavActive(sub.href))
+            : item.href && isNavActive(item.href);
             
           const isExpanded = expandedMenus[item.name];
 
@@ -274,7 +280,10 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                 key={item.name}
                 href={targetHref}
                 prefetch={true}
-                onClick={closeMobileMenu}
+                onClick={() => {
+                  startNavigation(targetHref);
+                  closeMobileMenu();
+                }}
                 title={item.name}
                 className={`flex items-center justify-center w-full h-11 rounded-xl transition-all duration-200 ${
                   active 
@@ -324,7 +333,10 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                 <Link
                   href={item.href!}
                   prefetch={true}
-                  onClick={closeMobileMenu}
+                  onClick={() => {
+                    startNavigation(item.href!);
+                    closeMobileMenu();
+                  }}
                   className={`flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 group
                     ${active 
                       ? 'bg-primary/10 border-l-4 border-primary rounded-l-none' 
@@ -341,13 +353,16 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                   <div className="absolute left-[21px] top-0 bottom-2 w-px bg-border/60"></div>
                   
                   {item.subItems!.map((subItem) => {
-                    const subActive = isCurrent(subItem.href);
+                    const subActive = isNavActive(subItem.href);
                     return (
                       <Link
                         key={subItem.name}
                         href={subItem.href}
                         prefetch={true}
-                        onClick={closeMobileMenu}
+                        onClick={() => {
+                          startNavigation(subItem.href);
+                          closeMobileMenu();
+                        }}
                         className={`pl-11 pr-3 py-2 text-xs font-semibold rounded-lg transition-all duration-200
                           ${subActive 
                             ? 'bg-primary/10 text-primary' 

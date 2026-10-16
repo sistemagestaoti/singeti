@@ -11,6 +11,8 @@ interface MobileMenuContextType {
   setIsMobileOpen: (open: boolean) => void;
   toggleMobileMenu: () => void;
   closeMobileMenu: () => void;
+  navigatingTo: string | null;
+  startNavigation: (href: string) => void;
 }
 
 const MobileMenuContext = createContext<MobileMenuContextType>({
@@ -18,6 +20,8 @@ const MobileMenuContext = createContext<MobileMenuContextType>({
   setIsMobileOpen: () => {},
   toggleMobileMenu: () => {},
   closeMobileMenu: () => {},
+  navigatingTo: null,
+  startNavigation: () => {},
 });
 
 export const useMobileMenu = () => useContext(MobileMenuContext);
@@ -34,20 +38,36 @@ export function AuthenticatedShell({
   children: React.ReactNode;
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
   const pathname = usePathname();
 
-  // Fecha o menu móvel automaticamente ao navegar
+  // Fecha o menu móvel e conclui estado de transição ao finalizar a troca de rota
   useEffect(() => {
     setIsMobileOpen(false);
+    setNavigatingTo(null);
   }, [pathname]);
 
   const toggleMobileMenu = () => setIsMobileOpen((prev) => !prev);
   const closeMobileMenu = () => setIsMobileOpen(false);
+  const startNavigation = (href: string) => {
+    if (href !== pathname) {
+      setNavigatingTo(href);
+    }
+  };
 
   return (
-    <MobileMenuContext.Provider value={{ isMobileOpen, setIsMobileOpen, toggleMobileMenu, closeMobileMenu }}>
+    <MobileMenuContext.Provider value={{ isMobileOpen, setIsMobileOpen, toggleMobileMenu, closeMobileMenu, navigatingTo, startNavigation }}>
       <div className="flex h-screen overflow-hidden bg-background">
         <SessionGuard />
+
+        {/* Barra superior indicadora de transição suave de abas (feedback visual imediato de 0ms) */}
+        {navigatingTo && (
+          <div 
+            className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-primary via-cyan-400 to-primary animate-pulse z-[9999]" 
+            role="progressbar" 
+            aria-label="Carregando aba" 
+          />
+        )}
 
         {/* Sidebar responsiva (drawer deslizante no mobile, fixa no desktop) */}
         <Sidebar initialBranding={initialBranding} />

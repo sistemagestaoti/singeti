@@ -54,32 +54,7 @@ export default async function ConnectPage() {
     userMap.set(u.email.toLowerCase(), { ...u });
   }
 
-  // Tentar unificar com usuários cadastrados no Supabase
-  try {
-    const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(1500),
-    });
-    if (res.ok) {
-      const supaUsers: any[] = await res.json();
-      for (const su of supaUsers) {
-        const email = (su.email || "").toLowerCase();
-        if (email && !userMap.has(email)) {
-          userMap.set(email, {
-            id: su.id,
-            name: su.name,
-            email: su.email,
-            avatar: su.avatar || null,
-            job_title: su.job_title || su.role || "Usuário",
-            status: su.status || "ACTIVE",
-          });
-        }
-      }
-    }
-  } catch {}
+
 
   const users = Array.from(userMap.values())
     .filter(u => {

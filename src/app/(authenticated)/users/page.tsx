@@ -11,7 +11,7 @@ export default async function UsersPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const [users, roles, departments] = await Promise.all([
+  const [users, roles, departments, distinctJobs, currentUser, defaultCompany] = await Promise.all([
     prisma.user.findMany({
       include: {
         role: true,
@@ -21,26 +21,21 @@ export default async function UsersPage() {
     }),
     prisma.role.findMany({ orderBy: { name: 'asc' } }),
     prisma.department.findMany({ orderBy: { name: 'asc' } }),
+    prisma.user.findMany({
+      where: { job_title: { not: null } },
+      select: { job_title: true },
+      distinct: ['job_title'],
+      orderBy: { job_title: 'asc' }
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { company_id: true }
+    }),
+    prisma.company.findFirst({ select: { id: true } }),
   ]);
 
-  const distinctJobs = await prisma.user.findMany({
-    where: { job_title: { not: null } },
-    select: { job_title: true },
-    distinct: ['job_title'],
-    orderBy: { job_title: 'asc' }
-  });
   const jobTitles = distinctJobs.map(j => j.job_title).filter(Boolean) as string[];
-
-  const currentUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { company_id: true }
-  });
-
-  let companyId = currentUser?.company_id;
-  if (!companyId) {
-    const defaultCompany = await prisma.company.findFirst();
-    companyId = defaultCompany?.id || "";
-  }
+  const companyId = currentUser?.company_id || defaultCompany?.id || "";
 
   return (
     <UserManager 

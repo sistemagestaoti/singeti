@@ -22,6 +22,7 @@ export default async function ServiceDeskPage() {
       orderBy: { name: "asc" }
     }),
     prisma.ticket.findMany({
+      take: 50,
       include: {
         requester: {
           select: { id: true, name: true, email: true, avatar: true }

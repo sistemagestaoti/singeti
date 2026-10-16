@@ -43,36 +43,7 @@ export async function GET() {
       });
     }
 
-    // 2. Buscar também no Supabase caso haja usuários registrados lá
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-        cache: "no-store",
-      });
 
-      if (res.ok) {
-        const supaUsers: any[] = await res.json();
-        for (const su of supaUsers) {
-          const email = (su.email || "").toLowerCase();
-          if (!email) continue;
-          if (!userMap.has(email)) {
-            userMap.set(email, {
-              id: su.id,
-              name: su.name,
-              email: su.email,
-              avatar: su.avatar || null,
-              job_title: su.job_title || su.role || "Usuário",
-              status: su.status || "ACTIVE",
-            });
-          }
-        }
-      }
-    } catch (e) {
-      // Ignora falha de rede externa no Supabase
-    }
 
     // 3. Montar lista excluindo o usuário logado e calculando status de presença online/offline
     const allUsers = Array.from(userMap.values())

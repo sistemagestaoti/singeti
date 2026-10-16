@@ -8,37 +8,22 @@ export default async function DepartmentsPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  let companyId: string = "default";
-  try {
-    if (session.user?.id) {
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { company_id: true }
-      });
-      if (user?.company_id) {
-        companyId = user.company_id;
-      }
-    }
-  } catch (err) {
-    console.warn("Aviso ao buscar empresa do usuário:", err);
-  }
+  const [user, defaultCompany, departments] = await Promise.all([
+    session.user?.id 
+      ? prisma.user.findUnique({ where: { id: session.user.id }, select: { company_id: true } }) 
+      : Promise.resolve(null),
+    prisma.company.findFirst({ select: { id: true } }),
+    prisma.department.findMany({
+      include: {
+        _count: {
+          select: { users: true }
+        }
+      },
+      orderBy: { name: 'asc' }
+    })
+  ]);
 
-  if (companyId === "default") {
-    const defaultCompany = await prisma.company.findFirst();
-    if (defaultCompany?.id) {
-      companyId = defaultCompany.id;
-    }
-  }
-
-  const departments = await prisma.department.findMany({
-    where: { company_id: companyId },
-    include: {
-      _count: {
-        select: { users: true }
-      }
-    },
-    orderBy: { name: 'asc' }
-  });
+  const companyId = user?.company_id || defaultCompany?.id || "default";
 
   return (
     <div className="flex flex-col gap-6">

@@ -30,8 +30,8 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
-  // Busca avatar com cache por ciclo de render
-  const userAvatar = session.user?.id ? await getUserAvatar(session.user.id) : null;
+  // Usa avatar da sessão diretamente sem consulta ao banco de dados; fallback para cache em memória se necessário
+  const userAvatar = session.user?.image || (session.user?.id ? await getUserAvatar(session.user.id) : null);
   const branding = getBranding();
 
   return (

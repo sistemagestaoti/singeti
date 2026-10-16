@@ -9,6 +9,17 @@ export interface ResolvedUser {
   role?: string;
 }
 
+// Cache em memória de usuários resolvidos (evita roundtrips repetidos de 100-200ms a cada navegação)
+const currentUserCache = new Map<string, { data: ResolvedUser; expiresAt: number }>();
+
+export function clearCurrentUserCache(key?: string) {
+  if (key) {
+    currentUserCache.delete(key);
+  } else {
+    currentUserCache.clear();
+  }
+}
+
 /**
  * Resolve o usuário real no banco SQLite / Prisma a partir da sessão do NextAuth.
  * Trata casos de ID de contingência (ex: "admin-master"), IDs do Supabase ou emails com case diferente.
@@ -18,6 +29,12 @@ export async function resolveCurrentUser(session: any): Promise<ResolvedUser | n
 
   const rawId = session.user.id;
   const rawEmail = session.user.email?.trim().toLowerCase();
+
+  const cacheKey = `${rawId || ''}:${rawEmail || ''}`;
+  const cached = currentUserCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
 
   let user = null;
 
@@ -109,7 +126,7 @@ export async function resolveCurrentUser(session: any): Promise<ResolvedUser | n
     });
   }
 
-  return {
+  const resolved: ResolvedUser = {
     id: user.id,
     name: user.name,
     email: user.email,
@@ -117,4 +134,7 @@ export async function resolveCurrentUser(session: any): Promise<ResolvedUser | n
     role_id: user.role_id,
     role: user.role?.name || "ADMINISTRADOR",
   };
+
+  currentUserCache.set(cacheKey, { data: resolved, expiresAt: Date.now() + 5 * 60 * 1000 });
+  return resolved;
 }
