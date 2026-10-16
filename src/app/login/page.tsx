@@ -13,7 +13,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [branding, setBranding] = useState<any>(null);
+  const [branding, setBranding] = useState<any>({
+    loginLogo: '/api/branding/logo',
+    appIcon: '/branding/logo-icon.png',
+    appLogo: '/branding/logo-wordmark.png',
+  });
   const [imageError, setImageError] = useState(false);
 
   // Estados da Recuperação de Senha
@@ -27,11 +31,24 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("syngeti_session_active");
       sessionStorage.removeItem("syngeti_login_time");
+
+      // Carrega usuário salvo se a opção Lembrar-me estiver ativa
+      const savedUser = localStorage.getItem("syngeti_saved_user");
+      const isRemembered = localStorage.getItem("syngeti_remember_me") === "true";
+      if (savedUser && isRemembered) {
+        setEmail(savedUser);
+        setRememberMe(true);
+      }
     }
 
     fetch("/api/branding")
       .then(res => res.json())
-      .then(data => setBranding(data))
+      .then(data => {
+        if (data) {
+          setBranding(data);
+          setImageError(false);
+        }
+      })
       .catch(console.error);
 
     if (typeof window !== "undefined") {
@@ -51,6 +68,17 @@ export default function LoginPage() {
     }
   }, []);
 
+  const handleToggleRememberMe = () => {
+    setRememberMe(prev => {
+      const next = !prev;
+      if (!next && typeof window !== "undefined") {
+        localStorage.removeItem("syngeti_saved_user");
+        localStorage.removeItem("syngeti_remember_me");
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -66,8 +94,17 @@ export default function LoginPage() {
       setError("E-mail ou senha incorretos.");
       setLoading(false);
     } else {
-      // Ativa flag de sessão para a aba do navegador
+      // Salva ou remove o usuário no localStorage conforme opção Lembrar-me
       if (typeof window !== "undefined") {
+        if (rememberMe && email.trim()) {
+          localStorage.setItem("syngeti_saved_user", email.trim());
+          localStorage.setItem("syngeti_remember_me", "true");
+        } else {
+          localStorage.removeItem("syngeti_saved_user");
+          localStorage.removeItem("syngeti_remember_me");
+        }
+
+        // Ativa flag de sessão para a aba do navegador
         sessionStorage.setItem("syngeti_session_active", "true");
         sessionStorage.setItem("syngeti_login_time", Date.now().toString());
       }
@@ -182,15 +219,51 @@ export default function LoginPage() {
       </div>
 
       {/* Lado Direito - Formulário de Login */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center p-6 bg-[#050D1B]">
-        <div className="w-full max-w-md bg-[#0f172a] p-10 rounded-[24px] border border-border/60 shadow-2xl">
+      <div className="flex w-full lg:w-1/2 items-center justify-center p-4 sm:p-6 md:p-8 bg-[#050D1B]">
+        <div className="w-full max-w-md bg-[#0f172a] p-6 sm:p-8 md:p-10 rounded-2xl sm:rounded-[24px] border border-border/60 shadow-2xl">
           
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Bem-vindo de volta</h2>
-            <p className="text-sm text-muted-foreground">Insira suas credenciais para acessar o painel</p>
+          {/* Logo com ícone visível no Mobile / Smartphone (< lg) */}
+          <div className="flex lg:hidden flex-col items-center justify-center mb-6">
+            {branding?.loginLogo && !imageError ? (
+              <img 
+                src={branding.loginLogo} 
+                alt="SYNGETI Gestão de TI" 
+                onError={() => setImageError(true)}
+                className="h-14 sm:h-16 w-auto max-w-[220px] object-contain drop-shadow-md mb-1" 
+              />
+            ) : (
+              <div className="flex items-center gap-3 py-1">
+                <svg width="36" height="42" viewBox="0 0 100 115" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+                  <path d="M50 0L93.3013 25V75L50 100L6.69873 75V25L50 0Z" fill="#0E1628"/>
+                  <path d="M75 37.5L50 25L25 37.5V62.5L50 75L75 62.5V37.5Z" fill="url(#paint0_linear_mobile)"/>
+                  <path d="M50 25V75" stroke="#00C2FF" strokeWidth="8"/>
+                  <path d="M25 37.5L50 50L75 37.5" stroke="#007BFF" strokeWidth="8"/>
+                  <path d="M25 62.5L50 50L75 62.5" stroke="#007BFF" strokeWidth="8"/>
+                  <defs>
+                    <linearGradient id="paint0_linear_mobile" x1="25" y1="25" x2="75" y2="75" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#007BFF"/>
+                      <stop offset="1" stopColor="#00C2FF"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="flex flex-col text-left">
+                  <span className="text-2xl font-extrabold tracking-widest text-white leading-none">
+                    SYNGE<span className="text-[#00C2FF]">TI</span>
+                  </span>
+                  <span className="text-[0.6rem] tracking-[0.18em] text-muted-foreground font-semibold mt-1">
+                    GESTÃO DE TI
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="mb-6 sm:mb-8 text-center lg:text-left">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-1.5 sm:mb-2">Bem-vindo de volta</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Insira suas credenciais para acessar o painel</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
             
             {/* Campo E-mail */}
             <div className="space-y-2">
@@ -237,12 +310,18 @@ export default function LoginPage() {
 
             {/* Lembrar / Esqueceu a Senha */}
             <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setRememberMe(!rememberMe)}>
+              <button 
+                type="button"
+                role="checkbox"
+                aria-checked={rememberMe}
+                onClick={handleToggleRememberMe}
+                className="flex items-center gap-2 cursor-pointer group focus:outline-none select-none text-left"
+              >
                 <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${rememberMe ? 'bg-primary-hover border-primary-hover' : 'border-slate-700 bg-[#050D1B] group-hover:border-primary'}`}>
                   {rememberMe && <Check className="w-3 h-3 text-white" />}
                 </div>
                 <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">Lembrar-me</span>
-              </label>
+              </button>
               <button
                 type="button"
                 onClick={() => {
