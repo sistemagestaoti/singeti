@@ -25,6 +25,7 @@ export default async function DashboardPage() {
   const [
     chamadosAbertos,
     emAtendimento,
+    chamadosResolvidos,
     resolvidosHoje,
     equipamentosAtivos,
     ticketsByCategory,
@@ -34,9 +35,10 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     prisma.ticket.count({ where: { status: { in: ["NEW", "OPEN"] } } }),
     prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
+    prisma.ticket.count({ where: { status: { in: ["RESOLVED", "CLOSED"] } } }),
     prisma.ticket.count({
       where: {
-        status: "RESOLVED",
+        status: { in: ["RESOLVED", "CLOSED"] },
         resolved_at: { gte: startOfToday },
       },
     }),
@@ -121,18 +123,20 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Resolvidos Hoje */}
+        {/* Chamados Resolvidos */}
         <div className="bg-surface rounded-2xl shadow-xs border border-border p-4 sm:p-6 flex flex-col group hover:border-success/50 transition-colors">
           <div className="flex items-center gap-3.5 mb-3 sm:mb-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-success flex items-center justify-center text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] shrink-0">
               <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <h3 className="text-xs sm:text-sm font-bold text-foreground">Resolvidos Hoje</h3>
+            <h3 className="text-xs sm:text-sm font-bold text-foreground">Resolvidos</h3>
           </div>
           <div className="flex items-end justify-between">
-            <p className="text-3xl sm:text-4xl font-black text-foreground">{resolvidosHoje}</p>
+            <p className="text-3xl sm:text-4xl font-black text-foreground">{chamadosResolvidos}</p>
             <div className="text-right">
-              <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold uppercase tracking-wider block mt-0.5">hoje</span>
+              <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold uppercase tracking-wider block mt-0.5">
+                {resolvidosHoje > 0 ? `+${resolvidosHoje} hoje` : "total"}
+              </span>
             </div>
           </div>
         </div>
@@ -184,8 +188,8 @@ export default async function DashboardPage() {
                   id={`#${ticket.code || ticket.id.substring(0,4).toUpperCase()}`} 
                   title={ticket.title} 
                   date={format(ticket.created_at, "dd/MM, HH:mm")} 
-                  status={ticket.status === 'RESOLVED' ? 'Resolvido' : ticket.status === 'IN_PROGRESS' ? 'Em atendimento' : 'Aberto'} 
-                  color={ticket.status === 'RESOLVED' ? 'success' : ticket.status === 'IN_PROGRESS' ? 'warning' : 'primary'} 
+                  status={ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? 'Resolvido' : ticket.status === 'IN_PROGRESS' ? 'Em atendimento' : 'Aberto'} 
+                  color={ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? 'success' : ticket.status === 'IN_PROGRESS' ? 'warning' : 'primary'} 
                 />
               ))
             )}
