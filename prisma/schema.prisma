@@ -131,6 +131,8 @@ model User {
 
   channels               ChatChannel[]          @relation("ChannelMembers")
   sent_messages          ChatMessage[]          @relation("SentMessages")
+  chat_reactions         ChatMessageReaction[]
+  saved_stickers         UserSticker[]
   password_reset_requests PasswordResetRequest[]
 
   @@map("users")
@@ -187,6 +189,9 @@ model Asset {
   Booking    Booking[]
   ticket_items TicketItem[]
 
+  @@index([status])
+  @@index([type])
+  @@index([created_at])
   @@map("assets")
 }
 
@@ -327,6 +332,12 @@ model Ticket {
   Change      Change?   @relation(fields: [changeId], references: [id])
   changeId    String?
 
+  @@index([status])
+  @@index([created_at])
+  @@index([category_id])
+  @@index([group_id])
+  @@index([assigned_to_id])
+  @@index([requester_id])
   @@map("tickets")
 }
 
@@ -622,12 +633,14 @@ model ChatChannel {
   members  User[]        @relation("ChannelMembers")
   messages ChatMessage[]
 
+  @@index([updated_at])
   @@map("chat_channels")
 }
 
 model ChatMessage {
   id         String @id @default(cuid())
   content    String
+  type       String @default("text") // "text" | "gif" | "sticker" | "image"
   channel_id String
   sender_id  String
 
@@ -636,10 +649,43 @@ model ChatMessage {
   channel ChatChannel @relation(fields: [channel_id], references: [id], onDelete: Cascade)
   sender  User        @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
 
+  reactions ChatMessageReaction[]
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  @@index([channel_id, created_at])
+  @@index([sender_id])
   @@map("chat_messages")
+}
+
+model ChatMessageReaction {
+  id         String   @id @default(cuid())
+  message_id String
+  user_id    String
+  emoji      String
+  created_at DateTime @default(now())
+
+  message ChatMessage @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([message_id, user_id, emoji])
+  @@index([message_id])
+  @@index([user_id])
+  @@map("chat_message_reactions")
+}
+
+model UserSticker {
+  id         String   @id @default(cuid())
+  user_id    String
+  url        String
+  name       String?
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("user_stickers")
 }
 
 // ---------------------------------------------------------

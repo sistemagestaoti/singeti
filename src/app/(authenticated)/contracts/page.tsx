@@ -13,8 +13,8 @@ export default async function ContractsPage() {
 
   const contracts = await prisma.contract.findMany({
     include: {
-      supplier: true,
-      manager: true,
+      supplier: { select: { id: true, name: true } },
+      manager: { select: { id: true, name: true } },
     },
     orderBy: { end_date: 'asc' }
   });

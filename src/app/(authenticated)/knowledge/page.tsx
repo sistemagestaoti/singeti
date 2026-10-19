@@ -12,7 +12,7 @@ export default async function KnowledgePage() {
 
   const articles = await prisma.knowledgeArticle.findMany({
     include: {
-      author: true,
+      author: { select: { id: true, name: true } },
     },
     orderBy: { view_count: 'desc' }
   });

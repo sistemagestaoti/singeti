@@ -13,7 +13,17 @@ export default async function UsersPage() {
 
   const [users, roles, departments, distinctJobs, currentUser, defaultCompany] = await Promise.all([
     prisma.user.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        job_title: true,
+        phone: true,
+        status: true,
+        avatar: true,
+        role_id: true,
+        department_id: true,
         role: true,
         department: true,
       },

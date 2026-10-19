@@ -12,7 +12,7 @@ export default async function SuppliersPage() {
 
   const suppliers = await prisma.supplier.findMany({
     include: {
-      contracts: true,
+      contracts: { select: { id: true, status: true } },
     },
     orderBy: { name: 'asc' }
   });

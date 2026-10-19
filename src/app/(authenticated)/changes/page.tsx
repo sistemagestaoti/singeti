@@ -13,8 +13,8 @@ export default async function ChangesPage() {
 
   const changes = await prisma.change.findMany({
     include: {
-      requester: true,
-      manager: true,
+      requester: { select: { id: true, name: true, email: true } },
+      manager: { select: { id: true, name: true, email: true } },
     },
     orderBy: { created_at: 'desc' }
   });

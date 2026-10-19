@@ -35,7 +35,17 @@ export async function GET(request: Request) {
   const messages = await prisma.chatMessage.findMany({
     where: { channel_id: channelId },
     include: {
-      sender: { select: { id: true, name: true, avatar: true } }
+      sender: { select: { id: true, name: true, avatar: true } },
+      reactions: {
+        select: {
+          id: true,
+          emoji: true,
+          user_id: true,
+          user: {
+            select: { id: true, name: true }
+          }
+        }
+      }
     },
     orderBy: { created_at: 'asc' },
     take: 100
@@ -49,7 +59,7 @@ export async function POST(request: Request) {
   if (!session) return new NextResponse("Unauthorized", { status: 401 });
 
   const body = await request.json();
-  const { channelId, content } = body;
+  const { channelId, content, type = "text" } = body;
 
   if (!channelId || !content || !content.trim()) {
     return new NextResponse("Missing fields", { status: 400 });
@@ -66,11 +76,22 @@ export async function POST(request: Request) {
   const message = await prisma.chatMessage.create({
     data: {
       content: content.trim(),
+      type: type || "text",
       channel_id: channelId,
       sender_id: senderId
     },
     include: {
-      sender: { select: { id: true, name: true, avatar: true } }
+      sender: { select: { id: true, name: true, avatar: true } },
+      reactions: {
+        select: {
+          id: true,
+          emoji: true,
+          user_id: true,
+          user: {
+            select: { id: true, name: true }
+          }
+        }
+      }
     }
   });
 

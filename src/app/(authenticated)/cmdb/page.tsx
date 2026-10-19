@@ -35,8 +35,8 @@ export default async function CMDBPage({
     prisma.asset.findMany({
       where,
       include: {
-        user: true,
-        department: true,
+        user: { select: { id: true, name: true, email: true } },
+        department: { select: { id: true, name: true } },
       },
       orderBy: { created_at: 'desc' },
       skip,

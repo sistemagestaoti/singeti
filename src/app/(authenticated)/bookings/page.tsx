@@ -12,8 +12,8 @@ export default async function BookingsPage() {
 
   const bookings = await prisma.booking.findMany({
     include: {
-      user: true,
-      asset: true,
+      user: { select: { id: true, name: true } },
+      asset: { select: { id: true, name: true, internal_id: true } },
     },
     orderBy: { start_time: 'asc' }
   });

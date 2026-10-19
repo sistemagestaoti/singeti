@@ -13,8 +13,8 @@ export default async function ProblemsPage() {
 
   const problems = await prisma.problem.findMany({
     include: {
-      assigned_to: true,
-      department: true,
+      assigned_to: { select: { id: true, name: true, email: true } },
+      department: { select: { id: true, name: true } },
     },
     orderBy: { created_at: 'desc' }
   });
