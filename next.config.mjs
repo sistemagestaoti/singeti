@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],
+    agentUpgrade: 'security',
   },
   outputFileTracingIncludes: {
     '/**': ['./prisma/sqlite.db', './sqlite.db'],
