@@ -18,6 +18,9 @@ export async function GET(req: Request) {
     const type = searchParams.get("type")?.trim() || "";
     const assigned_to_id = searchParams.get("assigned_to_id")?.trim() || "";
     const category_id = searchParams.get("category_id")?.trim() || "";
+    const department_id = searchParams.get("department_id")?.trim() || "";
+    const startDate = searchParams.get("startDate")?.trim() || "";
+    const endDate = searchParams.get("endDate")?.trim() || "";
 
     const where: any = {};
 
@@ -35,6 +38,22 @@ export async function GET(req: Request) {
 
     if (category_id && category_id !== "ALL") {
       where.category_id = category_id;
+    }
+
+    if (department_id && department_id !== "ALL") {
+      where.group_id = department_id;
+    }
+
+    if (startDate || endDate) {
+      where.created_at = {};
+      if (startDate) {
+        where.created_at.gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.created_at.lte = end;
+      }
     }
 
     if (assigned_to_id) {
@@ -55,8 +74,10 @@ export async function GET(req: Request) {
       ];
     }
 
+    const isExport = searchParams.get("export") === "true";
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)));
+    const maxLimit = isExport ? 5000 : 100;
+    const limit = Math.min(maxLimit, Math.max(1, parseInt(searchParams.get("limit") || (isExport ? "1000" : "50"), 10)));
     const skip = (page - 1) * limit;
 
     const [tickets, total] = await Promise.all([
