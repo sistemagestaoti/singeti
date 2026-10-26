@@ -67,6 +67,29 @@ export default function TicketDetailClient({
   const [savingProperty, setSavingProperty] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Responsible Field State (Technician Pick or Manual Name)
+  const [responsibleMode, setResponsibleMode] = useState<"SELECT" | "MANUAL">(
+    initialTicket.assigned_to_id ? "SELECT" : (initialTicket.assigned_to_name ? "MANUAL" : "SELECT")
+  );
+  const [manualResponsible, setManualResponsible] = useState(initialTicket.assigned_to_name || "");
+
+  // Ticket Items State
+  const [items, setItems] = useState<any[]>(initialTicket.items || []);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [newItemDesc, setNewItemDesc] = useState("");
+  const [newItemQty, setNewItemQty] = useState(1);
+  const [newItemUnit, setNewItemUnit] = useState("UN");
+  const [newItemNotes, setNewItemNotes] = useState("");
+  const [savingItem, setSavingItem] = useState(false);
+
+  // Item Edit State
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editQty, setEditQty] = useState(1);
+  const [editUnit, setEditUnit] = useState("UN");
+  const [editNotes, setEditNotes] = useState("");
+  const [savingEditItem, setSavingEditItem] = useState(false);
+
   // New Comment Form State
   const [commentText, setCommentText] = useState("");
   const [isInternal, setIsInternal] = useState(false);
@@ -108,6 +131,7 @@ export default function TicketDetailClient({
         setCommentStatusTarget(fields.status);
       }
       if (fields.assigned_to_id !== undefined) setAssignedToId(fields.assigned_to_id || "");
+      if (fields.assigned_to_name !== undefined) setManualResponsible(fields.assigned_to_name || "");
       if (fields.priority) setPriority(fields.priority);
       if (fields.urgency) setUrgency(fields.urgency);
       if (fields.impact) setImpact(fields.impact);
@@ -213,6 +237,105 @@ export default function TicketDetailClient({
     if (timelineTab === "INTERNAL") return c.is_internal;
     return true;
   });
+
+  // Add Ticket Item
+  const handleAddItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemDesc.trim()) return;
+    setSavingItem(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: newItemDesc.trim(),
+          quantity: Math.max(1, newItemQty || 1),
+          unit: newItemUnit.trim() || "UN",
+          notes: newItemNotes.trim() || undefined,
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erro ao adicionar item");
+      }
+      const added = await res.json();
+      setItems(prev => [...prev, added]);
+      setNewItemDesc("");
+      setNewItemQty(1);
+      setNewItemUnit("UN");
+      setNewItemNotes("");
+      setShowAddItem(false);
+    } catch (err: any) {
+      alert(err.message || "Falha ao adicionar item");
+    } finally {
+      setSavingItem(false);
+    }
+  };
+
+  // Start Edit Item
+  const handleStartEditItem = (item: any) => {
+    setEditingItemId(item.id);
+    setEditDesc(item.description);
+    setEditQty(item.quantity || 1);
+    setEditUnit(item.unit || "UN");
+    setEditNotes(item.notes || "");
+  };
+
+  // Save Edit Item
+  const handleSaveEditItem = async (itemId: string) => {
+    if (!editDesc.trim()) return;
+    setSavingEditItem(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/items/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: editDesc.trim(),
+          quantity: Math.max(1, editQty || 1),
+          unit: editUnit.trim() || "UN",
+          notes: editNotes.trim() || null,
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erro ao atualizar item");
+      }
+      const updated = await res.json();
+      setItems(prev => prev.map(i => i.id === itemId ? updated : i));
+      setEditingItemId(null);
+    } catch (err: any) {
+      alert(err.message || "Falha ao editar item");
+    } finally {
+      setSavingEditItem(false);
+    }
+  };
+
+  // Delete Item
+  const handleDeleteItem = async (itemId: string) => {
+    if (!window.confirm("Deseja realmente remover este item do chamado?")) return;
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/items/${itemId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erro ao excluir item");
+      }
+      setItems(prev => prev.filter(i => i.id !== itemId));
+    } catch (err: any) {
+      alert(err.message || "Falha ao excluir item");
+    }
+  };
+
+  // Sair do Chamado (não altera status nem SLA, pede confirmação se houver dados digitados não salvos)
+  const handleExitTicket = () => {
+    if (commentText.trim() || newItemDesc.trim()) {
+      if (!window.confirm("Atenção: Você possui dados ou respostas não salvas. Deseja sair do chamado sem salvar?")) {
+        return;
+      }
+    }
+    router.push("/service-desk");
+  };
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-12">
@@ -365,6 +488,262 @@ export default function TicketDetailClient({
             <div className="bg-surface-elevated p-4 rounded-xl border border-border text-foreground text-sm leading-relaxed whitespace-pre-wrap font-sans">
               {ticket.description}
             </div>
+          </div>
+
+                    {/* ITENS DO CHAMADO */}
+          <div className="bg-surface shadow-xs rounded-2xl border border-border p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-border">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Box className="w-4 h-4 text-primary" />
+                  ITENS DO CHAMADO ({items.length})
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Peças, periféricos, licenças ou recursos vinculados a este atendimento.
+                </p>
+              </div>
+
+              {!showAddItem && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddItem(true)}
+                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  + Adicionar Item
+                </button>
+              )}
+            </div>
+
+            {/* Form inline to add new item */}
+            {showAddItem && (
+              <form onSubmit={handleAddItem} className="bg-surface-elevated p-4 rounded-xl border border-primary/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5" />
+                    Novo Item do Chamado
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddItem(false)}
+                    className="text-muted-foreground hover:text-foreground text-xs"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                  <div className="sm:col-span-5">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Descrição do Item *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Mouse sem fio, Memória RAM 16GB, Cabo Cat6..."
+                      value={newItemDesc}
+                      onChange={(e) => setNewItemDesc(e.target.value)}
+                      className="w-full text-xs font-medium px-3 py-2 rounded-lg border border-border bg-surface text-foreground focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Quantidade *</label>
+                    <input
+                      type="number"
+                      min={1}
+                      required
+                      value={newItemQty}
+                      onChange={(e) => setNewItemQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-full text-xs font-bold text-center px-2 py-2 rounded-lg border border-border bg-surface text-foreground focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Unidade</label>
+                    <input
+                      type="text"
+                      placeholder="UN, CX..."
+                      value={newItemUnit}
+                      onChange={(e) => setNewItemUnit(e.target.value)}
+                      className="w-full text-xs font-medium text-center px-2 py-2 rounded-lg border border-border bg-surface text-foreground focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Observação</label>
+                    <input
+                      type="text"
+                      placeholder="Detalhes, especificações..."
+                      value={newItemNotes}
+                      onChange={(e) => setNewItemNotes(e.target.value)}
+                      className="w-full text-xs font-medium px-3 py-2 rounded-lg border border-border bg-surface text-foreground focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddItem(false)}
+                    className="px-3 py-1.5 rounded-lg border border-border bg-surface text-muted-foreground hover:bg-surface-hover text-xs font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingItem || !newItemDesc.trim()}
+                    className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover text-xs font-bold transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {savingItem ? "Salvando..." : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Salvar Item
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Table or Empty state */}
+            {items.length === 0 && !showAddItem ? (
+              <div className="text-center py-6 border-2 border-dashed border-border rounded-xl">
+                <Box className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
+                <p className="text-xs text-muted-foreground font-medium">
+                  Nenhum item adicionado a este chamado ainda.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowAddItem(true)}
+                  className="mt-2.5 text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  + Adicionar o primeiro item
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-surface-elevated border-b border-border text-muted-foreground uppercase font-bold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-2.5 px-3">#</th>
+                      <th className="py-2.5 px-3">Descrição do Item</th>
+                      <th className="py-2.5 px-3 text-center">Quantidade</th>
+                      <th className="py-2.5 px-3 text-center">Unidade</th>
+                      <th className="py-2.5 px-3">Observação</th>
+                      <th className="py-2.5 px-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {items.map((item, idx) => {
+                      const isEditing = editingItemId === item.id;
+                      return (
+                        <tr key={item.id} className="hover:bg-surface-elevated/40 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-muted-foreground">{idx + 1}</td>
+                          
+                          <td className="py-2.5 px-3">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={editDesc}
+                                onChange={(e) => setEditDesc(e.target.value)}
+                                className="w-full text-xs font-semibold px-2 py-1 rounded border border-border bg-surface text-foreground"
+                              />
+                            ) : (
+                              <div className="font-semibold text-foreground">{item.description}</div>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-center">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min={1}
+                                value={editQty}
+                                onChange={(e) => setEditQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                className="w-16 text-xs font-bold text-center px-1.5 py-1 rounded border border-border bg-surface text-foreground mx-auto"
+                              />
+                            ) : (
+                              <span className="font-bold text-foreground">{item.quantity}</span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-center">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={editUnit}
+                                onChange={(e) => setEditUnit(e.target.value)}
+                                className="w-16 text-xs text-center px-1.5 py-1 rounded border border-border bg-surface text-foreground mx-auto"
+                              />
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-surface-elevated border border-border font-mono text-[10px] text-muted-foreground">
+                                {item.unit || "UN"}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={editNotes}
+                                onChange={(e) => setEditNotes(e.target.value)}
+                                className="w-full text-xs px-2 py-1 rounded border border-border bg-surface text-foreground"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground">{item.notes || "—"}</span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-right">
+                            {isEditing ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  disabled={savingEditItem || !editDesc.trim()}
+                                  onClick={() => handleSaveEditItem(item.id)}
+                                  className="p-1 rounded bg-success/10 text-success hover:bg-success/20 transition-colors"
+                                  title="Salvar alterações"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingItemId(null)}
+                                  className="p-1 rounded bg-surface-elevated text-muted-foreground hover:text-foreground transition-colors"
+                                  title="Cancelar"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditItem(item)}
+                                  className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                                  title="Editar item"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  className="p-1 text-muted-foreground hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                                  title="Remover item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Timeline Section */}
@@ -664,34 +1043,110 @@ export default function TicketDetailClient({
               </div>
             </div>
 
-            {/* Technician / Assignee */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                  Técnico Responsável
+            {/* Responsável pelo Chamado */}
+            <div className="space-y-2 p-3.5 bg-surface-elevated/70 rounded-xl border border-border">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-primary" />
+                  Responsável pelo Chamado
                 </label>
-                {currentUser && assignedToId !== currentUser.id && (
-                  <button
-                    type="button"
-                    onClick={() => updateTicketProperty({ assigned_to_id: currentUser.id, status: "IN_PROGRESS" })}
-                    className="text-[10px] font-bold text-primary hover:underline"
-                  >
-                    + Assumir Chamado
-                  </button>
-                )}
+                {savingProperty && <span className="text-[10px] text-primary animate-pulse font-medium">salvando...</span>}
               </div>
-              <select
-                value={assignedToId}
-                onChange={(e) => updateTicketProperty({ assigned_to_id: e.target.value })}
-                className="w-full text-xs font-medium rounded-xl border border-border bg-surface-elevated px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Não atribuído (Fila de Atendimento)</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.email})
-                  </option>
-                ))}
-              </select>
+
+              {/* Toggle Mode */}
+              <div className="flex items-center gap-1 bg-surface p-0.5 rounded-lg border border-border text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setResponsibleMode("SELECT")}
+                  className={`flex-1 py-1 rounded-md transition-all ${
+                    responsibleMode === "SELECT" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Selecionar Técnico
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResponsibleMode("MANUAL")}
+                  className={`flex-1 py-1 rounded-md transition-all ${
+                    responsibleMode === "MANUAL" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Digitar Nome Livre
+                </button>
+              </div>
+
+              {responsibleMode === "SELECT" ? (
+                <div className="space-y-1.5">
+                  <select
+                    value={assignedToId}
+                    disabled={savingProperty}
+                    onChange={async (e) => {
+                      const newId = e.target.value;
+                      setAssignedToId(newId);
+                      const userObj = users.find(u => u.id === newId);
+                      const newName = userObj ? userObj.name : null;
+                      setManualResponsible(newName || "");
+                      await updateTicketProperty({
+                        assigned_to_id: newId || null,
+                        assigned_to_name: newName,
+                      });
+                    }}
+                    className="w-full text-xs font-medium rounded-xl border border-border bg-surface px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">Não atribuído (Fila de Atendimento)</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.email})
+                      </option>
+                    ))}
+                  </select>
+                  {currentUser && assignedToId !== currentUser.id && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setAssignedToId(currentUser.id);
+                        setManualResponsible(currentUser.name);
+                        await updateTicketProperty({
+                          assigned_to_id: currentUser.id,
+                          assigned_to_name: currentUser.name,
+                          status: status === "NEW" ? "IN_PROGRESS" : undefined,
+                        });
+                      }}
+                      className="text-[10px] font-bold text-primary hover:underline block"
+                    >
+                      + Assumir Chamado ({currentUser.name})
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Nome do responsável (ex: João Marcos)..."
+                      value={manualResponsible}
+                      onChange={(e) => setManualResponsible(e.target.value)}
+                      className="w-full text-xs font-medium rounded-xl border border-border bg-surface px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
+                    />
+                    <button
+                      type="button"
+                      disabled={savingProperty || !manualResponsible.trim()}
+                      onClick={async () => {
+                        await updateTicketProperty({
+                          assigned_to_id: null,
+                          assigned_to_name: manualResponsible.trim(),
+                        });
+                      }}
+                      className="px-3 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary-hover disabled:opacity-50 shrink-0 shadow-xs"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Responsável atual: <strong className="text-foreground">{ticket.assigned_to_name || ticket.assigned_to?.name || "Não atribuído"}</strong>
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Category */}
