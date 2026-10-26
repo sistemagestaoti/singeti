@@ -59,6 +59,14 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
             name: true,
           }
         },
+        items: {
+          include: {
+            asset: true,
+          },
+          orderBy: {
+            created_at: "asc"
+          }
+        },
         comments: {
           include: {
             author: {

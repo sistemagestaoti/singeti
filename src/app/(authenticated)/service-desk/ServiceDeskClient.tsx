@@ -38,6 +38,8 @@ interface Ticket {
     email: string;
     avatar?: string | null;
   } | null;
+  assigned_to_id?: string | null;
+  assigned_to_name?: string | null;
   category?: {
     id: string;
     name: string;
@@ -353,7 +355,7 @@ export default function ServiceDeskClient({
     // Performance por Atendente
     const attendantMap: Record<string, { name: string; total: number; resolved: number }> = {};
     list.forEach(t => {
-      const aName = t.assigned_to?.name || "Não atribuído";
+      const aName = t.assigned_to_name || t.assigned_to?.name || "Não atribuído";
       if (!attendantMap[aName]) attendantMap[aName] = { name: aName, total: 0, resolved: 0 };
       attendantMap[aName].total += 1;
       if (t.status === "RESOLVED" || t.status === "CLOSED") {
@@ -387,7 +389,7 @@ export default function ServiceDeskClient({
         const codeMatch = ticket.code?.toLowerCase().includes(query);
         const titleMatch = ticket.title?.toLowerCase().includes(query);
         const requesterMatch = ticket.requester?.name?.toLowerCase().includes(query);
-        const assigneeMatch = ticket.assigned_to?.name?.toLowerCase().includes(query);
+        const assigneeMatch = (ticket.assigned_to_name || ticket.assigned_to?.name)?.toLowerCase().includes(query);
         if (!codeMatch && !titleMatch && !requesterMatch && !assigneeMatch) return false;
       }
 
@@ -405,9 +407,9 @@ export default function ServiceDeskClient({
 
       // Assignee
       if (filterAssignee === "MINE") {
-        if (!currentUser || ticket.assigned_to?.id !== currentUser.id) return false;
+        if (!currentUser || (ticket.assigned_to?.id !== currentUser.id && ticket.assigned_to_name !== currentUser.name)) return false;
       } else if (filterAssignee === "UNASSIGNED") {
-        if (ticket.assigned_to) return false;
+        if (ticket.assigned_to_id || ticket.assigned_to_name || ticket.assigned_to) return false;
       }
 
       return true;
@@ -425,6 +427,7 @@ export default function ServiceDeskClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assigned_to_id: currentUser.id,
+          assigned_to_name: currentUser.name,
           status: "IN_PROGRESS"
         })
       });
@@ -432,7 +435,7 @@ export default function ServiceDeskClient({
       if (!res.ok) throw new Error("Erro ao atribuir chamado");
 
       const updated = await res.json();
-      setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, assigned_to: currentUser, status: "IN_PROGRESS" } : t));
+      setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, assigned_to: currentUser, assigned_to_name: currentUser.name, status: "IN_PROGRESS" } : t));
       router.refresh();
     } catch (err: any) {
       alert(err.message || "Falha na atribuição");
@@ -477,7 +480,7 @@ export default function ServiceDeskClient({
       STATUS_CONFIG[t.status]?.label || t.status,
       PRIORITY_CONFIG[t.priority]?.label || t.priority,
       `"${t.requester?.name || ''}"`,
-      `"${t.assigned_to?.name || 'Não atribuído'}"`,
+      `"${t.assigned_to_name || t.assigned_to?.name || 'Não atribuído'}"`,
       `"${t.category?.name || 'Geral'}"`,
       new Date(t.created_at).toLocaleString("pt-BR")
     ]);
@@ -1107,12 +1110,12 @@ export default function ServiceDeskClient({
 
                         {/* Assignee */}
                         <td className="px-5 py-4 whitespace-nowrap">
-                          {ticket.assigned_to ? (
+                          {ticket.assigned_to_name || ticket.assigned_to ? (
                             <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                               <div className="w-5 h-5 rounded-full bg-success/10 text-success flex items-center justify-center text-[10px] font-bold">
-                                {ticket.assigned_to.name.charAt(0).toUpperCase()}
+                                {(ticket.assigned_to_name || ticket.assigned_to?.name || "T").charAt(0).toUpperCase()}
                               </div>
-                              <span className="line-clamp-1">{ticket.assigned_to.name}</span>
+                              <span className="line-clamp-1">{ticket.assigned_to_name || ticket.assigned_to?.name}</span>
                             </div>
                           ) : (
                             <button
@@ -1527,7 +1530,7 @@ export default function ServiceDeskClient({
                           {t.requester?.name || "-"}
                         </td>
                         <td className="py-2.5 px-3 text-foreground truncate max-w-[140px]">
-                          {t.assigned_to?.name || "Não atribuído"}
+                          {t.assigned_to_name || t.assigned_to?.name || "Não atribuído"}
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground text-[11px] whitespace-nowrap">
                           {new Date(t.created_at).toLocaleDateString("pt-BR")}

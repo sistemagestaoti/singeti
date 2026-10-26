@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { recordUserPresence, getAllPresenceMap } from "@/lib/presence";
+import { recordUserPresence, setUserOffline, getAllPresenceMap } from "@/lib/presence";
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +14,16 @@ export async function POST(req: Request) {
     const name = session.user.name || undefined;
     const email = session.user.email || undefined;
 
-    recordUserPresence(userId, name, email);
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {}
+
+    if (body.action === "offline") {
+      setUserOffline(userId, email);
+    } else {
+      recordUserPresence(userId, name, email);
+    }
 
     return NextResponse.json({
       success: true,

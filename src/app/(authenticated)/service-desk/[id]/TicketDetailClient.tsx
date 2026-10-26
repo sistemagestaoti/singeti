@@ -7,7 +7,7 @@ import {
   ArrowLeft, CheckCircle2, Clock, ShieldAlert, User, 
   MessageSquare, Lock, AlertCircle, Laptop, Calendar, 
   Trash2, UserCheck, RefreshCw, Send, Check, X,
-  Printer, Sparkles, Building, Layers, Eye
+  Printer, Sparkles, Building, Layers, Eye, Box, Plus, Edit2
 } from "lucide-react";
 
 interface Comment {

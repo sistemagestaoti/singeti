@@ -43,7 +43,7 @@ interface ServiceDeskExportModalProps {
 
 type ExportFormat = "PDF" | "XLSX" | "CSV";
 type ExportScope = "SCREEN" | "DATABASE";
-type DatePreset = "TODAY" | "LAST_7_DAYS" | "THIS_MONTH" | "LAST_30_DAYS" | "THIS_YEAR" | "CUSTOM" | "ALL";
+type DatePreset = "THIS_WEEK" | "LAST_WEEK" | "THIS_MONTH" | "LAST_MONTH" | "THIS_YEAR" | "LAST_YEAR" | "CUSTOM" | "ALL" | "TODAY" | "LAST_7_DAYS" | "LAST_30_DAYS";
 
 export default function ServiceDeskExportModal({
   isOpen,
@@ -90,23 +90,48 @@ export default function ServiceDeskExportModal({
     if (preset === "TODAY") {
       setStartDate(todayStr);
       setEndDate(todayStr);
+    } else if (preset === "THIS_WEEK") {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(new Date().setDate(diff));
+      setStartDate(monday.toISOString().split("T")[0]);
+      setEndDate(todayStr);
+    } else if (preset === "LAST_WEEK") {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1) - 7;
+      const prevMonday = new Date(new Date().setDate(diff));
+      const prevSunday = new Date(new Date().setDate(diff + 6));
+      setStartDate(prevMonday.toISOString().split("T")[0]);
+      setEndDate(prevSunday.toISOString().split("T")[0]);
+    } else if (preset === "THIS_MONTH") {
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      setStartDate(startOfMonth.toISOString().split("T")[0]);
+      setEndDate(todayStr);
+    } else if (preset === "LAST_MONTH") {
+      const startLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const endLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      setStartDate(startLastMonth.toISOString().split("T")[0]);
+      setEndDate(endLastMonth.toISOString().split("T")[0]);
+    } else if (preset === "THIS_YEAR") {
+      const startOfYear = new Date(today.getFullYear(), 0, 1);
+      setStartDate(startOfYear.toISOString().split("T")[0]);
+      setEndDate(todayStr);
+    } else if (preset === "LAST_YEAR") {
+      const startLastYear = new Date(today.getFullYear() - 1, 0, 1);
+      const endLastYear = new Date(today.getFullYear() - 1, 11, 31);
+      setStartDate(startLastYear.toISOString().split("T")[0]);
+      setEndDate(endLastYear.toISOString().split("T")[0]);
     } else if (preset === "LAST_7_DAYS") {
       const past = new Date();
       past.setDate(past.getDate() - 7);
       setStartDate(past.toISOString().split("T")[0]);
       setEndDate(todayStr);
-    } else if (preset === "THIS_MONTH") {
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      setStartDate(startOfMonth.toISOString().split("T")[0]);
-      setEndDate(todayStr);
     } else if (preset === "LAST_30_DAYS") {
       const past = new Date();
       past.setDate(past.getDate() - 30);
       setStartDate(past.toISOString().split("T")[0]);
-      setEndDate(todayStr);
-    } else if (preset === "THIS_YEAR") {
-      const startOfYear = new Date(today.getFullYear(), 0, 1);
-      setStartDate(startOfYear.toISOString().split("T")[0]);
       setEndDate(todayStr);
     } else if (preset === "ALL") {
       setStartDate("");
@@ -355,13 +380,14 @@ export default function ServiceDeskExportModal({
                 <span className="text-[11px] text-muted-foreground block mb-1.5">Período Pré-definido:</span>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { id: "TODAY", label: "Hoje" },
-                    { id: "LAST_7_DAYS", label: "Últimos 7 dias" },
-                    { id: "THIS_MONTH", label: "Este Mês" },
-                    { id: "LAST_30_DAYS", label: "Últimos 30 dias" },
+                    { id: "THIS_WEEK", label: "Semana Atual" },
+                    { id: "LAST_WEEK", label: "Semana Anterior" },
+                    { id: "THIS_MONTH", label: "Mês Atual" },
+                    { id: "LAST_MONTH", label: "Mês Anterior" },
                     { id: "THIS_YEAR", label: "Ano Atual" },
-                    { id: "ALL", label: "Todo o Histórico" },
+                    { id: "LAST_YEAR", label: "Ano Anterior" },
                     { id: "CUSTOM", label: "Personalizado" },
+                    { id: "ALL", label: "Todo o Histórico" },
                   ].map((p) => (
                     <button
                       key={p.id}

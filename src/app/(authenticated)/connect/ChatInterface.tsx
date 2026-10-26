@@ -261,7 +261,7 @@ export default function ChatInterface({
     }
   }, [mediaTab, gifSearch, gifCategory]);
 
-  // Polling em segundo plano para manter a lista de todos os usuários e o status Online/Offline sempre atualizados
+  // Polling e heartbeat em segundo plano para manter a presença Online/Offline sempre atualizada
   const fetchUsersAndPresence = async () => {
     if (typeof document !== "undefined" && document.hidden) return;
     try {
@@ -275,13 +275,43 @@ export default function ChatInterface({
     } catch (e) {}
   };
 
+  const sendHeartbeatAndUpdatePresence = async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    try {
+      const res = await fetch("/api/chat/presence", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.presence) {
+          setUserList(prevUsers => {
+            return prevUsers.map(u => {
+              const p = data.presence[u.id] || (u.email ? data.presence[`email:${u.email.toLowerCase()}`] : undefined);
+              if (p) {
+                return { ...u, isOnline: p.isOnline, lastSeen: p.lastSeen };
+              }
+              return { ...u, isOnline: false };
+            });
+          });
+        }
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     fetchUsersAndPresence();
-    const interval = setInterval(fetchUsersAndPresence, 8000);
-    const handleVis = () => { if (!document.hidden) fetchUsersAndPresence(); };
+    // Heartbeat leve a cada 7 segundos para presença em tempo real com baixo overhead
+    const heartbeatInterval = setInterval(sendHeartbeatAndUpdatePresence, 7000);
+    // Recarregamento completo da lista de usuários a cada 60 segundos
+    const usersInterval = setInterval(fetchUsersAndPresence, 60000);
+    
+    const handleVis = () => { 
+      if (!document.hidden) {
+        sendHeartbeatAndUpdatePresence(); 
+      }
+    };
     document.addEventListener("visibilitychange", handleVis);
     return () => {
-      clearInterval(interval);
+      clearInterval(heartbeatInterval);
+      clearInterval(usersInterval);
       document.removeEventListener("visibilitychange", handleVis);
     };
   }, []);
@@ -697,15 +727,23 @@ export default function ChatInterface({
                             />
                           ) : (
                             <span 
-                              className="w-3 h-3 bg-zinc-600 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full opacity-60" 
+                              className="w-3 h-3 bg-red-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full shadow-sm ring-1 ring-red-400/40 opacity-85" 
                               title="Offline"
                             />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
-                            <span className="truncate font-semibold text-xs group-hover:text-primary transition-colors">
-                              {user.name}
+                            <span className="truncate font-semibold text-xs group-hover:text-primary transition-colors flex items-center gap-1.5">
+                              <span 
+                                className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors ${
+                                  user.isOnline 
+                                    ? "bg-emerald-500 ring-1 ring-emerald-400/50 shadow-xs" 
+                                    : "bg-red-500 ring-1 ring-red-400/40 opacity-80"
+                                }`}
+                                title={user.isOnline ? "Online" : "Offline"}
+                              />
+                              <span className="truncate">{user.name}</span>
                             </span>
                             {user.isOnline ? (
                               <span className="text-[9px] font-extrabold text-emerald-500 uppercase tracking-wider flex-shrink-0 flex items-center gap-1">
@@ -713,7 +751,8 @@ export default function ChatInterface({
                                 Online
                               </span>
                             ) : (
-                              <span className="text-[9px] font-medium text-muted-foreground/60 uppercase tracking-wider flex-shrink-0">
+                              <span className="text-[9px] font-medium text-red-400/90 uppercase tracking-wider flex-shrink-0 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500/80"></span>
                                 Offline
                               </span>
                             )}
@@ -778,9 +817,9 @@ export default function ChatInterface({
                   className="w-9 h-9 sm:w-10 sm:h-10" 
                 />
                 {isTargetOnline ? (
-                  <span className="w-3 h-3 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full ring-1 ring-emerald-400/50 shadow-sm" />
+                  <span className="w-3 h-3 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full ring-1 ring-emerald-400/50 shadow-sm" title="Online" />
                 ) : (
-                  <span className="w-3 h-3 bg-zinc-600 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full opacity-60" />
+                  <span className="w-3 h-3 bg-red-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full ring-1 ring-red-400/40 shadow-sm opacity-85" title="Offline" />
                 )}
               </div>
             )}
@@ -790,7 +829,17 @@ export default function ChatInterface({
                 {activeChannel?.is_group ? (
                   `# ${activeChannel.name || "Geral"}`
                 ) : (
-                  `@ ${activeDMUser?.name || "Chat Direto"}`
+                  <>
+                    <span className="truncate">@{activeDMUser?.name || "Chat Direto"}</span>
+                    <span 
+                      className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors ${
+                        isTargetOnline 
+                          ? "bg-emerald-500 ring-1 ring-emerald-400/50 shadow-xs" 
+                          : "bg-red-500 ring-1 ring-red-400/40 opacity-80"
+                      }`}
+                      title={isTargetOnline ? "Online" : "Offline"}
+                    />
+                  </>
                 )}
               </h2>
               {activeChannel?.is_group ? (
@@ -810,8 +859,8 @@ export default function ChatInterface({
                       Online agora
                     </span>
                   ) : (
-                    <span className="text-muted-foreground font-medium flex items-center gap-1 flex-shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500"></span>
+                    <span className="text-red-400/90 font-medium flex items-center gap-1 flex-shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500/80"></span>
                       Offline
                     </span>
                   )}

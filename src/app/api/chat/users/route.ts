@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isUserOnline, getUserLastSeen } from "@/lib/presence";
+import { isUserOnline, getUserLastSeen, recordUserPresence } from "@/lib/presence";
 
 const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
@@ -16,6 +16,9 @@ export async function GET() {
 
     const currentUserId = session.user.id;
     const currentUserEmail = session.user.email?.toLowerCase();
+
+    // Registra presença ativa do usuário autenticado no Connect Chat
+    recordUserPresence(currentUserId, session.user.name || undefined, currentUserEmail || undefined);
 
     // 1. Buscar todos os usuários do banco de dados Prisma
     const prismaUsers = await prisma.user.findMany({

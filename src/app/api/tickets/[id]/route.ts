@@ -15,8 +15,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const ticket = await prisma.ticket.findUnique({
       where: { id: resolvedParams.id },
       include: {
-        requester: true,
-        assigned_to: true,
+        requester: { select: { id: true, name: true, email: true, avatar: true } },
+        assigned_to: { select: { id: true, name: true, email: true, avatar: true } },
         category: true,
         asset: {
           include: {
@@ -24,9 +24,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           }
         },
         department: true,
+        items: {
+          include: {
+            asset: true,
+          },
+          orderBy: {
+            created_at: "asc"
+          }
+        },
         comments: {
           include: {
-            author: true,
+            author: { select: { id: true, name: true, email: true, avatar: true } },
           },
           orderBy: {
             created_at: "asc"
@@ -86,9 +94,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       updateData.assigned_to_id = body.assigned_to_id || null;
       if (body.assigned_to_id) {
         const newTech = await prisma.user.findUnique({ where: { id: body.assigned_to_id } });
+        if (newTech) {
+          updateData.assigned_to_name = newTech.name;
+        }
         auditLogs.push(`Atribuído para o técnico "${newTech?.name || 'Novo Responsável'}".`);
       } else {
         auditLogs.push(`Atribuição de técnico removida.`);
+      }
+    }
+
+    if (body.assigned_to_name !== undefined && body.assigned_to_name !== existingTicket.assigned_to_name) {
+      updateData.assigned_to_name = body.assigned_to_name ? body.assigned_to_name.trim() : null;
+      if (body.assigned_to_name && body.assigned_to_name.trim()) {
+        auditLogs.push(`Responsável pelo chamado alterado para "${body.assigned_to_name.trim()}".`);
+      } else {
+        auditLogs.push(`Nome do responsável manual removido.`);
       }
     }
 
@@ -132,6 +152,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         category: true,
         asset: true,
         department: true,
+        items: {
+          include: {
+            asset: true,
+          },
+          orderBy: {
+            created_at: "asc"
+          }
+        },
         comments: {
           include: {
             author: { select: { id: true, name: true, email: true, avatar: true } }

@@ -305,9 +305,10 @@ model Ticket {
   priority String @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
 
   // Relacionamentos
-  requester_id   String
-  assigned_to_id String?
-  group_id       String? // Departamento ou Grupo Técnico
+  requester_id     String
+  assigned_to_id   String?
+  assigned_to_name String?
+  group_id         String? // Departamento ou Grupo Técnico
   category_id    String?
   asset_id       String?
   company_id     String

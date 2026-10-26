@@ -58,9 +58,15 @@ export async function GET(req: Request) {
 
     if (assigned_to_id) {
       if (assigned_to_id === "UNASSIGNED") {
-        where.assigned_to_id = null;
+        where.AND = [
+          { assigned_to_id: null },
+          { OR: [{ assigned_to_name: null }, { assigned_to_name: "" }] }
+        ];
       } else if (assigned_to_id !== "ALL") {
-        where.assigned_to_id = assigned_to_id;
+        where.OR = [
+          { assigned_to_id: assigned_to_id },
+          { assigned_to_name: assigned_to_id }
+        ];
       }
     }
 
@@ -71,10 +77,11 @@ export async function GET(req: Request) {
         { description: { contains: search } },
         { requester: { name: { contains: search } } },
         { assigned_to: { name: { contains: search } } },
+        { assigned_to_name: { contains: search } },
       ];
     }
 
-    const isExport = searchParams.get("export") === "true";
+    const isExport = searchParams.get("export") === "true" || searchParams.get("isExport") === "true";
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const maxLimit = isExport ? 5000 : 100;
     const limit = Math.min(maxLimit, Math.max(1, parseInt(searchParams.get("limit") || (isExport ? "1000" : "50"), 10)));
@@ -95,6 +102,9 @@ export async function GET(req: Request) {
             select: { id: true, name: true, internal_id: true, asset_tag: true, type: true }
           },
           department: true,
+          items: {
+            select: { id: true, description: true, quantity: true, unit: true, notes: true, status: true }
+          },
           _count: {
             select: { comments: true }
           }
@@ -170,17 +180,31 @@ export async function POST(req: Request) {
         status: body.status || "NEW",
         requester_id: targetRequesterId,
         assigned_to_id: body.assigned_to_id || null,
+        assigned_to_name: body.assigned_to_name?.trim() || null,
         company_id: user.company_id,
         asset_id: body.asset_id || null,
         group_id: body.group_id || null,
         category_id: body.category_id || null,
+        items: body.items && Array.isArray(body.items) && body.items.length > 0 ? {
+          create: body.items.filter((it: any) => it.description?.trim()).map((it: any) => ({
+            description: it.description.trim(),
+            quantity: Math.max(1, parseInt(it.quantity, 10) || 1),
+            unit: it.unit?.trim() || "UN",
+            notes: it.notes?.trim() || it.observation?.trim() || null,
+            status: it.status || "PENDING",
+            asset_id: it.asset_id || null,
+          }))
+        } : undefined,
       },
       include: {
         requester: true,
         assigned_to: true,
         category: true,
         asset: true,
-        department: true
+        department: true,
+        items: {
+          include: { asset: true }
+        }
       }
     });
 

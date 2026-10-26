@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 export interface UserPresence {
   userId: string;
@@ -13,16 +14,17 @@ declare global {
   var __presenceMap: Map<string, UserPresence> | undefined;
 }
 
-const TMP_PRESENCE = '/tmp/presence.json';
-const TIMEOUT_MS = 120 * 1000; // 2 minutos (120 segundos) para considerar online
+// Arquivo temporário seguro e compatível com Windows e Linux
+const TMP_PRESENCE = path.join(os.tmpdir(), 'symgest_presence.json');
+// 35 segundos: garante detecção rápida de offline sem falsos negativos durante navegação normal
+const TIMEOUT_MS = 35 * 1000;
 
 function getMap(): Map<string, UserPresence> {
   if (!globalThis.__presenceMap) {
     globalThis.__presenceMap = new Map();
-    // Tenta restaurar de /tmp
     try {
-      if (fs.existsSync(/*turbopackIgnore: true*/ TMP_PRESENCE)) {
-        const raw = fs.readFileSync(/*turbopackIgnore: true*/ TMP_PRESENCE, 'utf8');
+      if (fs.existsSync(TMP_PRESENCE)) {
+        const raw = fs.readFileSync(TMP_PRESENCE, 'utf8');
         const entries: [string, UserPresence][] = JSON.parse(raw);
         for (const [k, v] of entries) {
           globalThis.__presenceMap.set(k, v);
@@ -36,7 +38,7 @@ function getMap(): Map<string, UserPresence> {
 function persistMap(map: Map<string, UserPresence>) {
   try {
     const entries = Array.from(map.entries());
-    fs.writeFileSync(/*turbopackIgnore: true*/ TMP_PRESENCE, JSON.stringify(entries), 'utf8');
+    fs.writeFileSync(TMP_PRESENCE, JSON.stringify(entries), 'utf8');
   } catch {}
 }
 
@@ -59,6 +61,33 @@ export function recordUserPresence(userId: string, name?: string, email?: string
     map.set(`email:${email.toLowerCase()}`, record);
   }
 
+  // Limpeza preventiva de entradas muito antigas (> 24h) para preservar memória
+  if (map.size > 200) {
+    for (const [k, v] of map.entries()) {
+      if (now - v.lastSeen > 24 * 60 * 60 * 1000) {
+        map.delete(k);
+      }
+    }
+  }
+
+  persistMap(map);
+}
+
+export function setUserOffline(userId: string, email?: string | null) {
+  const map = getMap();
+  const expiredTime = Date.now() - (TIMEOUT_MS + 5000);
+  const byId = map.get(userId);
+  if (byId) {
+    byId.lastSeen = expiredTime;
+    map.set(userId, byId);
+  }
+  if (email) {
+    const byEmail = map.get(`email:${email.toLowerCase()}`);
+    if (byEmail) {
+      byEmail.lastSeen = expiredTime;
+      map.set(`email:${email.toLowerCase()}`, byEmail);
+    }
+  }
   persistMap(map);
 }
 

@@ -23,6 +23,7 @@ export interface TicketReportItem {
     name?: string | null;
     email?: string | null;
   } | null;
+  assigned_to_name?: string | null;
   category?: {
     name?: string | null;
   } | null;
@@ -95,7 +96,7 @@ export function exportTicketsToExcel(tickets: TicketReportItem[], options: Repor
     "Prioridade": PRIORITY_LABELS[t.priority] || t.priority,
     "Solicitante": t.requester?.name || "Não informado",
     "E-mail Solicitante": t.requester?.email || "-",
-    "Técnico Responsável": t.assigned_to?.name || "Não atribuído",
+    "Técnico Responsável": t.assigned_to_name || t.assigned_to?.name || "Não atribuído",
     "Categoria": t.category?.name || "Geral",
     "Departamento": t.department?.name || "-",
     "Equipamento / Ativo": t.asset ? `${t.asset.internal_id || t.asset.asset_tag || ''} ${t.asset.name}`.trim() : "-",
@@ -291,7 +292,7 @@ export function exportTicketsToPDF(tickets: TicketReportItem[], options: ReportO
     t.requester?.name || "Não informado",
     t.category?.name || "Geral",
     PRIORITY_LABELS[t.priority] || t.priority,
-    t.assigned_to?.name || "Não atribuído",
+    t.assigned_to_name || t.assigned_to?.name || "Não atribuído",
     STATUS_LABELS[t.status] || t.status,
   ]);
 
@@ -407,7 +408,7 @@ export function exportTicketsToCSV(tickets: TicketReportItem[]) {
     PRIORITY_LABELS[t.priority] || t.priority,
     `"${(t.requester?.name || "").replace(/"/g, '""')}"`,
     `"${(t.requester?.email || "").replace(/"/g, '""')}"`,
-    `"${(t.assigned_to?.name || "Não atribuído").replace(/"/g, '""')}"`,
+    `"${((t.assigned_to_name || t.assigned_to?.name) || "Não atribuído").replace(/"/g, '""')}"`,
     `"${(t.category?.name || "Geral").replace(/"/g, '""')}"`,
     `"${(t.department?.name || "-").replace(/"/g, '""')}"`,
     `"${(t.asset ? `${t.asset.internal_id || t.asset.asset_tag || ''} ${t.asset.name}` : "-").replace(/"/g, '""')}"`,

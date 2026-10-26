@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { 
   Plus, Trash2, UserPlus, FolderPlus, Laptop, 
   HelpCircle, CheckCircle2, AlertTriangle, Layers, 
-  FileText, ShieldAlert, Cpu, Network, KeyRound, Printer, Box
+  FileText, ShieldAlert, Cpu, Network, KeyRound, Printer, Box,
+  ArrowLeft, UserCheck, X
 } from "lucide-react";
 
 interface UserItem {
@@ -39,6 +40,7 @@ interface RequestedItem {
   id: string;
   name: string;
   quantity: number;
+  unit?: string;
   category: string;
   details: string;
 }
@@ -78,8 +80,24 @@ export default function TicketForm({
   const [customAssetNote, setCustomAssetNote] = useState("");
   const [groupId, setGroupId] = useState(initialDepartments[0]?.id || "");
 
+  // Responsible State (Registered Technician OR Manual Name)
+  const [assignedMode, setAssignedMode] = useState<"SELECT" | "MANUAL">("SELECT");
+  const [assignedToId, setAssignedToId] = useState("");
+  const [assignedToName, setAssignedToName] = useState("");
+
   // Dynamic Requested Items List (manual item addition)
   const [requestedItems, setRequestedItems] = useState<RequestedItem[]>([]);
+
+  // Sair do Chamado (com confirmação se houver dados preenchidos)
+  const handleExitTicket = () => {
+    const isDirty = title.trim() || description.trim() || requestedItems.length > 0 || assignedToName.trim();
+    if (isDirty) {
+      if (!window.confirm("Atenção: Existem alterações não salvas. Deseja realmente sair do chamado sem salvar?")) {
+        return;
+      }
+    }
+    router.push("/service-desk");
+  };
 
   // Modals for Manual Additions
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -153,6 +171,7 @@ export default function TicketForm({
       id: String(Date.now() + Math.random()),
       name: preset?.name || "",
       quantity: preset?.quantity || 1,
+      unit: preset?.unit || "UN",
       category: preset?.category || "Hardware / Periférico",
       details: preset?.details || "",
     };
@@ -325,6 +344,11 @@ export default function TicketForm({
         fullDescription = `${fullDescription}\n\n[Identificação Manual do Dispositivo / Equipamento]: ${customAssetNote.trim()}`;
       }
 
+      const targetAssignedToId = assignedMode === "SELECT" ? (assignedToId || null) : null;
+      const targetAssignedToName = assignedMode === "MANUAL" 
+        ? (assignedToName.trim() || null)
+        : (usersList.find(u => u.id === assignedToId)?.name || null);
+
       const payload = {
         title: title.trim(),
         description: fullDescription,
@@ -333,9 +357,17 @@ export default function TicketForm({
         impact,
         priority,
         requester_id: requesterId,
+        assigned_to_id: targetAssignedToId,
+        assigned_to_name: targetAssignedToName,
         category_id: categoryId || null,
         asset_id: assetId || null,
         group_id: groupId || null,
+        items: requestedItems.filter(i => i.name.trim() !== "").map(i => ({
+          description: i.name.trim(),
+          quantity: i.quantity,
+          unit: i.unit || "UN",
+          notes: i.details || "",
+        })),
         requested_items: requestedItems.filter(i => i.name.trim() !== ""),
       };
 
@@ -521,6 +553,69 @@ export default function TicketForm({
               </select>
             </div>
 
+            {/* Responsável pelo Chamado */}
+            <div className="lg:col-span-3 bg-surface-elevated/70 p-4 rounded-xl border border-border">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
+                <div>
+                  <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 text-primary" />
+                    Responsável pelo Chamado
+                  </label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Selecione um técnico da lista ou digite livremente qualquer nome (ex: João Marcos).
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-border text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setAssignedMode("SELECT")}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      assignedMode === "SELECT" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Selecionar Técnico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignedMode("MANUAL")}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      assignedMode === "MANUAL" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Digitar Nome Livre
+                  </button>
+                </div>
+              </div>
+
+              {assignedMode === "SELECT" ? (
+                <select
+                  value={assignedToId}
+                  onChange={(e) => {
+                    setAssignedToId(e.target.value);
+                    const sel = usersList.find(u => u.id === e.target.value);
+                    if (sel) setAssignedToName(sel.name);
+                    else setAssignedToName("");
+                  }}
+                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                >
+                  <option value="">Não atribuído (Fila de Atendimento)</option>
+                  {usersList.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.email}){u.job_title ? ` - ${u.job_title}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Digite o nome do responsável (ex: João Marcos)..."
+                  value={assignedToName}
+                  onChange={(e) => setAssignedToName(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                />
+              )}
+            </div>
+
             {/* Category with manual addition */}
             <div>
               <div className="flex justify-between items-center mb-1.5">
@@ -660,13 +755,13 @@ export default function TicketForm({
           </div>
         </div>
 
-        {/* Section 3: Requested Items List (Dynamic Manual Addition) */}
+        {/* Section 3: ITENS DO CHAMADO */}
         <div className="bg-surface-elevated p-6 rounded-2xl border border-border">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-border mb-4">
             <div>
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Box className="w-4 h-4 text-primary" />
-                Itens e Recursos Solicitados (Adicione cada item manualmente)
+                ITENS DO CHAMADO
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Adicione individualmente peças, periféricos, licenças, acessos ou cabos solicitados neste chamado.
@@ -680,7 +775,7 @@ export default function TicketForm({
                 className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3.5 py-1.5 rounded-lg text-xs font-bold hover:bg-primary-hover transition-colors shadow-xs"
               >
                 <Plus className="w-4 h-4" />
-                + Adicionar Item Manual
+                + Adicionar Item
               </button>
             </div>
           </div>
@@ -689,40 +784,40 @@ export default function TicketForm({
             <div className="text-center py-6 border-2 border-dashed border-border rounded-xl">
               <Box className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
               <p className="text-xs font-medium text-muted-foreground">
-                Nenhum item avulso adicionado ainda. Se o chamado requer peças ou itens específicos, adicione abaixo.
+                Nenhum item adicionado ainda. Se o chamado requer peças ou itens específicos, adicione abaixo.
               </p>
               <div className="flex justify-center gap-2 mt-3 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => handleAddRequestedItem({ name: "Mouse sem fio", quantity: 1, category: "Hardware" })}
+                  onClick={() => handleAddRequestedItem({ name: "Mouse sem fio", quantity: 1, unit: "UN", details: "Óptico USB" })}
                   className="text-xs bg-surface border border-border px-2.5 py-1 rounded-md text-foreground hover:bg-surface-hover font-medium transition-colors"
                 >
                   + Mouse sem fio
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleAddRequestedItem({ name: "Teclado USB", quantity: 1, category: "Hardware" })}
+                  onClick={() => handleAddRequestedItem({ name: "Teclado USB", quantity: 1, unit: "UN", details: "ABNT2" })}
                   className="text-xs bg-surface border border-border px-2.5 py-1 rounded-md text-foreground hover:bg-surface-hover font-medium transition-colors"
                 >
                   + Teclado USB
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleAddRequestedItem({ name: "Monitor 24 polegadas", quantity: 1, category: "Hardware" })}
+                  onClick={() => handleAddRequestedItem({ name: "Monitor 24 polegadas", quantity: 1, unit: "UN", details: "HDMI/DisplayPort" })}
                   className="text-xs bg-surface border border-border px-2.5 py-1 rounded-md text-foreground hover:bg-surface-hover font-medium transition-colors"
                 >
                   + Monitor
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleAddRequestedItem({ name: "Cabo HDMI", quantity: 1, category: "Periférico" })}
+                  onClick={() => handleAddRequestedItem({ name: "Cabo de Rede Cat6", quantity: 1, unit: "UN", details: "3 metros montado" })}
                   className="text-xs bg-surface border border-border px-2.5 py-1 rounded-md text-foreground hover:bg-surface-hover font-medium transition-colors"
                 >
-                  + Cabo HDMI
+                  + Cabo de Rede
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleAddRequestedItem({ name: "Licença de Software", quantity: 1, category: "Software" })}
+                  onClick={() => handleAddRequestedItem({ name: "Licença de Software", quantity: 1, unit: "UN", details: "Assinatura anual" })}
                   className="text-xs bg-surface border border-border px-2.5 py-1 rounded-md text-foreground hover:bg-surface-hover font-medium transition-colors"
                 >
                   + Licença
@@ -737,17 +832,19 @@ export default function TicketForm({
                     #{index + 1}
                   </div>
                   <div className="sm:col-span-4">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1 sm:hidden">Descrição do Item</label>
                     <input
                       type="text"
-                      placeholder="Nome do item / recurso *"
+                      placeholder="Descrição do item *"
                       value={item.name}
                       onChange={(e) => handleUpdateRequestedItem(item.id, "name", e.target.value)}
                       className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-border bg-surface-elevated text-foreground"
                     />
                   </div>
                   <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1 sm:hidden">Quantidade</label>
                     <div className="flex items-center gap-1">
-                      <span className="text-[11px] font-bold text-muted-foreground">Qtd:</span>
+                      <span className="text-[11px] font-bold text-muted-foreground hidden sm:inline">Qtd:</span>
                       <input
                         type="number"
                         min={1}
@@ -758,23 +855,20 @@ export default function TicketForm({
                     </div>
                   </div>
                   <div className="sm:col-span-2">
-                    <select
-                      value={item.category}
-                      onChange={(e) => handleUpdateRequestedItem(item.id, "category", e.target.value)}
-                      className="w-full text-xs font-medium px-2.5 py-2 rounded-lg border border-border bg-surface-elevated text-foreground"
-                    >
-                      <option value="Hardware / Periférico">Hardware</option>
-                      <option value="Software / Licença">Software</option>
-                      <option value="Acesso / Permissão">Acesso</option>
-                      <option value="Cabo / Adaptador">Cabo</option>
-                      <option value="Consumível / Toner">Consumível</option>
-                      <option value="Outro">Outro</option>
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1 sm:hidden">Unidade</label>
                     <input
                       type="text"
-                      placeholder="Especificação / Detalhes"
+                      placeholder="Unidade (UN, CX...)"
+                      value={item.unit || "UN"}
+                      onChange={(e) => handleUpdateRequestedItem(item.id, "unit", e.target.value)}
+                      className="w-full text-xs font-medium px-2.5 py-2 rounded-lg border border-border bg-surface-elevated text-foreground text-center"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1 sm:hidden">Observação</label>
+                    <input
+                      type="text"
+                      placeholder="Observação / detalhes"
                       value={item.details}
                       onChange={(e) => handleUpdateRequestedItem(item.id, "details", e.target.value)}
                       className="w-full text-xs px-3 py-2 rounded-lg border border-border bg-surface-elevated text-foreground"
@@ -799,7 +893,7 @@ export default function TicketForm({
                   className="text-xs font-bold text-primary hover:text-primary-hover flex items-center gap-1.5 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  + Adicionar mais um item
+                  + Adicionar Item
                 </button>
               </div>
             </div>
@@ -877,10 +971,11 @@ export default function TicketForm({
         <div className="pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
           <button
             type="button"
-            onClick={() => router.back()}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors text-center"
+            onClick={handleExitTicket}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors text-center flex items-center justify-center gap-2"
           >
-            Cancelar
+            <ArrowLeft className="w-4 h-4" />
+            Sair do Chamado
           </button>
 
           <button

@@ -3,6 +3,25 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+    const resolvedParams = await params;
+    const items = await prisma.ticketItem.findMany({
+      where: { ticket_id: resolvedParams.id },
+      include: { asset: true },
+      orderBy: { created_at: "asc" }
+    });
+
+    return NextResponse.json(items);
+  } catch (error: any) {
+    console.error("GET /api/tickets/[id]/items error:", error);
+    return NextResponse.json({ error: "Erro ao listar itens" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
