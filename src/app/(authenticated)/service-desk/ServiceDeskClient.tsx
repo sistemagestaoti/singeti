@@ -8,7 +8,8 @@ import {
   Table as TableIcon, Download, Clock, AlertTriangle, 
   CheckCircle2, UserCheck, ArrowRight, Eye, RefreshCw,
   ShieldAlert, User, Sparkles, Layers, Check, Calendar,
-  BarChart3, FileSpreadsheet, FileText, PieChart, TrendingUp, SlidersHorizontal
+  BarChart3, FileSpreadsheet, FileText, PieChart, TrendingUp, SlidersHorizontal,
+  CalendarDays, CalendarRange, RotateCcw, X
 } from "lucide-react";
 import ServiceDeskExportModal from "@/components/ServiceDeskExportModal";
 import { exportTicketsToPDF, exportTicketsToExcel, exportTicketsToCSV } from "@/lib/ticketReports";
@@ -84,6 +85,21 @@ const PRIORITY_CONFIG: Record<string, { label: string; badge: string; dot: strin
   LOW: { label: "Baixa", badge: "bg-muted text-muted-foreground border-border", dot: "bg-muted-foreground" },
 };
 
+const MONTHS = [
+  { value: "01", label: "01 - Janeiro" },
+  { value: "02", label: "02 - Fevereiro" },
+  { value: "03", label: "03 - Março" },
+  { value: "04", label: "04 - Abril" },
+  { value: "05", label: "05 - Maio" },
+  { value: "06", label: "06 - Junho" },
+  { value: "07", label: "07 - Julho" },
+  { value: "08", label: "08 - Agosto" },
+  { value: "09", label: "09 - Setembro" },
+  { value: "10", label: "10 - Outubro" },
+  { value: "11", label: "11 - Novembro" },
+  { value: "12", label: "12 - Dezembro" },
+];
+
 export default function ServiceDeskClient({
   initialTickets,
   categories,
@@ -110,16 +126,161 @@ export default function ServiceDeskClient({
   const [filterCategory, setFilterCategory] = useState("ALL");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // Compute Metrics
+  // Datas e período de referência (Mês atual por padrão)
+  const now = useMemo(() => new Date(), []);
+  const currentYearStr = useMemo(() => now.getFullYear().toString(), [now]);
+  const currentMonthStr = useMemo(() => (now.getMonth() + 1).toString().padStart(2, "0"), [now]);
+
+  // Filtros Temporais (Mês inicial por padrão, filtros de ano e dias)
+  const [filterYear, setFilterYear] = useState<string>(currentYearStr);
+  const [filterMonth, setFilterMonth] = useState<string>(currentMonthStr);
+  const [filterDayRange, setFilterDayRange] = useState<string>("ALL_MONTH");
+  const [filterSpecificDate, setFilterSpecificDate] = useState<string>("");
+  const [filterCustomStart, setFilterCustomStart] = useState<string>("");
+  const [filterCustomEnd, setFilterCustomEnd] = useState<string>("");
+
+  const handleResetToCurrentMonth = () => {
+    setFilterYear(currentYearStr);
+    setFilterMonth(currentMonthStr);
+    setFilterDayRange("ALL_MONTH");
+    setFilterSpecificDate("");
+    setFilterCustomStart("");
+    setFilterCustomEnd("");
+  };
+
+  const handleClearDateFilters = () => {
+    setFilterYear("ALL");
+    setFilterMonth("ALL");
+    setFilterDayRange("ALL_TIME");
+    setFilterSpecificDate("");
+    setFilterCustomStart("");
+    setFilterCustomEnd("");
+  };
+
+  const handleClearAllFilters = () => {
+    handleResetToCurrentMonth();
+    setSearchQuery("");
+    setFilterStatus("ALL");
+    setFilterPriority("ALL");
+    setFilterType("ALL");
+    setFilterAssignee("ALL");
+    setFilterCategory("ALL");
+  };
+
+  // Coleta anos disponíveis a partir dos chamados carregados
+  const availableYears = useMemo(() => {
+    const currentY = now.getFullYear();
+    const yearSet = new Set<string>([currentY.toString()]);
+    tickets.forEach(t => {
+      if (t.created_at) {
+        const y = new Date(t.created_at).getFullYear().toString();
+        if (!isNaN(Number(y))) yearSet.add(y);
+      }
+    });
+    yearSet.add((currentY - 1).toString());
+    return Array.from(yearSet).sort((a, b) => Number(b) - Number(a));
+  }, [tickets, now]);
+
+  // Filtro de Data (Ano, Mês e Dias)
+  const dateFilteredTickets = useMemo(() => {
+    return tickets.filter(ticket => {
+      const tDate = new Date(ticket.created_at);
+      const tYear = tDate.getFullYear().toString();
+      const tMonth = (tDate.getMonth() + 1).toString().padStart(2, "0");
+      const tDay = tDate.getDate().toString().padStart(2, "0");
+      const tYMD = `${tYear}-${tMonth}-${tDay}`;
+
+      // 1. Filtro de Ano
+      if (filterYear !== "ALL" && tYear !== filterYear) {
+        return false;
+      }
+
+      // 2. Filtro de Mês
+      if (filterMonth !== "ALL" && tMonth !== filterMonth) {
+        return false;
+      }
+
+      // 3. Filtro de Dias / Período
+      if (filterDayRange === "TODAY") {
+        const todayYMD = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
+        if (tYMD !== todayYMD) return false;
+      } else if (filterDayRange === "YESTERDAY") {
+        const yest = new Date(now);
+        yest.setDate(now.getDate() - 1);
+        const yestYMD = `${yest.getFullYear()}-${(yest.getMonth() + 1).toString().padStart(2, "0")}-${yest.getDate().toString().padStart(2, "0")}`;
+        if (tYMD !== yestYMD) return false;
+      } else if (filterDayRange === "LAST_7_DAYS") {
+        const diffMs = now.getTime() - tDate.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (diffDays < 0 || diffDays > 7) return false;
+      } else if (filterDayRange === "LAST_15_DAYS") {
+        const diffMs = now.getTime() - tDate.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (diffDays < 0 || diffDays > 15) return false;
+      } else if (filterDayRange === "LAST_30_DAYS") {
+        const diffMs = now.getTime() - tDate.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (diffDays < 0 || diffDays > 30) return false;
+      } else if (filterDayRange === "SPECIFIC_DAY") {
+        if (filterSpecificDate && tYMD !== filterSpecificDate) return false;
+      } else if (filterDayRange === "CUSTOM") {
+        if (filterCustomStart && tYMD < filterCustomStart) return false;
+        if (filterCustomEnd && tYMD > filterCustomEnd) return false;
+      }
+
+      return true;
+    });
+  }, [tickets, filterYear, filterMonth, filterDayRange, filterSpecificDate, filterCustomStart, filterCustomEnd, now]);
+
+  // Rótulo textual do período ativo
+  const activePeriodLabel = useMemo(() => {
+    if (filterDayRange === "TODAY") {
+      return `Hoje (${now.toLocaleDateString("pt-BR")})`;
+    }
+    if (filterDayRange === "YESTERDAY") {
+      return "Ontem";
+    }
+    if (filterDayRange === "LAST_7_DAYS") {
+      return "Últimos 7 dias";
+    }
+    if (filterDayRange === "LAST_15_DAYS") {
+      return "Últimos 15 dias";
+    }
+    if (filterDayRange === "LAST_30_DAYS") {
+      return "Últimos 30 dias";
+    }
+    if (filterDayRange === "SPECIFIC_DAY" && filterSpecificDate) {
+      const parts = filterSpecificDate.split("-");
+      if (parts.length === 3) return `Dia ${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    if (filterDayRange === "CUSTOM" && (filterCustomStart || filterCustomEnd)) {
+      return `Período: ${filterCustomStart ? filterCustomStart.split("-").reverse().join("/") : "Início"} até ${filterCustomEnd ? filterCustomEnd.split("-").reverse().join("/") : "Hoje"}`;
+    }
+    if (filterYear === "ALL" && filterMonth === "ALL") {
+      return "Todo o Histórico";
+    }
+    const monthObj = MONTHS.find(m => m.value === filterMonth);
+    const monthName = monthObj ? monthObj.label.split(" - ")[1] : filterMonth;
+    if (filterMonth !== "ALL" && filterYear !== "ALL") {
+      const isCurrent = filterYear === currentYearStr && filterMonth === currentMonthStr;
+      return `${monthName}/${filterYear}${isCurrent ? " (Mês Atual)" : ""}`;
+    }
+    if (filterMonth !== "ALL" && filterYear === "ALL") {
+      return `Todos os anos • Mês de ${monthName}`;
+    }
+    return `Ano de ${filterYear} • Todos os meses`;
+  }, [filterDayRange, filterSpecificDate, filterCustomStart, filterCustomEnd, filterYear, filterMonth, now, currentYearStr, currentMonthStr]);
+
+  // Compute Metrics baseados no dateFilteredTickets
   const metrics = useMemo(() => {
-    const total = tickets.length;
-    const newOrTriage = tickets.filter(t => t.status === "NEW" || t.status === "TRIAGE").length;
-    const inProgress = tickets.filter(t => t.status === "IN_PROGRESS" || t.status === "ASSIGNED").length;
-    const waiting = tickets.filter(t => t.status === "WAITING_USER" || t.status === "WAITING_VENDOR").length;
-    const critical = tickets.filter(t => (t.priority === "CRITICAL" || t.priority === "HIGH") && t.status !== "RESOLVED" && t.status !== "CLOSED").length;
-    const resolved = tickets.filter(t => t.status === "RESOLVED" || t.status === "CLOSED").length;
+    const total = dateFilteredTickets.length;
+    const newOrTriage = dateFilteredTickets.filter(t => t.status === "NEW" || t.status === "TRIAGE").length;
+    const inProgress = dateFilteredTickets.filter(t => t.status === "IN_PROGRESS" || t.status === "ASSIGNED").length;
+    const waiting = dateFilteredTickets.filter(t => t.status === "WAITING_USER" || t.status === "WAITING_VENDOR").length;
+    const critical = dateFilteredTickets.filter(t => (t.priority === "CRITICAL" || t.priority === "HIGH") && t.status !== "RESOLVED" && t.status !== "CLOSED").length;
+    const resolved = dateFilteredTickets.filter(t => t.status === "RESOLVED" || t.status === "CLOSED").length;
     return { total, newOrTriage, inProgress, waiting, critical, resolved };
-  }, [tickets]);
+  }, [dateFilteredTickets]);
 
   // Filtragem e cálculos para a aba de Relatórios & Indicadores
   const reportFilteredTickets = useMemo(() => {
@@ -217,16 +378,16 @@ export default function ServiceDeskClient({
     };
   }, [reportFilteredTickets]);
 
-  // Filtered Tickets
+  // Filtered Tickets (combina o período selecionado com os filtros operacionais)
   const filteredTickets = useMemo(() => {
-    return tickets.filter(ticket => {
+    return dateFilteredTickets.filter(ticket => {
       // Search
       if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
-        const codeMatch = ticket.code.toLowerCase().includes(query);
-        const titleMatch = ticket.title.toLowerCase().includes(query);
-        const requesterMatch = ticket.requester?.name.toLowerCase().includes(query);
-        const assigneeMatch = ticket.assigned_to?.name.toLowerCase().includes(query);
+        const codeMatch = ticket.code?.toLowerCase().includes(query);
+        const titleMatch = ticket.title?.toLowerCase().includes(query);
+        const requesterMatch = ticket.requester?.name?.toLowerCase().includes(query);
+        const assigneeMatch = ticket.assigned_to?.name?.toLowerCase().includes(query);
         if (!codeMatch && !titleMatch && !requesterMatch && !assigneeMatch) return false;
       }
 
@@ -251,7 +412,7 @@ export default function ServiceDeskClient({
 
       return true;
     });
-  }, [tickets, searchQuery, filterStatus, filterPriority, filterType, filterCategory, filterAssignee, currentUser]);
+  }, [dateFilteredTickets, searchQuery, filterStatus, filterPriority, filterType, filterCategory, filterAssignee, currentUser]);
 
   // Quick Action: Take Ticket ("Assumir Chamado")
   const handleAssignToMe = async (ticketId: string) => {
@@ -429,7 +590,9 @@ export default function ServiceDeskClient({
             <Layers className="w-4 h-4 text-primary" />
           </div>
           <div className="mt-2 text-2xl font-extrabold text-foreground">{metrics.total}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">Todos os chamados</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5 truncate" title={activePeriodLabel}>
+            {activePeriodLabel}
+          </div>
         </div>
 
         <div 
@@ -558,95 +721,267 @@ export default function ServiceDeskClient({
           </div>
         </div>
 
-        {/* Filter Dropdowns Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-2 border-t border-border">
-          {/* Status Filter */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              Status
-            </label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-            >
-              <option value="ALL">Todos os Status</option>
-              <option value="NEW">Novos</option>
-              <option value="TRIAGE">Em Triagem</option>
-              <option value="ASSIGNED">Atribuídos</option>
-              <option value="IN_PROGRESS">Em Atendimento</option>
-              <option value="WAITING_USER">Aguardando Usuário</option>
-              <option value="WAITING_VENDOR">Aguardando Fornecedor</option>
-              <option value="RESOLVED">Resolvidos</option>
-              <option value="CLOSED">Fechados</option>
-            </select>
+        {/* Date Filter Bar */}
+        <div className="bg-surface-elevated/40 p-3 sm:p-3.5 rounded-xl border border-border space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                <CalendarDays className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-foreground">Filtro por Período:</span>
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                  {activePeriodLabel}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  ({dateFilteredTickets.length} {dateFilteredTickets.length === 1 ? "chamado" : "chamados"} no período)
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Period Buttons */}
+            <div className="flex items-center gap-1.5 text-xs">
+              <button
+                type="button"
+                onClick={handleResetToCurrentMonth}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  filterYear === currentYearStr && filterMonth === currentMonthStr && filterDayRange === "ALL_MONTH"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground border border-border"
+                }`}
+                title="Voltar para o mês atual"
+              >
+                Mês Atual
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearDateFilters}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                  filterYear === "ALL" && filterMonth === "ALL" && filterDayRange === "ALL_TIME"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground border border-border"
+                }`}
+                title="Visualizar todos os períodos históricos"
+              >
+                Ver Todos
+              </button>
+            </div>
           </div>
 
-          {/* Priority Filter */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              Prioridade
-            </label>
-            <select
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value)}
-              className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-            >
-              <option value="ALL">Todas as Prioridades</option>
-              <option value="CRITICAL">🚨 Crítica</option>
-              <option value="HIGH">⚠️ Alta</option>
-              <option value="MEDIUM">🔹 Média</option>
-              <option value="LOW">⚪ Baixa</option>
-            </select>
+          {/* Selects Row: Ano, Mês, Dias/Período */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-1">
+            {/* Filtro de Ano */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Ano
+              </label>
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="w-full text-xs font-semibold rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">Todos os Anos</option>
+                {availableYears.map(yr => (
+                  <option key={yr} value={yr}>
+                    {yr} {yr === currentYearStr ? "(Atual)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro de Mês */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Mês
+              </label>
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="w-full text-xs font-semibold rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">Todos os Meses</option>
+                {MONTHS.map(m => (
+                  <option key={m.value} value={m.value}>
+                    {m.label} {filterYear === currentYearStr && m.value === currentMonthStr ? "(Atual)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro de Dias / Período */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Dias / Recorte
+              </label>
+              <select
+                value={filterDayRange}
+                onChange={(e) => setFilterDayRange(e.target.value)}
+                className="w-full text-xs font-semibold rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL_MONTH">Mês Completo (Padrão)</option>
+                <option value="TODAY">Hoje</option>
+                <option value="YESTERDAY">Ontem</option>
+                <option value="LAST_7_DAYS">Últimos 7 dias</option>
+                <option value="LAST_15_DAYS">Últimos 15 dias</option>
+                <option value="LAST_30_DAYS">Últimos 30 dias</option>
+                <option value="SPECIFIC_DAY">Dia Específico...</option>
+                <option value="CUSTOM">Faixa de Datas (De / Até)...</option>
+                <option value="ALL_TIME">Todo o Histórico</option>
+              </select>
+            </div>
+
+            {/* Input dinâmico de Dia Específico ou Faixa De/Até */}
+            {filterDayRange === "SPECIFIC_DAY" && (
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Selecione o Dia
+                </label>
+                <input
+                  type="date"
+                  value={filterSpecificDate}
+                  onChange={(e) => setFilterSpecificDate(e.target.value)}
+                  className="w-full text-xs font-medium rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            )}
+
+            {filterDayRange === "CUSTOM" && (
+              <div className="sm:col-span-3 lg:col-span-1 grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                    De
+                  </label>
+                  <input
+                    type="date"
+                    value={filterCustomStart}
+                    onChange={(e) => setFilterCustomStart(e.target.value)}
+                    className="w-full text-xs font-medium rounded-lg border border-border bg-surface px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                    Até
+                  </label>
+                  <input
+                    type="date"
+                    value={filterCustomEnd}
+                    onChange={(e) => setFilterCustomEnd(e.target.value)}
+                    className="w-full text-xs font-medium rounded-lg border border-border bg-surface px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Operational Filters Bar */}
+        <div className="pt-2 border-t border-border space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Filtros Operacionais
+            </span>
+            {(filterStatus !== "ALL" || filterPriority !== "ALL" || filterType !== "ALL" || filterAssignee !== "ALL" || filterCategory !== "ALL" || searchQuery !== "" || filterYear !== currentYearStr || filterMonth !== currentMonthStr || filterDayRange !== "ALL_MONTH") && (
+              <button
+                type="button"
+                onClick={handleClearAllFilters}
+                className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Limpar Todos os Filtros
+              </button>
+            )}
           </div>
 
-          {/* Type Filter */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              Tipo
-            </label>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-            >
-              <option value="ALL">Todos os Tipos</option>
-              <option value="INCIDENT">Incidentes</option>
-              <option value="REQUEST">Requisições</option>
-            </select>
-          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+            {/* Status Filter */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">Todos os Status</option>
+                <option value="NEW">Novos</option>
+                <option value="TRIAGE">Em Triagem</option>
+                <option value="ASSIGNED">Atribuídos</option>
+                <option value="IN_PROGRESS">Em Atendimento</option>
+                <option value="WAITING_USER">Aguardando Usuário</option>
+                <option value="WAITING_VENDOR">Aguardando Fornecedor</option>
+                <option value="RESOLVED">Resolvidos</option>
+                <option value="CLOSED">Fechados</option>
+              </select>
+            </div>
 
-          {/* Assignee Filter */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              Atendente
-            </label>
-            <select
-              value={filterAssignee}
-              onChange={(e) => setFilterAssignee(e.target.value)}
-              className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-            >
-              <option value="ALL">Todos os Atendentes</option>
-              <option value="MINE">👤 Meus Chamados</option>
-              <option value="UNASSIGNED">⚠️ Não Atribuídos (Fila)</option>
-            </select>
-          </div>
+            {/* Priority Filter */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Prioridade
+              </label>
+              <select
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value)}
+                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">Todas as Prioridades</option>
+                <option value="CRITICAL">🚨 Crítica</option>
+                <option value="HIGH">⚠️ Alta</option>
+                <option value="MEDIUM">🔹 Média</option>
+                <option value="LOW">⚪ Baixa</option>
+              </select>
+            </div>
 
-          {/* Category Filter */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              Categoria
-            </label>
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-            >
-              <option value="ALL">Todas as Categorias</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            {/* Type Filter */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Tipo
+              </label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">Todos os Tipos</option>
+                <option value="INCIDENT">Incidentes</option>
+                <option value="REQUEST">Requisições</option>
+              </select>
+            </div>
+
+            {/* Assignee Filter */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Atendente
+              </label>
+              <select
+                value={filterAssignee}
+                onChange={(e) => setFilterAssignee(e.target.value)}
+                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">Todos os Atendentes</option>
+                <option value="MINE">👤 Meus Chamados</option>
+                <option value="UNASSIGNED">⚠️ Não Atribuídos (Fila)</option>
+              </select>
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                Categoria
+              </label>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">Todas as Categorias</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -676,14 +1011,23 @@ export default function ServiceDeskClient({
                         <HeadphonesIcon className="w-10 h-10 text-muted-foreground/40 mb-3" />
                         <p className="text-sm font-semibold text-foreground">Nenhum chamado encontrado</p>
                         <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                          Não foram localizados registros com os filtros atuais. Experimente limpar os filtros ou abrir um novo chamado.
+                          Não foram localizados chamados no período <b>{activePeriodLabel}</b> com os filtros selecionados.
                         </p>
-                        <Link
-                          href="/service-desk/new"
-                          className="mt-4 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors"
-                        >
-                          + Abrir Novo Chamado
-                        </Link>
+                        <div className="flex items-center gap-2 mt-4">
+                          <button
+                            type="button"
+                            onClick={handleClearDateFilters}
+                            className="bg-surface-elevated hover:bg-surface-hover text-foreground border border-border px-3.5 py-2 rounded-xl text-xs font-bold transition-colors"
+                          >
+                            Ver Todo o Histórico
+                          </button>
+                          <Link
+                            href="/service-desk/new"
+                            className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors"
+                          >
+                            + Abrir Novo Chamado
+                          </Link>
+                        </div>
                       </div>
                     </td>
                   </tr>
