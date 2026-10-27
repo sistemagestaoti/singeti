@@ -9,7 +9,7 @@ import {
   CheckCircle2, UserCheck, ArrowRight, Eye, RefreshCw,
   ShieldAlert, User, Sparkles, Layers, Check, Calendar,
   BarChart3, FileSpreadsheet, FileText, PieChart, TrendingUp, SlidersHorizontal,
-  CalendarDays, CalendarRange, RotateCcw, X
+  CalendarDays, CalendarRange, RotateCcw, X, ChevronDown, ChevronUp
 } from "lucide-react";
 import ServiceDeskExportModal from "@/components/ServiceDeskExportModal";
 import { 
@@ -137,10 +137,25 @@ export default function ServiceDeskClient({
   const [filterCategory, setFilterCategory] = useState("ALL");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  // Controle do Redesign Clean & Compact
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
+
   // Datas e período de referência (Mês atual por padrão)
   const now = useMemo(() => new Date(), []);
   const currentYearStr = useMemo(() => now.getFullYear().toString(), [now]);
   const currentMonthStr = useMemo(() => (now.getMonth() + 1).toString().padStart(2, "0"), [now]);
+
+  // Contagem de filtros ativos para badge compacto
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filterStatus !== "ALL") count++;
+    if (filterPriority !== "ALL") count++;
+    if (filterType !== "ALL") count++;
+    if (filterAssignee !== "ALL") count++;
+    if (filterCategory !== "ALL") count++;
+    return count;
+  }, [filterStatus, filterPriority, filterType, filterAssignee, filterCategory]);
 
   // Filtros Temporais (Mês inicial por padrão, filtros de ano e dias)
   const [filterYear, setFilterYear] = useState<string>(currentYearStr);
@@ -149,6 +164,16 @@ export default function ServiceDeskClient({
   const [filterSpecificDate, setFilterSpecificDate] = useState<string>("");
   const [filterCustomStart, setFilterCustomStart] = useState<string>("");
   const [filterCustomEnd, setFilterCustomEnd] = useState<string>("");
+
+  const hasActiveFilters = useMemo(() => {
+    return (
+      activeFiltersCount > 0 ||
+      searchQuery.trim() !== "" ||
+      filterYear !== currentYearStr ||
+      filterMonth !== currentMonthStr ||
+      filterDayRange !== "ALL_MONTH"
+    );
+  }, [activeFiltersCount, searchQuery, filterYear, currentYearStr, filterMonth, currentMonthStr, filterDayRange]);
 
   const handleResetToCurrentMonth = () => {
     setFilterYear(currentYearStr);
@@ -552,490 +577,656 @@ export default function ServiceDeskClient({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3.5">
       
-      {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface p-4 sm:p-6 rounded-2xl border border-border shadow-xs gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-              <HeadphonesIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Service Desk / Chamados</h1>
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:line-clamp-none">
-                Central de atendimento ITIL para gestão de incidentes, requisições e suporte técnico.
-              </p>
-            </div>
+      {/* 1. Top Header Bar Compacto */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 pt-0.5 pb-1">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+            <HeadphonesIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <h1 className="text-base sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
+              <span>Service Desk / Chamados</span>
+            </h1>
+            <p className="text-[11px] text-muted-foreground">
+              Central ITIL para incidentes, requisições e suporte técnico
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setIsExportModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-surface-elevated hover:bg-surface-hover text-foreground px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold border border-border transition-colors shadow-xs"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-surface hover:bg-surface-hover text-foreground px-3 py-1.5 rounded-xl text-xs font-semibold border border-border transition-colors shadow-2xs"
             title="Exportar chamados em PDF, Excel (.xlsx) ou CSV com filtros"
           >
-            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+            <Download className="w-3.5 h-3.5 text-primary" />
             <span>Exportar & Relatórios</span>
           </button>
 
           <Link
             href="/service-desk/new"
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-primary text-primary-foreground px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors shadow-xs shrink-0"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors shadow-xs shrink-0"
           >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>+ Abrir Chamado</span>
           </Link>
         </div>
       </div>
 
-      {/* KPI Metrics Dashboard Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
-        <div 
-          onClick={() => { setFilterStatus("ALL"); setFilterPriority("ALL"); setFilterAssignee("ALL"); }}
-          className="bg-surface hover:bg-surface-hover p-3 sm:p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex justify-between items-center text-xs font-bold text-muted-foreground uppercase">
-            <span>Total</span>
-            <Layers className="w-4 h-4 text-primary" />
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-foreground">{metrics.total}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 truncate" title={activePeriodLabel}>
-            {activePeriodLabel}
-          </div>
-        </div>
+      {/* 2. Faixa Horizontal de Indicadores Compactos (Single-Row Strip) */}
+      <div className="bg-surface border border-border rounded-xl p-1 shadow-2xs overflow-x-auto custom-scrollbar">
+        <div className="flex items-center divide-x divide-border/60 min-w-max sm:min-w-0 sm:grid sm:grid-cols-6 sm:divide-x sm:divide-border/60">
+          
+          {/* Total */}
+          <button
+            type="button"
+            onClick={() => { setFilterStatus("ALL"); setFilterPriority("ALL"); setFilterAssignee("ALL"); }}
+            className={`flex items-center gap-2.5 px-3 py-1.5 hover:bg-surface-hover rounded-lg transition-colors text-left flex-1 ${
+              filterStatus === "ALL" && filterPriority === "ALL" && filterAssignee === "ALL" ? "bg-primary/5" : ""
+            }`}
+            title="Ver todos os chamados do período"
+          >
+            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <Layers className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total</div>
+              <div className="text-sm font-extrabold text-foreground leading-none mt-0.5">{metrics.total}</div>
+            </div>
+          </button>
 
-        <div 
-          onClick={() => setFilterStatus("NEW")}
-          className="bg-surface hover:bg-surface-hover p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex justify-between items-center text-xs font-bold text-info uppercase">
-            <span>Novos / Triagem</span>
-            <Clock className="w-4 h-4 text-info" />
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-info">{metrics.newOrTriage}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">Aguardando início</div>
-        </div>
+          {/* Novos / Triagem */}
+          <button
+            type="button"
+            onClick={() => setFilterStatus("NEW")}
+            className={`flex items-center gap-2.5 px-3 py-1.5 hover:bg-surface-hover rounded-lg transition-colors text-left flex-1 ${
+              filterStatus === "NEW" ? "bg-info/10 font-bold" : ""
+            }`}
+            title="Filtrar chamados Novos ou em Triagem"
+          >
+            <div className="w-7 h-7 rounded-lg bg-info/10 flex items-center justify-center text-info shrink-0">
+              <Clock className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-info">Novos</div>
+              <div className="text-sm font-extrabold text-info leading-none mt-0.5">{metrics.newOrTriage}</div>
+            </div>
+          </button>
 
-        <div 
-          onClick={() => setFilterStatus("IN_PROGRESS")}
-          className="bg-surface hover:bg-surface-hover p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex justify-between items-center text-xs font-bold text-warning uppercase">
-            <span>Em Atendimento</span>
-            <UserCheck className="w-4 h-4 text-warning" />
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-warning">{metrics.inProgress}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">Em resolução</div>
-        </div>
+          {/* Em Atendimento */}
+          <button
+            type="button"
+            onClick={() => setFilterStatus("IN_PROGRESS")}
+            className={`flex items-center gap-2.5 px-3 py-1.5 hover:bg-surface-hover rounded-lg transition-colors text-left flex-1 ${
+              filterStatus === "IN_PROGRESS" ? "bg-warning/10 font-bold" : ""
+            }`}
+            title="Filtrar chamados Em Atendimento"
+          >
+            <div className="w-7 h-7 rounded-lg bg-warning/10 flex items-center justify-center text-warning shrink-0">
+              <UserCheck className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-warning">Atendimento</div>
+              <div className="text-sm font-extrabold text-warning leading-none mt-0.5">{metrics.inProgress}</div>
+            </div>
+          </button>
 
-        <div 
-          onClick={() => setFilterStatus("WAITING_USER")}
-          className="bg-surface hover:bg-surface-hover p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex justify-between items-center text-xs font-bold text-orange-400 uppercase">
-            <span>Aguardando</span>
-            <AlertTriangle className="w-4 h-4 text-orange-400" />
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-orange-400">{metrics.waiting}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">Usuário / Terceiros</div>
-        </div>
+          {/* Aguardando */}
+          <button
+            type="button"
+            onClick={() => setFilterStatus("WAITING_USER")}
+            className={`flex items-center gap-2.5 px-3 py-1.5 hover:bg-surface-hover rounded-lg transition-colors text-left flex-1 ${
+              filterStatus === "WAITING_USER" ? "bg-orange-500/10 font-bold" : ""
+            }`}
+            title="Filtrar chamados Aguardando Resposta"
+          >
+            <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400 shrink-0">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-orange-400">Aguardando</div>
+              <div className="text-sm font-extrabold text-orange-400 leading-none mt-0.5">{metrics.waiting}</div>
+            </div>
+          </button>
 
-        <div 
-          onClick={() => setFilterPriority("CRITICAL")}
-          className="bg-surface hover:bg-surface-hover p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex justify-between items-center text-xs font-bold text-danger uppercase">
-            <span>Críticos / Alta</span>
-            <ShieldAlert className="w-4 h-4 text-danger" />
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-danger">{metrics.critical}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">Atenção imediata</div>
-        </div>
+          {/* Críticos / Alta */}
+          <button
+            type="button"
+            onClick={() => setFilterPriority("CRITICAL")}
+            className={`flex items-center gap-2.5 px-3 py-1.5 hover:bg-surface-hover rounded-lg transition-colors text-left flex-1 ${
+              filterPriority === "CRITICAL" ? "bg-danger/10 font-bold" : ""
+            }`}
+            title="Filtrar chamados Críticos / Alta Prioridade"
+          >
+            <div className="w-7 h-7 rounded-lg bg-danger/10 flex items-center justify-center text-danger shrink-0">
+              <ShieldAlert className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-danger">Críticos</div>
+              <div className="text-sm font-extrabold text-danger leading-none mt-0.5">{metrics.critical}</div>
+            </div>
+          </button>
 
-        <div 
-          onClick={() => setFilterStatus("RESOLVED")}
-          className="bg-surface hover:bg-surface-hover p-4 rounded-xl border border-border transition-all cursor-pointer shadow-xs"
-        >
-          <div className="flex justify-between items-center text-xs font-bold text-success uppercase">
-            <span>Resolvidos</span>
-            <CheckCircle2 className="w-4 h-4 text-success" />
-          </div>
-          <div className="mt-2 text-2xl font-extrabold text-success">{metrics.resolved}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">Concluídos com êxito</div>
+          {/* Resolvidos */}
+          <button
+            type="button"
+            onClick={() => setFilterStatus("RESOLVED")}
+            className={`flex items-center gap-2.5 px-3 py-1.5 hover:bg-surface-hover rounded-lg transition-colors text-left flex-1 ${
+              filterStatus === "RESOLVED" ? "bg-success/10 font-bold" : ""
+            }`}
+            title="Filtrar chamados Resolvidos / Fechados"
+          >
+            <div className="w-7 h-7 rounded-lg bg-success/10 flex items-center justify-center text-success shrink-0">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-success">Resolvidos</div>
+              <div className="text-sm font-extrabold text-success leading-none mt-0.5">{metrics.resolved}</div>
+            </div>
+          </button>
+
         </div>
       </div>
 
-      {/* Control Bar: Search, Filters and View Toggle */}
-      <div className="bg-surface p-4 rounded-2xl border border-border shadow-xs space-y-3">
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+      {/* 3. Barra de Ferramentas Compacta em Níveis (Busca, Período, Filtros Expansíveis e Visualização) */}
+      <div className="bg-surface p-2.5 rounded-xl border border-border shadow-2xs space-y-2">
+        
+        {/* Nível 1: Linha Principal de Ações */}
+        <div className="flex flex-col lg:flex-row gap-2 items-stretch lg:items-center justify-between">
           
-          {/* Search Input */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+          {/* Campo de Busca Rápida */}
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por código (CH-...), título, solicitante ou atendente..."
+              placeholder="Buscar por código, assunto, solicitante ou atendente..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-border bg-surface-elevated text-foreground text-xs font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+              className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-border bg-background text-foreground text-xs font-medium focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-muted-foreground"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground p-0.5"
+                title="Limpar busca"
               >
                 ✕
               </button>
             )}
           </div>
 
-          {/* Quick View Toggle (Table vs Kanban vs Reports) */}
-          <div className="flex items-center gap-1.5 bg-surface-elevated p-1 rounded-xl border border-border self-end sm:self-auto">
+          {/* Controles da Direita: Período Compacto, Botão Filtros e Modo de Visualização */}
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+            
+            {/* Seletor Compacto de Período (Dropdown / Popover) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsPeriodMenuOpen(!isPeriodMenuOpen)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                  isPeriodMenuOpen
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                    : "bg-background hover:bg-surface-hover text-foreground border-border"
+                }`}
+                title="Alterar período de exibição"
+              >
+                <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                <span className="truncate max-w-[150px] sm:max-w-[180px]">{activePeriodLabel}</span>
+                <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${isPeriodMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {/* Popover de Configuração de Período */}
+              {isPeriodMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-72 sm:w-80 bg-surface border border-border rounded-2xl shadow-2xl p-3.5 z-40 space-y-3 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                      Configurar Período
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsPeriodMenuOpen(false)}
+                      className="text-muted-foreground hover:text-foreground p-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Atalhos Rápidos */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { handleResetToCurrentMonth(); setIsPeriodMenuOpen(false); }}
+                      className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold border transition-colors ${
+                        filterYear === currentYearStr && filterMonth === currentMonthStr && filterDayRange === "ALL_MONTH"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border text-foreground hover:bg-surface-hover"
+                      }`}
+                    >
+                      Mês Atual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { handleClearDateFilters(); setIsPeriodMenuOpen(false); }}
+                      className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-semibold border transition-colors ${
+                        filterYear === "ALL" && filterMonth === "ALL"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border text-foreground hover:bg-surface-hover"
+                      }`}
+                    >
+                      Todo o Histórico
+                    </button>
+                  </div>
+
+                  {/* Selects: Ano e Mês */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Ano
+                      </label>
+                      <select
+                        value={filterYear}
+                        onChange={(e) => setFilterYear(e.target.value)}
+                        className="w-full text-xs font-semibold rounded-lg border border-border bg-background px-2 py-1.5 text-foreground"
+                      >
+                        <option value="ALL">Todos os Anos</option>
+                        {availableYears.map(yr => (
+                          <option key={yr} value={yr}>
+                            {yr} {yr === currentYearStr ? "(Atual)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Mês
+                      </label>
+                      <select
+                        value={filterMonth}
+                        onChange={(e) => setFilterMonth(e.target.value)}
+                        className="w-full text-xs font-semibold rounded-lg border border-border bg-background px-2 py-1.5 text-foreground"
+                      >
+                        <option value="ALL">Todos os Meses</option>
+                        {MONTHS.map(m => (
+                          <option key={m.value} value={m.value}>
+                            {m.label.split(" - ")[1]} {filterYear === currentYearStr && m.value === currentMonthStr ? "(Atual)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Dias / Recorte */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      Dias / Recorte
+                    </label>
+                    <select
+                      value={filterDayRange}
+                      onChange={(e) => setFilterDayRange(e.target.value)}
+                      className="w-full text-xs font-semibold rounded-lg border border-border bg-background px-2.5 py-1.5 text-foreground"
+                    >
+                      <option value="ALL_MONTH">Mês Completo (Padrão)</option>
+                      <option value="TODAY">Hoje</option>
+                      <option value="YESTERDAY">Ontem</option>
+                      <option value="LAST_7_DAYS">Últimos 7 dias</option>
+                      <option value="LAST_15_DAYS">Últimos 15 dias</option>
+                      <option value="LAST_30_DAYS">Últimos 30 dias</option>
+                      <option value="SPECIFIC_DAY">Dia Específico...</option>
+                      <option value="CUSTOM">Faixa de Datas (De / Até)...</option>
+                    </select>
+                  </div>
+
+                  {filterDayRange === "SPECIFIC_DAY" && (
+                    <div>
+                      <label className="block text-[10px] font-bold text-muted-foreground mb-1">Escolha a Data:</label>
+                      <input
+                        type="date"
+                        value={filterSpecificDate}
+                        onChange={(e) => setFilterSpecificDate(e.target.value)}
+                        className="w-full text-xs rounded-lg border border-border bg-background px-2 py-1.5 text-foreground"
+                      />
+                    </div>
+                  )}
+
+                  {filterDayRange === "CUSTOM" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground mb-1">De:</label>
+                        <input
+                          type="date"
+                          value={filterCustomStart}
+                          onChange={(e) => setFilterCustomStart(e.target.value)}
+                          className="w-full text-xs rounded-lg border border-border bg-background px-2 py-1.5 text-foreground"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground mb-1">Até:</label>
+                        <input
+                          type="date"
+                          value={filterCustomEnd}
+                          onChange={(e) => setFilterCustomEnd(e.target.value)}
+                          className="w-full text-xs rounded-lg border border-border bg-background px-2 py-1.5 text-foreground"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-border flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setIsPeriodMenuOpen(false)}
+                      className="px-3 py-1 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover"
+                    >
+                      Aplicar Período
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Botão de Filtros Operacionais Expansíveis */}
             <button
               type="button"
-              onClick={() => setViewMode("table")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === "table"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                isFiltersOpen || activeFiltersCount > 0
+                  ? "bg-primary/10 border-primary/30 text-primary font-bold shadow-2xs"
+                  : "bg-background hover:bg-surface-hover text-foreground border-border"
               }`}
+              title="Expandir ou recolher filtros operacionais"
             >
-              <TableIcon className="w-3.5 h-3.5" />
-              <span>Tabela</span>
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filtros</span>
+              {activeFiltersCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-primary text-white text-[10px] font-black flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+              <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${isFiltersOpen ? "rotate-180" : ""}`} />
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("kanban")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === "kanban"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Kanban</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("reports")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === "reports"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>Relatórios</span>
-            </button>
+
+            {/* Alternador de Visualização: Tabela, Kanban, Relatórios */}
+            <div className="flex items-center gap-0.5 bg-background p-0.5 rounded-xl border border-border shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "table"
+                    ? "bg-primary text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Visualização em Tabela"
+              >
+                <TableIcon className="w-3 h-3" />
+                <span className="hidden sm:inline">Tabela</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("kanban")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "kanban"
+                    ? "bg-primary text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Visualização em Kanban"
+              >
+                <LayoutGrid className="w-3 h-3" />
+                <span className="hidden sm:inline">Kanban</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("reports")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "reports"
+                    ? "bg-primary text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Visualização de Relatórios & SLAs"
+              >
+                <BarChart3 className="w-3 h-3" />
+                <span className="hidden sm:inline">Relatórios</span>
+              </button>
+            </div>
+
           </div>
         </div>
 
-        {/* Date Filter Bar */}
-        <div className="bg-surface-elevated/40 p-3 sm:p-3.5 rounded-xl border border-border space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                <CalendarDays className="w-3.5 h-3.5" />
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-foreground">Filtro por Período:</span>
-                <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                  {activePeriodLabel}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  ({dateFilteredTickets.length} {dateFilteredTickets.length === 1 ? "chamado" : "chamados"} no período)
-                </span>
-              </div>
+        {/* Nível 2: Painel Expansível de Filtros Operacionais */}
+        {isFiltersOpen && (
+          <div className="pt-2.5 border-t border-border animate-in fade-in slide-in-from-top-1 space-y-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold text-muted-foreground uppercase tracking-wider">
+                Filtros Operacionais Avançados:
+              </span>
+              {activeFiltersCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterStatus("ALL");
+                    setFilterPriority("ALL");
+                    setFilterType("ALL");
+                    setFilterAssignee("ALL");
+                    setFilterCategory("ALL");
+                  }}
+                  className="text-primary hover:underline font-bold flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Redefinir filtros</span>
+                </button>
+              )}
             </div>
 
-            {/* Quick Period Buttons */}
-            <div className="flex items-center gap-1.5 text-xs">
-              <button
-                type="button"
-                onClick={handleResetToCurrentMonth}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                  filterYear === currentYearStr && filterMonth === currentMonthStr && filterDayRange === "ALL_MONTH"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground border border-border"
-                }`}
-                title="Voltar para o mês atual"
-              >
-                Mês Atual
-              </button>
-
-              <button
-                type="button"
-                onClick={handleClearDateFilters}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                  filterYear === "ALL" && filterMonth === "ALL" && filterDayRange === "ALL_TIME"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground border border-border"
-                }`}
-                title="Visualizar todos os períodos históricos"
-              >
-                Ver Todos
-              </button>
-            </div>
-          </div>
-
-          {/* Selects Row: Ano, Mês, Dias/Período */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-1">
-            {/* Filtro de Ano */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Ano
-              </label>
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full text-xs font-semibold rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">Todos os Anos</option>
-                {availableYears.map(yr => (
-                  <option key={yr} value={yr}>
-                    {yr} {yr === currentYearStr ? "(Atual)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filtro de Mês */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Mês
-              </label>
-              <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className="w-full text-xs font-semibold rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">Todos os Meses</option>
-                {MONTHS.map(m => (
-                  <option key={m.value} value={m.value}>
-                    {m.label} {filterYear === currentYearStr && m.value === currentMonthStr ? "(Atual)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filtro de Dias / Período */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Dias / Recorte
-              </label>
-              <select
-                value={filterDayRange}
-                onChange={(e) => setFilterDayRange(e.target.value)}
-                className="w-full text-xs font-semibold rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL_MONTH">Mês Completo (Padrão)</option>
-                <option value="TODAY">Hoje</option>
-                <option value="YESTERDAY">Ontem</option>
-                <option value="LAST_7_DAYS">Últimos 7 dias</option>
-                <option value="LAST_15_DAYS">Últimos 15 dias</option>
-                <option value="LAST_30_DAYS">Últimos 30 dias</option>
-                <option value="SPECIFIC_DAY">Dia Específico...</option>
-                <option value="CUSTOM">Faixa de Datas (De / Até)...</option>
-                <option value="ALL_TIME">Todo o Histórico</option>
-              </select>
-            </div>
-
-            {/* Input dinâmico de Dia Específico ou Faixa De/Até */}
-            {filterDayRange === "SPECIFIC_DAY" && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {/* Status */}
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                  Selecione o Dia
+                  Status
                 </label>
-                <input
-                  type="date"
-                  value={filterSpecificDate}
-                  onChange={(e) => setFilterSpecificDate(e.target.value)}
-                  className="w-full text-xs font-medium rounded-lg border border-border bg-surface px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-                />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full text-xs font-medium rounded-lg border border-border bg-background px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">Todos os Status</option>
+                  <option value="NEW">Novos</option>
+                  <option value="TRIAGE">Em Triagem</option>
+                  <option value="ASSIGNED">Atribuídos</option>
+                  <option value="IN_PROGRESS">Em Atendimento</option>
+                  <option value="WAITING_USER">Aguardando Usuário</option>
+                  <option value="WAITING_VENDOR">Aguardando Fornecedor</option>
+                  <option value="RESOLVED">Resolvidos</option>
+                  <option value="CLOSED">Fechados</option>
+                </select>
               </div>
-            )}
 
-            {filterDayRange === "CUSTOM" && (
-              <div className="sm:col-span-3 lg:col-span-1 grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    De
-                  </label>
-                  <input
-                    type="date"
-                    value={filterCustomStart}
-                    onChange={(e) => setFilterCustomStart(e.target.value)}
-                    className="w-full text-xs font-medium rounded-lg border border-border bg-surface px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    Até
-                  </label>
-                  <input
-                    type="date"
-                    value={filterCustomEnd}
-                    onChange={(e) => setFilterCustomEnd(e.target.value)}
-                    className="w-full text-xs font-medium rounded-lg border border-border bg-surface px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-                  />
-                </div>
+              {/* Prioridade */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Prioridade
+                </label>
+                <select
+                  value={filterPriority}
+                  onChange={(e) => setFilterPriority(e.target.value)}
+                  className="w-full text-xs font-medium rounded-lg border border-border bg-background px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">Todas as Prioridades</option>
+                  <option value="CRITICAL">🚨 Crítica</option>
+                  <option value="HIGH">⚠️ Alta</option>
+                  <option value="MEDIUM">🔹 Média</option>
+                  <option value="LOW">⚪ Baixa</option>
+                </select>
               </div>
+
+              {/* Tipo */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Tipo
+                </label>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full text-xs font-medium rounded-lg border border-border bg-background px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">Todos os Tipos</option>
+                  <option value="INCIDENT">Incidentes</option>
+                  <option value="REQUEST">Requisições</option>
+                </select>
+              </div>
+
+              {/* Atendente */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Atendente
+                </label>
+                <select
+                  value={filterAssignee}
+                  onChange={(e) => setFilterAssignee(e.target.value)}
+                  className="w-full text-xs font-medium rounded-lg border border-border bg-background px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">Todos os Atendentes</option>
+                  <option value="MINE">👤 Meus Chamados</option>
+                  <option value="UNASSIGNED">⚠️ Não Atribuídos (Fila)</option>
+                </select>
+              </div>
+
+              {/* Categoria */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                  Categoria
+                </label>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="w-full text-xs font-medium rounded-lg border border-border bg-background px-2 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">Todas as Categorias</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pílulas de Filtros Ativos (Active Filter Chips com remoção individual) */}
+        {hasActiveFilters && (
+          <div className="pt-2 border-t border-border flex items-center gap-1.5 flex-wrap text-xs">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase mr-0.5">Filtros:</span>
+            
+            {/* Chip de Busca */}
+            {searchQuery.trim() && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[11px] font-medium">
+                <span>Busca: &quot;{searchQuery}&quot;</span>
+                <button type="button" onClick={() => setSearchQuery("")} className="hover:opacity-75">✕</button>
+              </span>
             )}
-          </div>
-        </div>
 
-        {/* Operational Filters Bar */}
-        <div className="pt-2 border-t border-border space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Filtros Operacionais
-            </span>
-            {(filterStatus !== "ALL" || filterPriority !== "ALL" || filterType !== "ALL" || filterAssignee !== "ALL" || filterCategory !== "ALL" || searchQuery !== "" || filterYear !== currentYearStr || filterMonth !== currentMonthStr || filterDayRange !== "ALL_MONTH") && (
-              <button
-                type="button"
-                onClick={handleClearAllFilters}
-                className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
-              >
-                <X className="w-3 h-3" />
-                Limpar Todos os Filtros
-              </button>
+            {/* Chip de Status */}
+            {filterStatus !== "ALL" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-elevated text-foreground border border-border text-[11px] font-medium">
+                <span>Status: {STATUS_CONFIG[filterStatus]?.label || filterStatus}</span>
+                <button type="button" onClick={() => setFilterStatus("ALL")} className="hover:opacity-75">✕</button>
+              </span>
             )}
+
+            {/* Chip de Prioridade */}
+            {filterPriority !== "ALL" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-elevated text-foreground border border-border text-[11px] font-medium">
+                <span>Prioridade: {PRIORITY_CONFIG[filterPriority]?.label || filterPriority}</span>
+                <button type="button" onClick={() => setFilterPriority("ALL")} className="hover:opacity-75">✕</button>
+              </span>
+            )}
+
+            {/* Chip de Tipo */}
+            {filterType !== "ALL" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-elevated text-foreground border border-border text-[11px] font-medium">
+                <span>Tipo: {filterType === "INCIDENT" ? "Incidente" : "Requisição"}</span>
+                <button type="button" onClick={() => setFilterType("ALL")} className="hover:opacity-75">✕</button>
+              </span>
+            )}
+
+            {/* Chip de Atendente */}
+            {filterAssignee !== "ALL" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-elevated text-foreground border border-border text-[11px] font-medium">
+                <span>Atendente: {filterAssignee === "MINE" ? "Meus Chamados" : "Fila"}</span>
+                <button type="button" onClick={() => setFilterAssignee("ALL")} className="hover:opacity-75">✕</button>
+              </span>
+            )}
+
+            {/* Chip de Categoria */}
+            {filterCategory !== "ALL" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-elevated text-foreground border border-border text-[11px] font-medium">
+                <span>Categoria: {categories.find(c => c.id === filterCategory)?.name || "Selecionada"}</span>
+                <button type="button" onClick={() => setFilterCategory("ALL")} className="hover:opacity-75">✕</button>
+              </span>
+            )}
+
+            {/* Chip de Período Não Padrão */}
+            {(filterYear !== currentYearStr || filterMonth !== currentMonthStr || filterDayRange !== "ALL_MONTH") && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[11px] font-semibold">
+                <span>Período: {activePeriodLabel}</span>
+                <button type="button" onClick={handleResetToCurrentMonth} className="hover:opacity-75" title="Restaurar mês atual">✕</button>
+              </span>
+            )}
+
+            {/* Botão Limpar Tudo */}
+            <button
+              type="button"
+              onClick={handleClearAllFilters}
+              className="text-[11px] font-bold text-muted-foreground hover:text-danger underline ml-auto"
+            >
+              Limpar Todos
+            </button>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-            {/* Status Filter */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Status
-              </label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">Todos os Status</option>
-                <option value="NEW">Novos</option>
-                <option value="TRIAGE">Em Triagem</option>
-                <option value="ASSIGNED">Atribuídos</option>
-                <option value="IN_PROGRESS">Em Atendimento</option>
-                <option value="WAITING_USER">Aguardando Usuário</option>
-                <option value="WAITING_VENDOR">Aguardando Fornecedor</option>
-                <option value="RESOLVED">Resolvidos</option>
-                <option value="CLOSED">Fechados</option>
-              </select>
-            </div>
-
-            {/* Priority Filter */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Prioridade
-              </label>
-              <select
-                value={filterPriority}
-                onChange={(e) => setFilterPriority(e.target.value)}
-                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">Todas as Prioridades</option>
-                <option value="CRITICAL">🚨 Crítica</option>
-                <option value="HIGH">⚠️ Alta</option>
-                <option value="MEDIUM">🔹 Média</option>
-                <option value="LOW">⚪ Baixa</option>
-              </select>
-            </div>
-
-            {/* Type Filter */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Tipo
-              </label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">Todos os Tipos</option>
-                <option value="INCIDENT">Incidentes</option>
-                <option value="REQUEST">Requisições</option>
-              </select>
-            </div>
-
-            {/* Assignee Filter */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Atendente
-              </label>
-              <select
-                value={filterAssignee}
-                onChange={(e) => setFilterAssignee(e.target.value)}
-                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">Todos os Atendentes</option>
-                <option value="MINE">👤 Meus Chamados</option>
-                <option value="UNASSIGNED">⚠️ Não Atribuídos (Fila)</option>
-              </select>
-            </div>
-
-            {/* Category Filter */}
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                Categoria
-              </label>
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full text-xs font-medium rounded-lg border border-border bg-surface-elevated px-2.5 py-1.5 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">Todas as Categorias</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* VIEW: Table Mode */}
+      {/* VIEW: Table Mode Clean & Compact */}
       {viewMode === "table" && (
-        <div className="bg-surface shadow-xs border border-border rounded-2xl overflow-hidden">
+        <div className="bg-surface shadow-2xs border border-border rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-border text-left">
-              <thead className="bg-surface-elevated">
+            <table className="min-w-full divide-y divide-border/60 text-left">
+              <thead className="bg-surface-elevated/70 border-b border-border/80">
                 <tr>
-                  <th className="px-5 py-3.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Código</th>
-                  <th className="px-5 py-3.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Assunto & Resumo</th>
-                  <th className="px-5 py-3.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Prioridade</th>
-                  <th className="px-5 py-3.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Solicitante</th>
-                  <th className="px-5 py-3.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Responsável</th>
-                  <th className="px-5 py-3.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Abertura</th>
-                  <th className="px-5 py-3.5 text-right text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
+                  <th className="px-3.5 py-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Código</th>
+                  <th className="px-3.5 py-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Assunto & Resumo</th>
+                  <th className="px-3.5 py-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-3.5 py-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Prioridade</th>
+                  <th className="px-3.5 py-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Solicitante</th>
+                  <th className="px-3.5 py-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Responsável</th>
+                  <th className="px-3.5 py-2.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Abertura</th>
+                  <th className="px-3.5 py-2.5 text-right text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/40">
                 {filteredTickets.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-16 text-center">
+                    <td colSpan={8} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
-                        <HeadphonesIcon className="w-10 h-10 text-muted-foreground/40 mb-3" />
+                        <HeadphonesIcon className="w-8 h-8 text-muted-foreground/40 mb-2.5" />
                         <p className="text-sm font-semibold text-foreground">Nenhum chamado encontrado</p>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                        <p className="text-xs text-muted-foreground mt-0.5 max-w-sm">
                           Não foram localizados chamados no período <b>{activePeriodLabel}</b> com os filtros selecionados.
                         </p>
-                        <div className="flex items-center gap-2 mt-4">
+                        <div className="flex items-center gap-2 mt-3.5">
                           <button
                             type="button"
                             onClick={handleClearDateFilters}
-                            className="bg-surface-elevated hover:bg-surface-hover text-foreground border border-border px-3.5 py-2 rounded-xl text-xs font-bold transition-colors"
+                            className="bg-surface-elevated hover:bg-surface-hover text-foreground border border-border px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors"
                           >
                             Ver Todo o Histórico
                           </button>
                           <Link
                             href="/service-desk/new"
-                            className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors"
+                            className="bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors"
                           >
                             + Abrir Novo Chamado
                           </Link>
@@ -1049,9 +1240,9 @@ export default function ServiceDeskClient({
                     const priorityInfo = PRIORITY_CONFIG[ticket.priority] || { label: ticket.priority, badge: "bg-muted text-muted-foreground border-border", dot: "bg-muted-foreground" };
                     
                     return (
-                      <tr key={ticket.id} className="hover:bg-surface-hover/70 transition-colors group">
+                      <tr key={ticket.id} className="hover:bg-surface-hover/60 transition-colors group">
                         {/* Code */}
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap">
                           <Link href={`/service-desk/${ticket.id}`} className="font-mono text-xs font-bold text-primary hover:underline">
                             {ticket.code}
                           </Link>
@@ -1061,27 +1252,27 @@ export default function ServiceDeskClient({
                         </td>
 
                         {/* Title & Description */}
-                        <td className="px-5 py-4">
-                          <Link href={`/service-desk/${ticket.id}`} className="font-bold text-sm text-foreground hover:text-primary transition-colors block line-clamp-1">
+                        <td className="px-3.5 py-2.5 sm:py-3">
+                          <Link href={`/service-desk/${ticket.id}`} className="font-bold text-xs sm:text-sm text-foreground hover:text-primary transition-colors block line-clamp-1">
                             {ticket.title}
                           </Link>
-                          <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                          <div className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
                             {ticket.description}
                           </div>
                           {ticket.category && (
-                            <span className="inline-block mt-1 text-[10px] font-semibold text-muted-foreground bg-surface-elevated border border-border px-1.5 py-0.5 rounded">
+                            <span className="inline-block mt-1 text-[10px] font-medium text-muted-foreground bg-surface-elevated border border-border/80 px-1.5 py-0.2 rounded">
                               {ticket.category.name}
                             </span>
                           )}
                         </td>
 
                         {/* Status */}
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap">
                           <select
                             value={ticket.status}
                             disabled={actionLoadingId === ticket.id}
                             onChange={(e) => handleQuickStatusChange(ticket.id, e.target.value)}
-                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold border cursor-pointer focus:ring-2 focus:ring-primary shadow-xs transition-all ${statusInfo.badge}`}
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold border cursor-pointer focus:ring-1 focus:ring-primary shadow-2xs transition-all ${statusInfo.badge}`}
                             title="Clique para alterar status imediatamente"
                           >
                             <option value="NEW" className="bg-surface text-foreground font-semibold">Novo</option>
@@ -1097,17 +1288,17 @@ export default function ServiceDeskClient({
                         </td>
 
                         {/* Priority */}
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold border ${priorityInfo.badge}`}>
+                        <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold border ${priorityInfo.badge}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${priorityInfo.dot}`} />
                             {priorityInfo.label}
                           </span>
                         </td>
 
                         {/* Requester */}
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
                               {(ticket.requester_name || ticket.requester?.name || "U").charAt(0).toUpperCase()}
                             </div>
                             <div>
@@ -1120,7 +1311,7 @@ export default function ServiceDeskClient({
                         </td>
 
                         {/* Assignee */}
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap">
                           {ticket.assigned_to_name || ticket.assigned_to ? (
                             <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                               <div className="w-5 h-5 rounded-full bg-success/10 text-success flex items-center justify-center text-[10px] font-bold">
@@ -1133,7 +1324,7 @@ export default function ServiceDeskClient({
                               type="button"
                               disabled={actionLoadingId === ticket.id}
                               onClick={() => handleAssignToMe(ticket.id)}
-                              className="text-[11px] font-bold text-primary hover:text-primary-hover bg-primary/10 hover:bg-primary/20 border border-primary/20 px-2 py-1 rounded-md transition-colors"
+                              className="text-[10px] font-bold text-primary hover:text-primary-hover bg-primary/10 hover:bg-primary/20 border border-primary/20 px-2 py-0.5 rounded-md transition-colors"
                             >
                               {actionLoadingId === ticket.id ? "Atribuindo..." : "+ Assumir"}
                             </button>
@@ -1141,17 +1332,17 @@ export default function ServiceDeskClient({
                         </td>
 
                         {/* Created At */}
-                        <td className="px-5 py-4 whitespace-nowrap text-xs text-muted-foreground">
+                        <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap text-xs text-muted-foreground">
                           <div>{new Date(ticket.created_at).toLocaleDateString("pt-BR")}</div>
                           <div className="text-[10px] text-muted-foreground">{formatTimeAgo(ticket.created_at)}</div>
                         </td>
 
                         {/* Actions */}
-                        <td className="px-5 py-4 whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1">
                             <Link
                               href={`/service-desk/${ticket.id}`}
-                              className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                              className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                               title="Visualizar chamado"
                             >
                               <Eye className="w-4 h-4" />
