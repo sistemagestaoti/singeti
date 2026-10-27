@@ -27,7 +27,6 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
             id: true,
             name: true,
             email: true,
-            avatar: true,
           }
         },
         assigned_to: {
@@ -35,7 +34,6 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
             id: true,
             name: true,
             email: true,
-            avatar: true,
           }
         },
         category: {
@@ -74,7 +72,6 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
                 id: true,
                 name: true,
                 email: true,
-                avatar: true,
               }
             },
           },

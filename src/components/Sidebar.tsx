@@ -279,7 +279,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
               <Link
                 key={item.name}
                 href={targetHref}
-                prefetch={true}
+                prefetch={false}
                 onClick={() => {
                   startNavigation(targetHref);
                   closeMobileMenu();
@@ -332,7 +332,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
               ) : (
                 <Link
                   href={item.href!}
-                  prefetch={true}
+                  prefetch={false}
                   onClick={() => {
                     startNavigation(item.href!);
                     closeMobileMenu();
@@ -358,7 +358,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                       <Link
                         key={subItem.name}
                         href={subItem.href}
-                        prefetch={true}
+                        prefetch={false}
                         onClick={() => {
                           startNavigation(subItem.href);
                           closeMobileMenu();
