@@ -306,6 +306,7 @@ model Ticket {
 
   // Relacionamentos
   requester_id     String
+  requester_name   String?
   assigned_to_id   String?
   assigned_to_name String?
   group_id         String? // Departamento ou Grupo Técnico
@@ -730,4 +731,39 @@ model SystemSetting {
   updated_at DateTime @updatedAt
 
   @@map("system_settings")
+}
+
+// ---------------------------------------------------------
+// FASE 10: CADASTROS INTELIGENTES E CATÁLOGOS DINÂMICOS
+// ---------------------------------------------------------
+
+model Requester {
+  id              String   @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  job_title       String?
+  department_name String?
+  company_id      String?
+  created_by      String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@index([name])
+  @@index([company_id])
+  @@map("requesters")
+}
+
+model ItemCatalog {
+  id         String   @id @default(cuid())
+  name       String
+  unit       String?  @default("UN")
+  category   String?
+  notes      String?
+  company_id String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([name])
+  @@map("item_catalog")
 }

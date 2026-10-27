@@ -83,11 +83,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         updateData.resolved_at = new Date();
       } else if (body.status === "CLOSED") {
         updateData.closed_at = new Date();
-      } else {
+        if (!existingTicket.resolved_at) {
+          updateData.resolved_at = new Date();
+        }
+      } else if (["NEW", "TRIAGE", "ASSIGNED", "IN_PROGRESS", "WAITING_USER", "WAITING_VENDOR"].includes(body.status)) {
+        if (existingTicket.status === "RESOLVED" || existingTicket.status === "CLOSED") {
+          auditLogs.push(`Chamado reaberto (estava "${existingTicket.status}").`);
+        }
         updateData.resolved_at = null;
         updateData.closed_at = null;
       }
       auditLogs.push(`Status alterado de "${existingTicket.status}" para "${body.status}".`);
+    }
+
+    if (body.requester_name !== undefined && body.requester_name !== existingTicket.requester_name) {
+      updateData.requester_name = body.requester_name ? body.requester_name.trim() : null;
+      if (body.requester_name && body.requester_name.trim()) {
+        auditLogs.push(`Solicitante alterado para "${body.requester_name.trim()}".`);
+      }
     }
 
     if (body.assigned_to_id !== undefined && body.assigned_to_id !== existingTicket.assigned_to_id) {
@@ -225,7 +238,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         updateData.resolved_at = new Date();
       } else if (status === 'CLOSED') {
         updateData.closed_at = new Date();
-      } else {
+        updateData.resolved_at = new Date();
+      } else if (["NEW", "TRIAGE", "ASSIGNED", "IN_PROGRESS", "WAITING_USER", "WAITING_VENDOR"].includes(status)) {
         updateData.resolved_at = null;
         updateData.closed_at = null;
       }

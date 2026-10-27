@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { resolveCurrentUser } from "@/lib/currentUser";
+import { areStringsEquivalent } from "@/lib/normalize";
 
 export async function GET() {
   try {
@@ -49,16 +50,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nenhuma empresa associada encontrada" }, { status: 400 });
     }
 
-    // Checar se já existe no mesmo company
-    const existing = await prisma.department.findFirst({
-      where: {
-        name: name.trim(),
-        company_id
-      }
-    });
+    // Checar se já existe no mesmo company (comparação tolerante a maiúsculas/minúsculas e acentos)
+    const allInCompany = await prisma.department.findMany({ where: { company_id } });
+    const existing = allInCompany.find(d => areStringsEquivalent(d.name, name));
 
     if (existing) {
-      return NextResponse.json(existing, { status: 200 });
+      return NextResponse.json({ ...existing, _alreadyExisted: true }, { status: 200 });
     }
 
     const dept = await prisma.department.create({

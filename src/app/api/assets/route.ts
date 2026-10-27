@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { areStringsEquivalent } from "@/lib/normalize";
 
 export async function GET() {
   try {
@@ -36,6 +37,22 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     
+    // Prevenção de duplicidade por patrimônio (asset_tag) ou nome idêntico
+    if (body.asset_tag && body.asset_tag.trim()) {
+      const existingTag = await prisma.asset.findFirst({
+        where: { asset_tag: body.asset_tag.trim() }
+      });
+      if (existingTag) {
+        return NextResponse.json({ ...existingTag, _alreadyExisted: true }, { status: 200 });
+      }
+    } else if (body.name && body.name.trim()) {
+      const allAssets = await prisma.asset.findMany({ select: { id: true, name: true, internal_id: true, asset_tag: true } });
+      const existing = allAssets.find(a => areStringsEquivalent(a.name, body.name.trim()));
+      if (existing) {
+        return NextResponse.json({ ...existing, _alreadyExisted: true }, { status: 200 });
+      }
+    }
+
     // Generate a unique internal ID
     const count = await prisma.asset.count();
     const internal_id = `AST-${String(count + 1).padStart(4, '0')}`;

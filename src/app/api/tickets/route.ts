@@ -76,6 +76,7 @@ export async function GET(req: Request) {
         { title: { contains: search } },
         { description: { contains: search } },
         { requester: { name: { contains: search } } },
+        { requester_name: { contains: search } },
         { assigned_to: { name: { contains: search } } },
         { assigned_to_name: { contains: search } },
       ];
@@ -150,10 +151,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Usuário inválido" }, { status: 400 });
     }
 
-    // Se informou um solicitante específico (abertura em nome de outro colaborador)
-    const targetRequesterId = body.requester_id && body.requester_id.trim() !== "" 
-      ? body.requester_id.trim() 
-      : user.id;
+    // Resolução de Solicitante (usuário autenticado ou pessoa manual)
+    let targetRequesterId = user.id;
+    let targetRequesterName = body.requester_name?.trim() || null;
+
+    if (body.requester_id && body.requester_id.trim() !== "") {
+      const cleanReqId = body.requester_id.trim();
+      const reqUser = await prisma.user.findUnique({ where: { id: cleanReqId } });
+      if (reqUser) {
+        targetRequesterId = reqUser.id;
+        if (!targetRequesterName) targetRequesterName = reqUser.name;
+      } else {
+        const reqPerson = await prisma.requester.findUnique({ where: { id: cleanReqId } });
+        if (reqPerson) {
+          targetRequesterId = user.id;
+          targetRequesterName = reqPerson.name;
+        }
+      }
+    } else if (targetRequesterName) {
+      targetRequesterId = user.id;
+    } else {
+      targetRequesterName = user.name;
+    }
 
     // Se vierem itens solicitados estruturados, formata na descrição
     let finalDescription = body.description || "";
@@ -179,6 +198,7 @@ export async function POST(req: Request) {
         priority: body.priority || "MEDIUM",
         status: body.status || "NEW",
         requester_id: targetRequesterId,
+        requester_name: targetRequesterName,
         assigned_to_id: body.assigned_to_id || null,
         assigned_to_name: body.assigned_to_name?.trim() || null,
         company_id: user.company_id,
@@ -218,6 +238,29 @@ export async function POST(req: Request) {
           is_internal: true,
         }
       });
+
+      // Auto-alimenta catálogo de itens reutilizáveis
+      if (body.items && Array.isArray(body.items)) {
+        for (const it of body.items) {
+          if (it.description && typeof it.description === 'string' && it.description.trim()) {
+            const desc = it.description.trim();
+            prisma.itemCatalog.findFirst({
+              where: { name: { equals: desc, mode: "insensitive" } }
+            }).then(existing => {
+              if (!existing) {
+                prisma.itemCatalog.create({
+                  data: {
+                    name: desc,
+                    unit: it.unit?.trim() || "UN",
+                    notes: it.notes?.trim() || it.observation?.trim() || null,
+                    company_id: user.company_id,
+                  }
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+        }
+      }
     } catch (e) {
       console.warn("Falha ao registrar log inicial do chamado:", e);
     }

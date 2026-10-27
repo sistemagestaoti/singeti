@@ -8,6 +8,7 @@ import {
   FileText, ShieldAlert, Cpu, Network, KeyRound, Printer, Box,
   ArrowLeft, UserCheck, X
 } from "lucide-react";
+import SmartSelect, { SmartSelectOption } from "@/components/SmartSelect";
 
 interface UserItem {
   id: string;
@@ -15,6 +16,14 @@ interface UserItem {
   email: string;
   job_title?: string | null;
   department?: { id: string; name: string } | null;
+}
+
+interface RequesterItem {
+  id: string;
+  name: string;
+  email?: string | null;
+  department?: string | null;
+  type?: "USER" | "REQUESTER";
 }
 
 interface AssetItem {
@@ -66,6 +75,16 @@ export default function TicketForm({
   const [assetsList, setAssetsList] = useState<AssetItem[]>(initialAssets);
   const [departmentsList, setDepartmentsList] = useState<DepartmentItem[]>(initialDepartments);
   const [usersList, setUsersList] = useState<UserItem[]>(initialUsers);
+  const [requestersList, setRequestersList] = useState<RequesterItem[]>(
+    initialUsers.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      department: u.department?.name || null,
+      type: "USER"
+    }))
+  );
+  const [catalogItems, setCatalogItems] = useState<Array<{ id: string; name: string; category?: string; unit?: string }>>([]);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -75,18 +94,39 @@ export default function TicketForm({
   const [impact, setImpact] = useState<"LOW" | "MEDIUM" | "HIGH" | "CRITICAL">("MEDIUM");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "CRITICAL">("MEDIUM");
   const [requesterId, setRequesterId] = useState(currentUserId || (initialUsers[0]?.id || ""));
+  const [requesterName, setRequesterName] = useState(initialUsers.find(u => u.id === currentUserId)?.name || initialUsers[0]?.name || "");
   const [categoryId, setCategoryId] = useState(initialCategories[0]?.id || "");
   const [assetId, setAssetId] = useState("");
   const [customAssetNote, setCustomAssetNote] = useState("");
   const [groupId, setGroupId] = useState(initialDepartments[0]?.id || "");
 
   // Responsible State (Registered Technician OR Manual Name)
-  const [assignedMode, setAssignedMode] = useState<"SELECT" | "MANUAL">("SELECT");
   const [assignedToId, setAssignedToId] = useState("");
   const [assignedToName, setAssignedToName] = useState("");
 
   // Dynamic Requested Items List (manual item addition)
   const [requestedItems, setRequestedItems] = useState<RequestedItem[]>([]);
+
+  // Carrega lista unificada de solicitantes e catálogo de itens
+  useEffect(() => {
+    fetch("/api/requesters")
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setRequestersList(data);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/item-catalog")
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCatalogItems(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Sair do Chamado (com confirmação se houver dados preenchidos)
   const handleExitTicket = () => {
@@ -328,6 +368,101 @@ export default function TicketForm({
     }
   };
 
+  // Handlers para o SmartSelect (Universal Creatable)
+  const handleCreateRequester = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/requesters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao cadastrar solicitante");
+    }
+    const created = await res.json();
+    const newOptItem: RequesterItem = {
+      id: created.id,
+      name: created.name,
+      email: created.email,
+      department: created.department,
+      type: "REQUESTER"
+    };
+    setRequestersList(prev => [newOptItem, ...prev]);
+    setRequesterId(created.id);
+    setRequesterName(created.name);
+    return {
+      id: created.id,
+      label: created.name,
+      sublabel: "Solicitante Manual",
+      badge: "Manual"
+    };
+  };
+
+  const handleCreateCategory = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/tickets/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao criar categoria");
+    }
+    const created = await res.json();
+    setCategoriesList(prev => [...prev, created]);
+    setCategoryId(created.id);
+    return { id: created.id, label: created.name };
+  };
+
+  const handleCreateDepartment = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/departments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao criar setor");
+    }
+    const created = await res.json();
+    setDepartmentsList(prev => [...prev, created]);
+    setGroupId(created.id);
+    return { id: created.id, label: created.name };
+  };
+
+  const handleCreateAsset = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/assets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), type: "COMPUTER", status: "IN_USE" })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao cadastrar equipamento");
+    }
+    const created = await res.json();
+    setAssetsList(prev => [created, ...prev]);
+    setAssetId(created.id);
+    return { id: created.id, label: created.name, badge: created.type };
+  };
+
+  const handleCreateCatalogItem = async (name: string): Promise<SmartSelectOption> => {
+    try {
+      const res = await fetch("/api/item-catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() })
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setCatalogItems(prev => [created, ...prev]);
+      }
+    } catch (e) {
+      console.warn("Item catalog add warning:", e);
+    }
+    return { id: name.trim(), label: name.trim() };
+  };
+
   // Main Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -344,10 +479,8 @@ export default function TicketForm({
         fullDescription = `${fullDescription}\n\n[Identificação Manual do Dispositivo / Equipamento]: ${customAssetNote.trim()}`;
       }
 
-      const targetAssignedToId = assignedMode === "SELECT" ? (assignedToId || null) : null;
-      const targetAssignedToName = assignedMode === "MANUAL" 
-        ? (assignedToName.trim() || null)
-        : (usersList.find(u => u.id === assignedToId)?.name || null);
+      const targetAssignedToId = assignedToId || null;
+      const targetAssignedToName = assignedToName?.trim() || null;
 
       const payload = {
         title: title.trim(),
@@ -357,6 +490,7 @@ export default function TicketForm({
         impact,
         priority,
         requester_id: requesterId,
+        requester_name: requesterName?.trim() || null,
         assigned_to_id: targetAssignedToId,
         assigned_to_name: targetAssignedToName,
         category_id: categoryId || null,
@@ -509,7 +643,7 @@ export default function TicketForm({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* Requester with manual addition */}
+            {/* Requester with SmartSelect */}
             <div className="lg:col-span-2">
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">
@@ -519,23 +653,29 @@ export default function TicketForm({
                   type="button"
                   onClick={() => setShowAddUserModal(true)}
                   className="text-xs font-bold text-primary hover:text-primary-hover flex items-center gap-1 transition-colors"
+                  title="Cadastrar usuário completo com credenciais de login"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  + Novo Solicitante Manual
+                  + Cadastro Completo
                 </button>
               </div>
-              <select
+              <SmartSelect
+                placeholder="Pesquise por nome, e-mail ou digite para cadastrar na hora..."
                 value={requesterId}
-                onChange={(e) => setRequesterId(e.target.value)}
-                required
-                className="w-full rounded-xl border border-border bg-surface-elevated px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              >
-                {usersList.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.email}){u.department?.name ? ` - Setor: ${u.department.name}` : ''}
-                  </option>
-                ))}
-              </select>
+                options={requestersList.map(r => ({
+                  id: r.id,
+                  label: r.name,
+                  sublabel: r.email ? `${r.email}${r.department ? ` • Setor: ${r.department}` : ''}` : (r.department ? `Setor: ${r.department}` : undefined),
+                  badge: r.type === "REQUESTER" ? "Manual" : "Colaborador"
+                }))}
+                onChange={(val, opt) => {
+                  setRequesterId(val);
+                  setRequesterName(opt?.label || "");
+                }}
+                onCreateOption={handleCreateRequester}
+                creatableText="+ Adicionar Solicitante"
+                emptyMessage="Nenhum solicitante encontrado. Clique abaixo para cadastrar na hora."
+              />
             </div>
 
             {/* Type */}
@@ -553,7 +693,7 @@ export default function TicketForm({
               </select>
             </div>
 
-            {/* Responsável pelo Chamado */}
+            {/* Responsável pelo Chamado with SmartSelect */}
             <div className="lg:col-span-3 bg-surface-elevated/70 p-4 rounded-xl border border-border">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
                 <div>
@@ -562,61 +702,40 @@ export default function TicketForm({
                     Responsável pelo Chamado
                   </label>
                   <p className="text-[11px] text-muted-foreground">
-                    Selecione um técnico da lista ou digite livremente qualquer nome (ex: João Marcos).
+                    Selecione um técnico da lista ou digite livremente qualquer nome para atribuir.
                   </p>
                 </div>
-                <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-border text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => setAssignedMode("SELECT")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
-                      assignedMode === "SELECT" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Selecionar Técnico
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssignedMode("MANUAL")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
-                      assignedMode === "MANUAL" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Digitar Nome Livre
-                  </button>
-                </div>
               </div>
-
-              {assignedMode === "SELECT" ? (
-                <select
-                  value={assignedToId}
-                  onChange={(e) => {
-                    setAssignedToId(e.target.value);
-                    const sel = usersList.find(u => u.id === e.target.value);
-                    if (sel) setAssignedToName(sel.name);
-                    else setAssignedToName("");
-                  }}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                >
-                  <option value="">Não atribuído (Fila de Atendimento)</option>
-                  {usersList.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.email}){u.job_title ? ` - ${u.job_title}` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  placeholder="Digite o nome do responsável (ex: João Marcos)..."
-                  value={assignedToName}
-                  onChange={(e) => setAssignedToName(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                />
-              )}
+              <SmartSelect
+                placeholder="Selecione um técnico ou digite qualquer nome (ex: João Marcos)..."
+                value={assignedToId || assignedToName}
+                options={usersList.map((u) => ({
+                  id: u.id,
+                  label: u.name,
+                  sublabel: u.job_title ? `${u.email} - ${u.job_title}` : u.email,
+                  badge: "Técnico"
+                }))}
+                onChange={(val, opt) => {
+                  if (usersList.some(u => u.id === val)) {
+                    setAssignedToId(val);
+                    setAssignedToName(opt?.label || "");
+                  } else {
+                    setAssignedToId("");
+                    setAssignedToName(opt?.label || val);
+                  }
+                }}
+                onCreateOption={async (name) => {
+                  setAssignedToId("");
+                  setAssignedToName(name);
+                  return { id: name, label: name, badge: "Manual" };
+                }}
+                creatableText="+ Atribuir a"
+                clearable
+                emptyMessage="Nenhum técnico encontrado. Clique abaixo para atribuir livremente."
+              />
             </div>
 
-            {/* Category with manual addition */}
+            {/* Category with SmartSelect */}
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">
@@ -628,22 +747,24 @@ export default function TicketForm({
                   className="text-xs font-bold text-primary hover:text-primary-hover flex items-center gap-1 transition-colors"
                 >
                   <FolderPlus className="w-3.5 h-3.5" />
-                  + Nova Categoria
+                  + Nova
                 </button>
               </div>
-              <select
+              <SmartSelect
+                placeholder="Selecione ou digite nova categoria..."
                 value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-xl border border-border bg-surface-elevated px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              >
-                <option value="">Selecione uma categoria...</option>
-                {categoriesList.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                options={categoriesList.map((c) => ({
+                  id: c.id,
+                  label: c.name,
+                  sublabel: c.description || undefined
+                }))}
+                onChange={(val) => setCategoryId(val)}
+                onCreateOption={handleCreateCategory}
+                creatableText="+ Adicionar Categoria"
+              />
             </div>
 
-            {/* Department with manual addition */}
+            {/* Department with SmartSelect */}
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">
@@ -655,22 +776,24 @@ export default function TicketForm({
                   className="text-xs font-bold text-primary hover:text-primary-hover flex items-center gap-1 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  + Novo Setor
+                  + Novo
                 </button>
               </div>
-              <select
+              <SmartSelect
+                placeholder="Selecione ou digite novo setor..."
                 value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
-                className="w-full rounded-xl border border-border bg-surface-elevated px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              >
-                <option value="">Nenhum / Triagem Geral N1</option>
-                {departmentsList.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+                options={departmentsList.map((d) => ({
+                  id: d.id,
+                  label: d.name
+                }))}
+                onChange={(val) => setGroupId(val)}
+                onCreateOption={handleCreateDepartment}
+                creatableText="+ Adicionar Setor"
+                clearable
+              />
             </div>
 
-            {/* Asset with manual addition */}
+            {/* Asset with SmartSelect */}
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">
@@ -682,21 +805,23 @@ export default function TicketForm({
                   className="text-xs font-bold text-primary hover:text-primary-hover flex items-center gap-1 transition-colors"
                 >
                   <Laptop className="w-3.5 h-3.5" />
-                  + Cadastrar Ativo
+                  + Cadastrar
                 </button>
               </div>
-              <select
+              <SmartSelect
+                placeholder="Selecione ativo ou cadastre rápido..."
                 value={assetId}
-                onChange={(e) => setAssetId(e.target.value)}
-                className="w-full rounded-xl border border-border bg-surface-elevated px-3.5 py-2.5 text-foreground text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-              >
-                <option value="">Nenhum ativo específico do CMDB</option>
-                {assetsList.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.asset_tag ? `Tag: ${a.asset_tag}` : a.internal_id})
-                  </option>
-                ))}
-              </select>
+                options={assetsList.map((a) => ({
+                  id: a.id,
+                  label: a.name,
+                  sublabel: a.asset_tag ? `Tag: ${a.asset_tag}` : a.internal_id,
+                  badge: a.type
+                }))}
+                onChange={(val) => setAssetId(val)}
+                onCreateOption={handleCreateAsset}
+                creatableText="+ Cadastrar Ativo Rápido"
+                clearable
+              />
             </div>
           </div>
 
@@ -833,12 +958,18 @@ export default function TicketForm({
                   </div>
                   <div className="sm:col-span-4">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1 sm:hidden">Descrição do Item</label>
-                    <input
-                      type="text"
-                      placeholder="Descrição do item *"
+                    <SmartSelect
+                      placeholder="Descrição do item ou escolher..."
                       value={item.name}
-                      onChange={(e) => handleUpdateRequestedItem(item.id, "name", e.target.value)}
-                      className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-border bg-surface-elevated text-foreground"
+                      options={catalogItems.map(ci => ({
+                        id: ci.name,
+                        label: ci.name,
+                        sublabel: ci.category || undefined
+                      }))}
+                      onChange={(val, opt) => handleUpdateRequestedItem(item.id, "name", opt?.label || val)}
+                      onCreateOption={handleCreateCatalogItem}
+                      creatableText="+ Adicionar"
+                      clearable
                     />
                   </div>
                   <div className="sm:col-span-2">

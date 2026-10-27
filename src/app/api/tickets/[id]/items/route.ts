@@ -50,6 +50,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     });
 
+    // Auto-catalog item if not existing
+    try {
+      const desc = body.description.trim();
+      const existing = await prisma.itemCatalog.findFirst({
+        where: { name: { equals: desc, mode: "insensitive" } }
+      });
+      if (!existing) {
+        await prisma.itemCatalog.create({
+          data: {
+            name: desc,
+            category: body.category?.trim() || null,
+            unit: body.unit?.trim() || "UN",
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Item catalog auto-registration notice:", e);
+    }
+
     return NextResponse.json(item, { status: 201 });
   } catch (error: any) {
     console.error("POST /api/tickets/[id]/items error:", error);

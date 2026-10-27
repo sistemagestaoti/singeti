@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, CheckCircle2, Clock, ShieldAlert, User, 
   MessageSquare, Lock, AlertCircle, Laptop, Calendar, 
   Trash2, UserCheck, RefreshCw, Send, Check, X,
-  Printer, Sparkles, Building, Layers, Eye, Box, Plus, Edit2
+  Printer, Sparkles, Building, Layers, Eye, Box, Plus, Edit2, UserPlus
 } from "lucide-react";
+import SmartSelect, { SmartSelectOption } from "@/components/SmartSelect";
 
 interface Comment {
   id: string;
@@ -27,8 +28,8 @@ interface TicketDetailProps {
   initialTicket: any;
   categories: Array<{ id: string; name: string }>;
   departments: Array<{ id: string; name: string }>;
-  assets: Array<{ id: string; name: string; internal_id: string; asset_tag?: string | null }>;
-  users: Array<{ id: string; name: string; email: string }>;
+  assets: Array<{ id: string; name: string; internal_id: string; asset_tag?: string | null; type?: string }>;
+  users: Array<{ id: string; name: string; email: string; job_title?: string | null }>;
   currentUser: { id: string; name: string; email: string; role?: string } | null;
 }
 
@@ -53,6 +54,15 @@ export default function TicketDetailClient({
   const [ticket, setTicket] = useState(initialTicket);
   const [comments, setComments] = useState<Comment[]>(initialTicket.comments || []);
   
+  // Dynamic Lists for SmartSelect
+  const [categoriesList, setCategoriesList] = useState(categories);
+  const [departmentsList, setDepartmentsList] = useState(departments);
+  const [assetsList, setAssetsList] = useState(assets);
+  const [usersList, setUsersList] = useState(users);
+  const [requestersList, setRequestersList] = useState<any[]>([]);
+  const [catalogItems, setCatalogItems] = useState<Array<{ id: string; name: string; category?: string }>>([]);
+  const [isEditingRequester, setIsEditingRequester] = useState(false);
+
   // Interactive Property Edits
   const [status, setStatus] = useState(initialTicket.status);
   const [assignedToId, setAssignedToId] = useState(initialTicket.assigned_to_id || "");
@@ -72,6 +82,23 @@ export default function TicketDetailClient({
     initialTicket.assigned_to_id ? "SELECT" : (initialTicket.assigned_to_name ? "MANUAL" : "SELECT")
   );
   const [manualResponsible, setManualResponsible] = useState(initialTicket.assigned_to_name || "");
+
+  // Load unified requesters & item catalog
+  useEffect(() => {
+    fetch("/api/requesters")
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setRequestersList(data);
+      })
+      .catch(() => {});
+
+    fetch("/api/item-catalog")
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setCatalogItems(data);
+      })
+      .catch(() => {});
+  }, []);
 
   // Ticket Items State
   const [items, setItems] = useState<any[]>(initialTicket.items || []);
@@ -327,6 +354,92 @@ export default function TicketDetailClient({
     }
   };
 
+  // Handlers para o SmartSelect (Universal Creatable)
+  const handleCreateCategory = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/tickets/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao criar categoria");
+    }
+    const created = await res.json();
+    setCategoriesList(prev => [...prev, created]);
+    setCategoryId(created.id);
+    await updateTicketProperty({ category_id: created.id });
+    return { id: created.id, label: created.name };
+  };
+
+  const handleCreateDepartment = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/departments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao criar setor");
+    }
+    const created = await res.json();
+    setDepartmentsList(prev => [...prev, created]);
+    setGroupId(created.id);
+    await updateTicketProperty({ group_id: created.id });
+    return { id: created.id, label: created.name };
+  };
+
+  const handleCreateAsset = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/assets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), type: "COMPUTER", status: "IN_USE" })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao cadastrar ativo");
+    }
+    const created = await res.json();
+    setAssetsList(prev => [created, ...prev]);
+    setAssetId(created.id);
+    await updateTicketProperty({ asset_id: created.id });
+    return { id: created.id, label: created.name, badge: created.type };
+  };
+
+  const handleCreateCatalogItem = async (name: string): Promise<SmartSelectOption> => {
+    try {
+      const res = await fetch("/api/item-catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() })
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setCatalogItems(prev => [created, ...prev]);
+      }
+    } catch (e) {
+      console.warn("Item catalog add warning:", e);
+    }
+    return { id: name.trim(), label: name.trim() };
+  };
+
+  const handleCreateRequester = async (name: string): Promise<SmartSelectOption> => {
+    const res = await fetch("/api/requesters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Erro ao cadastrar solicitante");
+    }
+    const created = await res.json();
+    setRequestersList(prev => [created, ...prev]);
+    await updateTicketProperty({ requester_id: created.id, requester_name: created.name });
+    setIsEditingRequester(false);
+    return { id: created.id, label: created.name, badge: "Manual" };
+  };
+
   // Sair do Chamado (não altera status nem SLA, pede confirmação se houver dados digitados não salvos)
   const handleExitTicket = () => {
     if (commentText.trim() || newItemDesc.trim()) {
@@ -535,13 +648,18 @@ export default function TicketDetailClient({
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                   <div className="sm:col-span-5">
                     <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Descrição do Item *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ex: Mouse sem fio, Memória RAM 16GB, Cabo Cat6..."
+                    <SmartSelect
+                      placeholder="Ex: Mouse sem fio, Cabo Cat6..."
                       value={newItemDesc}
-                      onChange={(e) => setNewItemDesc(e.target.value)}
-                      className="w-full text-xs font-medium px-3 py-2 rounded-lg border border-border bg-surface text-foreground focus:ring-1 focus:ring-primary"
+                      options={catalogItems.map(ci => ({
+                        id: ci.name,
+                        label: ci.name,
+                        sublabel: ci.category || undefined
+                      }))}
+                      onChange={(val, opt) => setNewItemDesc(opt?.label || val)}
+                      onCreateOption={handleCreateCatalogItem}
+                      creatableText="+ Adicionar Item"
+                      clearable
                     />
                   </div>
 
@@ -1029,21 +1147,59 @@ export default function TicketDetailClient({
 
             {/* Requester */}
             <div>
-              <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
-                Solicitante
-              </label>
-              <div className="flex items-center gap-2 p-2.5 bg-surface-elevated rounded-xl border border-border">
-                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                  {ticket.requester.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-foreground truncate">{ticket.requester.name}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">{ticket.requester.email}</div>
-                </div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[11px] font-bold text-muted-foreground uppercase">
+                  Solicitante
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingRequester(!isEditingRequester)}
+                  className="text-[10px] font-bold text-primary hover:underline"
+                >
+                  {isEditingRequester ? "Cancelar" : "Alterar"}
+                </button>
               </div>
+
+              {isEditingRequester ? (
+                <div className="space-y-1.5 animate-in fade-in">
+                  <SmartSelect
+                    placeholder="Buscar ou cadastrar solicitante..."
+                    value={ticket.requester_id || ticket.requester?.id}
+                    options={requestersList.map(r => ({
+                      id: r.id,
+                      label: r.name,
+                      sublabel: r.email ? `${r.email}${r.department ? ` • Setor: ${r.department}` : ''}` : (r.department ? `Setor: ${r.department}` : undefined),
+                      badge: r.type === "REQUESTER" ? "Manual" : "Colaborador"
+                    }))}
+                    onChange={async (val, opt) => {
+                      await updateTicketProperty({
+                        requester_id: val,
+                        requester_name: opt?.label || null,
+                      });
+                      setIsEditingRequester(false);
+                    }}
+                    onCreateOption={handleCreateRequester}
+                    creatableText="+ Adicionar Solicitante"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-2.5 bg-surface-elevated rounded-xl border border-border">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                    {(ticket.requester_name || ticket.requester?.name || "U").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-foreground truncate">
+                      {ticket.requester_name || ticket.requester?.name || "Solicitante"}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {ticket.requester?.email || "Cadastro Manual (Sem login)"}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Responsável pelo Chamado */}
+            {/* Responsável pelo Chamado with SmartSelect */}
             <div className="space-y-2 p-3.5 bg-surface-elevated/70 rounded-xl border border-border">
               <div className="flex justify-between items-center">
                 <label className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
@@ -1053,134 +1209,105 @@ export default function TicketDetailClient({
                 {savingProperty && <span className="text-[10px] text-primary animate-pulse font-medium">salvando...</span>}
               </div>
 
-              {/* Toggle Mode */}
-              <div className="flex items-center gap-1 bg-surface p-0.5 rounded-lg border border-border text-[11px] font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setResponsibleMode("SELECT")}
-                  className={`flex-1 py-1 rounded-md transition-all ${
-                    responsibleMode === "SELECT" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Selecionar Técnico
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setResponsibleMode("MANUAL")}
-                  className={`flex-1 py-1 rounded-md transition-all ${
-                    responsibleMode === "MANUAL" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Digitar Nome Livre
-                </button>
-              </div>
+              <SmartSelect
+                placeholder="Selecione técnico ou digite nome livre..."
+                value={assignedToId || ticket.assigned_to_name || ""}
+                options={usersList.map((u) => ({
+                  id: u.id,
+                  label: u.name,
+                  sublabel: u.job_title ? `${u.email} - ${u.job_title}` : u.email,
+                  badge: "Técnico"
+                }))}
+                onChange={async (val, opt) => {
+                  const isTech = usersList.some(u => u.id === val);
+                  const targetId = isTech ? val : null;
+                  const targetName = isTech ? (opt?.label || null) : val;
+                  setAssignedToId(targetId || "");
+                  setManualResponsible(targetName || "");
+                  await updateTicketProperty({
+                    assigned_to_id: targetId,
+                    assigned_to_name: targetName,
+                  });
+                }}
+                onCreateOption={async (name) => {
+                  setAssignedToId("");
+                  setManualResponsible(name);
+                  await updateTicketProperty({
+                    assigned_to_id: null,
+                    assigned_to_name: name,
+                  });
+                  return { id: name, label: name, badge: "Manual" };
+                }}
+                creatableText="+ Atribuir a"
+                clearable
+                emptyMessage="Nenhum técnico encontrado. Clique abaixo para atribuir livremente."
+              />
 
-              {responsibleMode === "SELECT" ? (
-                <div className="space-y-1.5">
-                  <select
-                    value={assignedToId}
-                    disabled={savingProperty}
-                    onChange={async (e) => {
-                      const newId = e.target.value;
-                      setAssignedToId(newId);
-                      const userObj = users.find(u => u.id === newId);
-                      const newName = userObj ? userObj.name : null;
-                      setManualResponsible(newName || "");
-                      await updateTicketProperty({
-                        assigned_to_id: newId || null,
-                        assigned_to_name: newName,
-                      });
-                    }}
-                    className="w-full text-xs font-medium rounded-xl border border-border bg-surface px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Não atribuído (Fila de Atendimento)</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.email})
-                      </option>
-                    ))}
-                  </select>
-                  {currentUser && assignedToId !== currentUser.id && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setAssignedToId(currentUser.id);
-                        setManualResponsible(currentUser.name);
-                        await updateTicketProperty({
-                          assigned_to_id: currentUser.id,
-                          assigned_to_name: currentUser.name,
-                          status: status === "NEW" ? "IN_PROGRESS" : undefined,
-                        });
-                      }}
-                      className="text-[10px] font-bold text-primary hover:underline block"
-                    >
-                      + Assumir Chamado ({currentUser.name})
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="Nome do responsável (ex: João Marcos)..."
-                      value={manualResponsible}
-                      onChange={(e) => setManualResponsible(e.target.value)}
-                      className="w-full text-xs font-medium rounded-xl border border-border bg-surface px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
-                    />
-                    <button
-                      type="button"
-                      disabled={savingProperty || !manualResponsible.trim()}
-                      onClick={async () => {
-                        await updateTicketProperty({
-                          assigned_to_id: null,
-                          assigned_to_name: manualResponsible.trim(),
-                        });
-                      }}
-                      className="px-3 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary-hover disabled:opacity-50 shrink-0 shadow-xs"
-                    >
-                      Salvar
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Responsável atual: <strong className="text-foreground">{ticket.assigned_to_name || ticket.assigned_to?.name || "Não atribuído"}</strong>
-                  </p>
-                </div>
+              {currentUser && assignedToId !== currentUser.id && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setAssignedToId(currentUser.id);
+                    setManualResponsible(currentUser.name);
+                    await updateTicketProperty({
+                      assigned_to_id: currentUser.id,
+                      assigned_to_name: currentUser.name,
+                      status: status === "NEW" ? "IN_PROGRESS" : undefined,
+                    });
+                  }}
+                  className="text-[10px] font-bold text-primary hover:underline block pt-1"
+                >
+                  + Assumir Chamado ({currentUser.name})
+                </button>
               )}
+
+              <p className="text-[10px] text-muted-foreground">
+                Responsável atual: <strong className="text-foreground">{ticket.assigned_to_name || ticket.assigned_to?.name || "Não atribuído"}</strong>
+              </p>
             </div>
 
-            {/* Category */}
+            {/* Category with SmartSelect */}
             <div>
               <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
                 Categoria
               </label>
-              <select
+              <SmartSelect
+                placeholder="Selecione ou crie nova categoria..."
                 value={categoryId}
-                onChange={(e) => updateTicketProperty({ category_id: e.target.value })}
-                className="w-full text-xs font-medium rounded-xl border border-border bg-surface-elevated px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Sem categoria definida</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                options={categoriesList.map(c => ({
+                  id: c.id,
+                  label: c.name,
+                }))}
+                onChange={async (val) => {
+                  setCategoryId(val);
+                  await updateTicketProperty({ category_id: val });
+                }}
+                onCreateOption={handleCreateCategory}
+                creatableText="+ Adicionar Categoria"
+                clearable
+              />
             </div>
 
-            {/* Department */}
+            {/* Department with SmartSelect */}
             <div>
               <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
                 Setor / Grupo Técnico
               </label>
-              <select
+              <SmartSelect
+                placeholder="Selecione ou crie novo setor..."
                 value={groupId}
-                onChange={(e) => updateTicketProperty({ group_id: e.target.value })}
-                className="w-full text-xs font-medium rounded-xl border border-border bg-surface-elevated px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Triagem Geral N1</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+                options={departmentsList.map(d => ({
+                  id: d.id,
+                  label: d.name,
+                }))}
+                onChange={async (val) => {
+                  setGroupId(val);
+                  await updateTicketProperty({ group_id: val });
+                }}
+                onCreateOption={handleCreateDepartment}
+                creatableText="+ Adicionar Setor"
+                clearable
+              />
             </div>
 
             {/* Priority */}
@@ -1200,23 +1327,47 @@ export default function TicketDetailClient({
               </select>
             </div>
 
-            {/* Asset CMDB */}
+            {/* Asset CMDB with SmartSelect */}
             <div className="pt-2 border-t border-border">
               <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
                 Ativo CMDB Vinculado
               </label>
-              <select
+              <SmartSelect
+                placeholder="Vincular ou cadastrar ativo..."
                 value={assetId}
-                onChange={(e) => updateTicketProperty({ asset_id: e.target.value })}
-                className="w-full text-xs font-medium rounded-xl border border-border bg-surface-elevated px-3 py-2 text-foreground focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Nenhum ativo vinculado</option>
-                {assets.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.asset_tag || a.internal_id})
-                  </option>
-                ))}
-              </select>
+                options={assetsList.map(a => ({
+                  id: a.id,
+                  label: a.name,
+                  sublabel: a.asset_tag ? `Tag: ${a.asset_tag}` : a.internal_id,
+                  badge: a.type
+                }))}
+                onChange={async (val) => {
+                  setAssetId(val);
+                  await updateTicketProperty({ asset_id: val });
+                }}
+                onCreateOption={handleCreateAsset}
+                creatableText="+ Cadastrar Ativo Rápido"
+                clearable
+              />
+
+              {ticket.asset && (
+                <div className="mt-2.5 p-2.5 rounded-lg bg-surface-elevated border border-border flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Laptop className="w-4 h-4 text-primary" />
+                    <div>
+                      <div className="font-bold text-foreground">{ticket.asset.name}</div>
+                      <div className="text-[10px] text-muted-foreground">ID: {ticket.asset.internal_id}</div>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/cmdb/${ticket.asset.id}`}
+                    className="text-primary hover:underline font-bold text-[11px]"
+                  >
+                    Ver no CMDB
+                  </Link>
+                </div>
+              )}
+            </div>
 
               {ticket.asset && (
                 <div className="mt-2.5 p-2.5 rounded-lg bg-surface-elevated border border-border flex items-center justify-between text-xs">

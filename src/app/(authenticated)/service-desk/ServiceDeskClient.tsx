@@ -12,7 +12,14 @@ import {
   CalendarDays, CalendarRange, RotateCcw, X
 } from "lucide-react";
 import ServiceDeskExportModal from "@/components/ServiceDeskExportModal";
-import { exportTicketsToPDF, exportTicketsToExcel, exportTicketsToCSV } from "@/lib/ticketReports";
+import { 
+  exportTicketsToPDF, 
+  exportTicketsToExcel, 
+  exportTicketsToCSV, 
+  formatDateOnly, 
+  formatTimeOnly, 
+  calculateDuration 
+} from "@/lib/ticketReports";
 
 interface Ticket {
   id: string;
@@ -26,6 +33,8 @@ interface Ticket {
   impact: string;
   created_at: string | Date;
   resolved_at?: string | Date | null;
+  closed_at?: string | Date | null;
+  requester_name?: string | null;
   requester: {
     id: string;
     name: string;
@@ -388,7 +397,7 @@ export default function ServiceDeskClient({
         const query = searchQuery.toLowerCase();
         const codeMatch = ticket.code?.toLowerCase().includes(query);
         const titleMatch = ticket.title?.toLowerCase().includes(query);
-        const requesterMatch = ticket.requester?.name?.toLowerCase().includes(query);
+        const requesterMatch = (ticket.requester_name || ticket.requester?.name)?.toLowerCase().includes(query);
         const assigneeMatch = (ticket.assigned_to_name || ticket.assigned_to?.name)?.toLowerCase().includes(query);
         if (!codeMatch && !titleMatch && !requesterMatch && !assigneeMatch) return false;
       }
@@ -1099,11 +1108,13 @@ export default function ServiceDeskClient({
                         <td className="px-5 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
-                              {ticket.requester.name.charAt(0).toUpperCase()}
+                              {(ticket.requester_name || ticket.requester?.name || "U").charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <div className="text-xs font-semibold text-foreground line-clamp-1">{ticket.requester.name}</div>
-                              <div className="text-[10px] text-muted-foreground">{ticket.requester.email}</div>
+                              <div className="text-xs font-semibold text-foreground line-clamp-1">
+                                {ticket.requester_name || ticket.requester?.name}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">{ticket.requester?.email || "Solicitante"}</div>
                             </div>
                           </div>
                         </td>
@@ -1498,14 +1509,20 @@ export default function ServiceDeskClient({
                     <th className="py-2.5 px-3">Status</th>
                     <th className="py-2.5 px-3">Prioridade</th>
                     <th className="py-2.5 px-3">Solicitante</th>
-                    <th className="py-2.5 px-3">Atendente</th>
+                    <th className="py-2.5 px-3">Responsável</th>
                     <th className="py-2.5 px-3">Abertura</th>
+                    <th className="py-2.5 px-3">Encerramento</th>
+                    <th className="py-2.5 px-3">Tempo Atend.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-xs">
-                  {reportFilteredTickets.slice(0, 15).map((t) => {
+                  {reportFilteredTickets.slice(0, 20).map((t) => {
                     const st = STATUS_CONFIG[t.status] || { label: t.status, badge: "bg-muted text-muted-foreground border-border" };
                     const pr = PRIORITY_CONFIG[t.priority] || { label: t.priority, badge: "bg-muted text-muted-foreground border-border" };
+                    const closing = t.closed_at || t.resolved_at;
+                    const isClosed = (t.status === "RESOLVED" || t.status === "CLOSED" || !!closing) && !!closing;
+                    const duration = calculateDuration(t.created_at, t.resolved_at, t.closed_at, t.status);
+
                     return (
                       <tr key={t.id} className="hover:bg-surface-hover/50">
                         <td className="py-2.5 px-3 font-mono font-bold text-primary">
@@ -1527,13 +1544,31 @@ export default function ServiceDeskClient({
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground truncate max-w-[140px]">
-                          {t.requester?.name || "-"}
+                          {t.requester_name || t.requester?.name || "-"}
                         </td>
                         <td className="py-2.5 px-3 text-foreground truncate max-w-[140px]">
                           {t.assigned_to_name || t.assigned_to?.name || "Não atribuído"}
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground text-[11px] whitespace-nowrap">
-                          {new Date(t.created_at).toLocaleDateString("pt-BR")}
+                          {formatDateOnly(t.created_at)} <span className="opacity-70 font-mono text-[10px]">{formatTimeOnly(t.created_at)}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-[11px] whitespace-nowrap">
+                          {isClosed ? (
+                            <span className="text-emerald-500 font-medium">
+                              {formatDateOnly(closing)} <span className="opacity-70 font-mono text-[10px]">{formatTimeOnly(closing)}</span>
+                            </span>
+                          ) : (
+                            <span className="text-amber-500/90 font-medium text-[10px] bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                              Não encerrado
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-bold whitespace-nowrap">
+                          {duration === "Em andamento" ? (
+                            <span className="text-amber-500">{duration}</span>
+                          ) : (
+                            <span className="text-emerald-500">{duration}</span>
+                          )}
                         </td>
                       </tr>
                     );

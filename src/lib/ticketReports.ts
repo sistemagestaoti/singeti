@@ -19,6 +19,7 @@ export interface TicketReportItem {
     name?: string | null;
     email?: string | null;
   } | null;
+  requester_name?: string | null;
   assigned_to?: {
     name?: string | null;
     email?: string | null;
@@ -64,7 +65,7 @@ export interface ReportOptions {
   dateRange?: string;
 }
 
-function formatDate(dateVal?: string | Date | null): string {
+export function formatDate(dateVal?: string | Date | null): string {
   if (!dateVal) return "-";
   try {
     const d = new Date(dateVal);
@@ -81,6 +82,83 @@ function formatDate(dateVal?: string | Date | null): string {
   }
 }
 
+export function formatDateOnly(dateVal?: string | Date | null): string {
+  if (!dateVal) return "-";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return "-";
+  }
+}
+
+export function formatTimeOnly(dateVal?: string | Date | null): string {
+  if (!dateVal) return "-";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "-";
+    return d.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "-";
+  }
+}
+
+export function formatFullDateTime(dateVal?: string | Date | null): string {
+  if (!dateVal) return "Não encerrado";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "Não encerrado";
+    const date = formatDateOnly(d);
+    const time = formatTimeOnly(d);
+    return `${date} às ${time}`;
+  } catch {
+    return "Não encerrado";
+  }
+}
+
+export function calculateDuration(
+  createdAt: string | Date,
+  resolvedAt?: string | Date | null,
+  closedAt?: string | Date | null,
+  status?: string
+): string {
+  const endVal = closedAt || resolvedAt;
+  const isResolvedOrClosed = status === "RESOLVED" || status === "CLOSED" || !!endVal;
+
+  if (!isResolvedOrClosed || !endVal) {
+    return "Em andamento";
+  }
+
+  try {
+    const start = new Date(createdAt).getTime();
+    const end = new Date(endVal).getTime();
+    if (isNaN(start) || isNaN(end) || end < start) return "-";
+
+    const diffMinutes = Math.floor((end - start) / (1000 * 60));
+    const days = Math.floor(diffMinutes / (60 * 24));
+    const hours = Math.floor((diffMinutes % (60 * 24)) / 60);
+    const minutes = diffMinutes % 60;
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}min`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${minutes}min`;
+    }
+    return `${minutes}min`;
+  } catch {
+    return "-";
+  }
+}
+
 /**
  * Exporta chamados para planilha Microsoft Excel (.xlsx) com múltiplas abas e formatação profissional
  */
@@ -88,22 +166,30 @@ export function exportTicketsToExcel(tickets: TicketReportItem[], options: Repor
   const wb = XLSX.utils.book_new();
 
   // 1. Dados detalhados de cada chamado
-  const rows = tickets.map((t) => ({
-    "Código": t.code || t.id,
-    "Título": t.title,
-    "Tipo": t.type === "INCIDENT" ? "Incidente" : "Requisição",
-    "Status": STATUS_LABELS[t.status] || t.status,
-    "Prioridade": PRIORITY_LABELS[t.priority] || t.priority,
-    "Solicitante": t.requester?.name || "Não informado",
-    "E-mail Solicitante": t.requester?.email || "-",
-    "Técnico Responsável": t.assigned_to_name || t.assigned_to?.name || "Não atribuído",
-    "Categoria": t.category?.name || "Geral",
-    "Departamento": t.department?.name || "-",
-    "Equipamento / Ativo": t.asset ? `${t.asset.internal_id || t.asset.asset_tag || ''} ${t.asset.name}`.trim() : "-",
-    "Data de Abertura": formatDate(t.created_at),
-    "Data de Resolução": formatDate(t.resolved_at),
-    "Descrição": t.description || "",
-  }));
+  const rows = tickets.map((t) => {
+    const closingDate = t.closed_at || t.resolved_at;
+    const isClosed = (t.status === "RESOLVED" || t.status === "CLOSED" || !!closingDate) && !!closingDate;
+
+    return {
+      "Código": t.code || t.id,
+      "Título": t.title,
+      "Tipo": t.type === "INCIDENT" ? "Incidente" : "Requisição",
+      "Status": STATUS_LABELS[t.status] || t.status,
+      "Prioridade": PRIORITY_LABELS[t.priority] || t.priority,
+      "Solicitante": t.requester_name || t.requester?.name || "Não informado",
+      "E-mail Solicitante": t.requester?.email || "-",
+      "Técnico Responsável": t.assigned_to_name || t.assigned_to?.name || "Não atribuído",
+      "Categoria": t.category?.name || "Geral",
+      "Departamento": t.department?.name || "-",
+      "Equipamento / Ativo": t.asset ? `${t.asset.internal_id || t.asset.asset_tag || ''} ${t.asset.name}`.trim() : "-",
+      "Data de Abertura": formatDateOnly(t.created_at),
+      "Horário de Abertura": formatTimeOnly(t.created_at),
+      "Data de Encerramento": isClosed ? formatDateOnly(closingDate) : "Não encerrado",
+      "Horário de Encerramento": isClosed ? formatTimeOnly(closingDate) : "Não encerrado",
+      "Tempo de Atendimento": calculateDuration(t.created_at, t.resolved_at, t.closed_at, t.status),
+      "Descrição": t.description || "",
+    };
+  });
 
   const wsTickets = XLSX.utils.json_to_sheet(rows);
 
@@ -120,8 +206,11 @@ export function exportTicketsToExcel(tickets: TicketReportItem[], options: Repor
     { wch: 20 }, // Categoria
     { wch: 20 }, // Departamento
     { wch: 25 }, // Ativo
-    { wch: 18 }, // Data Abertura
-    { wch: 18 }, // Data Resolução
+    { wch: 16 }, // Data Abertura
+    { wch: 18 }, // Horário Abertura
+    { wch: 20 }, // Data Encerramento
+    { wch: 20 }, // Horário Encerramento
+    { wch: 22 }, // Tempo de Atendimento
     { wch: 45 }, // Descrição
   ];
 
@@ -276,25 +365,33 @@ export function exportTicketsToPDF(tickets: TicketReportItem[], options: ReportO
   // 3. Tabela de Chamados com jspdf-autotable
   const tableHeaders = [
     "CÓDIGO",
-    "ABERTURA",
     "TÍTULO DO CHAMADO",
     "SOLICITANTE",
-    "CATEGORIA",
-    "PRIORIDADE",
     "RESPONSÁVEL",
     "STATUS",
+    "ABERTURA",
+    "ENCERRAMENTO",
+    "TEMPO ATEND.",
   ];
 
-  const tableBody = tickets.map((t) => [
-    t.code || t.id.substring(0, 10).toUpperCase(),
-    formatDate(t.created_at).replace(" ", "\n"),
-    t.title,
-    t.requester?.name || "Não informado",
-    t.category?.name || "Geral",
-    PRIORITY_LABELS[t.priority] || t.priority,
-    t.assigned_to_name || t.assigned_to?.name || "Não atribuído",
-    STATUS_LABELS[t.status] || t.status,
-  ]);
+  const tableBody = tickets.map((t) => {
+    const closing = t.closed_at || t.resolved_at;
+    const isClosed = (t.status === "RESOLVED" || t.status === "CLOSED" || !!closing) && !!closing;
+    const openDate = `${formatDateOnly(t.created_at)}\n${formatTimeOnly(t.created_at)}`;
+    const closeDate = isClosed ? `${formatDateOnly(closing)}\n${formatTimeOnly(closing)}` : "Não encerrado";
+    const duration = calculateDuration(t.created_at, t.resolved_at, t.closed_at, t.status);
+
+    return [
+      t.code || t.id.substring(0, 10).toUpperCase(),
+      t.title,
+      t.requester_name || t.requester?.name || "Não informado",
+      t.assigned_to_name || t.assigned_to?.name || "Não atribuído",
+      STATUS_LABELS[t.status] || t.status,
+      openDate,
+      closeDate,
+      duration,
+    ];
+  });
 
   (autoTable as any)(doc, {
     head: [tableHeaders],
@@ -323,31 +420,37 @@ export function exportTicketsToPDF(tickets: TicketReportItem[], options: ReportO
       fillColor: [248, 250, 252], // Slate 50
     },
     columnStyles: {
-      0: { cellWidth: 24, fontStyle: "bold", halign: "center" }, // Código
-      1: { cellWidth: 25, halign: "center", fontSize: 6.8 }, // Data
-      2: { cellWidth: "auto" }, // Título
-      3: { cellWidth: 38 }, // Solicitante
-      4: { cellWidth: 28 }, // Categoria
-      5: { cellWidth: 20, fontStyle: "bold", halign: "center" }, // Prioridade
-      6: { cellWidth: 35 }, // Responsável
-      7: { cellWidth: 26, fontStyle: "bold", halign: "center" }, // Status
+      0: { cellWidth: 22, fontStyle: "bold", halign: "center" }, // Código
+      1: { cellWidth: "auto" }, // Título
+      2: { cellWidth: 36 }, // Solicitante
+      3: { cellWidth: 36 }, // Responsável
+      4: { cellWidth: 25, fontStyle: "bold", halign: "center" }, // Status
+      5: { cellWidth: 24, halign: "center", fontSize: 6.5 }, // Abertura
+      6: { cellWidth: 24, halign: "center", fontSize: 6.5 }, // Encerramento
+      7: { cellWidth: 26, halign: "center", fontStyle: "bold", fontSize: 6.8 }, // Tempo Atendimento
     },
     didParseCell: function (data: any) {
-      // Cores para a coluna de Prioridade
-      if (data.section === "body" && data.column.index === 5) {
+      // Cores para a coluna de Status
+      if (data.section === "body" && data.column.index === 4) {
         const val = data.cell.raw;
-        if (val === "Crítica") {
-          data.cell.styles.textColor = [225, 29, 72]; // Rose 600
-        } else if (val === "Alta") {
+        if (val === "Resolvido" || val === "Fechado") {
+          data.cell.styles.textColor = [16, 185, 129]; // Emerald 600
+        } else if (val === "Em Atendimento") {
           data.cell.styles.textColor = [217, 119, 6]; // Amber 600
-        } else if (val === "Média") {
+        } else if (val === "Novo" || val === "Em Triagem") {
           data.cell.styles.textColor = [2, 132, 199]; // Sky 600
         }
       }
-      // Cores para a coluna de Status
+      // Destaque para Tempo de Atendimento
       if (data.section === "body" && data.column.index === 7) {
         const val = data.cell.raw;
-        if (val === "Resolvido" || val === "Fechado") {
+        if (val === "Em andamento") {
+          data.cell.styles.textColor = [217, 119, 6]; // Amber 600
+        } else {
+          data.cell.styles.textColor = [16, 185, 129]; // Emerald 600
+        }
+      }
+    },
           data.cell.styles.textColor = [16, 185, 129]; // Emerald 600
         } else if (val === "Em Atendimento") {
           data.cell.styles.textColor = [217, 119, 6]; // Amber 600
@@ -396,26 +499,37 @@ export function exportTicketsToCSV(tickets: TicketReportItem[]) {
     "Departamento",
     "Equipamento / Ativo",
     "Data de Abertura",
-    "Data de Resolução",
+    "Horário de Abertura",
+    "Data de Encerramento",
+    "Horário de Encerramento",
+    "Tempo de Atendimento",
     "Descrição"
   ];
 
-  const rows = tickets.map((t) => [
-    t.code || t.id,
-    `"${(t.title || "").replace(/"/g, '""')}"`,
-    t.type === "INCIDENT" ? "Incidente" : "Requisição",
-    STATUS_LABELS[t.status] || t.status,
-    PRIORITY_LABELS[t.priority] || t.priority,
-    `"${(t.requester?.name || "").replace(/"/g, '""')}"`,
-    `"${(t.requester?.email || "").replace(/"/g, '""')}"`,
-    `"${((t.assigned_to_name || t.assigned_to?.name) || "Não atribuído").replace(/"/g, '""')}"`,
-    `"${(t.category?.name || "Geral").replace(/"/g, '""')}"`,
-    `"${(t.department?.name || "-").replace(/"/g, '""')}"`,
-    `"${(t.asset ? `${t.asset.internal_id || t.asset.asset_tag || ''} ${t.asset.name}` : "-").replace(/"/g, '""')}"`,
-    formatDate(t.created_at),
-    formatDate(t.resolved_at),
-    `"${(t.description || "").replace(/"/g, '""')}"`,
-  ]);
+  const rows = tickets.map((t) => {
+    const closingDate = t.closed_at || t.resolved_at;
+    const isClosed = (t.status === "RESOLVED" || t.status === "CLOSED" || !!closingDate) && !!closingDate;
+
+    return [
+      t.code || t.id,
+      `"${(t.title || "").replace(/"/g, '""')}"`,
+      t.type === "INCIDENT" ? "Incidente" : "Requisição",
+      STATUS_LABELS[t.status] || t.status,
+      PRIORITY_LABELS[t.priority] || t.priority,
+      `"${(t.requester_name || t.requester?.name || "Não informado").replace(/"/g, '""')}"`,
+      `"${(t.requester?.email || "").replace(/"/g, '""')}"`,
+      `"${((t.assigned_to_name || t.assigned_to?.name) || "Não atribuído").replace(/"/g, '""')}"`,
+      `"${(t.category?.name || "Geral").replace(/"/g, '""')}"`,
+      `"${(t.department?.name || "-").replace(/"/g, '""')}"`,
+      `"${(t.asset ? `${t.asset.internal_id || t.asset.asset_tag || ''} ${t.asset.name}` : "-").replace(/"/g, '""')}"`,
+      formatDateOnly(t.created_at),
+      formatTimeOnly(t.created_at),
+      isClosed ? formatDateOnly(closingDate) : "Não encerrado",
+      isClosed ? formatTimeOnly(closingDate) : "Não encerrado",
+      `"${calculateDuration(t.created_at, t.resolved_at, t.closed_at, t.status)}"`,
+      `"${(t.description || "").replace(/"/g, '""')}"`,
+    ];
+  });
 
   // UTF-8 BOM (\uFEFF) para abrir com acentuação correta no Excel brasileiro
   const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(";"), ...rows.map((e) => e.join(";"))].join("\n");

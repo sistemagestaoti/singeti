@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { areStringsEquivalent } from "@/lib/normalize";
 
 const DEFAULT_CATEGORIES = [
   { name: "Hardware & Equipamentos", description: "Computadores, notebooks, monitores e periféricos" },
@@ -57,13 +58,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nome da categoria é obrigatório" }, { status: 400 });
     }
 
-    // Verifica se já existe
-    const existing = await prisma.ticketCategory.findFirst({
-      where: { name: name.trim() }
-    });
+    // Verifica se já existe com comparação case e acentuação tolerante
+    const all = await prisma.ticketCategory.findMany();
+    const existing = all.find(c => areStringsEquivalent(c.name, name));
 
     if (existing) {
-      return NextResponse.json(existing, { status: 200 });
+      return NextResponse.json({ ...existing, _alreadyExisted: true }, { status: 200 });
     }
 
     const category = await prisma.ticketCategory.create({
