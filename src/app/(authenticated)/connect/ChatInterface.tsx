@@ -3,9 +3,16 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { 
   User as UserIcon, Search, Hash, MessageSquare, Send, Circle, ArrowLeft,
-  Smile, Heart, ThumbsUp, Sparkles, Star, Trash2, X, Image as ImageIcon, Flame, Check, Loader2
+  Smile, Heart, ThumbsUp, Sparkles, Star, Trash2, X, Image as ImageIcon, Flame, Check, Loader2,
+  Paperclip, Mic, MicOff, Video, Phone, PhoneOff, Pin, PinOff, Edit2, Share2, Download,
+  FileText, Film, Volume2, Plus, Users, Shield, Play, Pause, CornerDownLeft, Eye
 } from "lucide-react";
 import Image from "next/image";
+import { CreateGroupModal } from "@/components/chat/CreateGroupModal";
+import { StickerCreatorModal } from "@/components/chat/StickerCreatorModal";
+import { CallModal } from "@/components/chat/CallModal";
+import { ForwardModal } from "@/components/chat/ForwardModal";
+import { MediaLightbox } from "@/components/chat/MediaLightbox";
 
 type User = {
   id: string;
@@ -29,7 +36,10 @@ type ChannelMember = {
 type Channel = {
   id: string;
   name: string | null;
+  description?: string | null;
+  image?: string | null;
   is_group: boolean;
+  admin_id?: string | null;
   members?: ChannelMember[];
 };
 
@@ -43,11 +53,17 @@ type Reaction = {
 type Message = {
   id: string;
   content: string;
-  type?: string; // "text" | "gif" | "sticker" | "image"
+  type?: string; // "text" | "gif" | "sticker" | "image" | "video" | "audio" | "file"
   sender: { name: string; avatar?: string | null };
   created_at: string;
   sender_id: string;
   reactions?: Reaction[];
+  is_pinned?: boolean;
+  is_edited?: boolean;
+  reply_to_id?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  metadata?: string | null;
 };
 
 type UserSticker = {
@@ -66,7 +82,7 @@ type GifItem = {
   tags: string[];
 };
 
-// Emojis pré-categorizados para o seletor integrado
+// Emojis pré-categorizados
 const EMOJI_CATEGORIES = [
   {
     name: "Populares",
@@ -90,7 +106,7 @@ const EMOJI_CATEGORIES = [
   }
 ];
 
-// Figurinhas padrão corporativas do sistema (disponíveis imediatamente para todos)
+// Figurinhas padrão corporativas do sistema
 const DEFAULT_SYSTEM_STICKERS = [
   {
     id: "def_1",
@@ -130,7 +146,7 @@ function UserAvatar({ name, url, className = "w-8 h-8" }: { name: string; url?: 
   if (url) {
     return (
       <div className={`${className} rounded-full overflow-hidden border border-border flex-shrink-0 bg-surface relative`}>
-        <Image src={url} alt={name} width={40} height={40} className="w-full h-full object-cover" />
+        <Image src={url} alt={name} width={40} height={40} className="w-full h-full object-cover" unoptimized />
       </div>
     );
   }
@@ -145,12 +161,14 @@ export default function ChatInterface({
   currentUser, 
   users: initialUsers, 
   channels: initialChannels,
-  mainChannelId
+  mainChannelId,
+  departments = [],
 }: { 
   currentUser: { id: string; name: string; avatar?: string | null };
   users: User[];
   channels: Channel[];
   mainChannelId: string;
+  departments?: Array<{ id: string; name: string }>;
 }) {
   const [channels, setChannels] = useState<Channel[]>(initialChannels);
   const [userList, setUserList] = useState<User[]>(initialUsers);
@@ -161,6 +179,34 @@ export default function ChatInterface({
   const [creatingDM, setCreatingDM] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   
+  // Modais de Recursos Corporativos
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isStickerCreatorOpen, setIsStickerCreatorOpen] = useState(false);
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [callType, setCallType] = useState<"audio" | "video">("video");
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxTitle, setLightboxTitle] = useState("");
+
+  // Estados de Interação de Mensagens (Reply, Edit, Pin)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editInput, setEditInput] = useState("");
+  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [showChatSearch, setShowChatSearch] = useState(false);
+
+  // Estados para Gravação de Voz (Áudio)
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Estados para Upload de Arquivos
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Estados para Mídia: Emojis, Figurinhas e GIFs
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [mediaTab, setMediaTab] = useState<'emojis' | 'stickers' | 'gifs'>('emojis');
@@ -203,7 +249,6 @@ export default function ChatInterface({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMediaPicker]);
 
-  // Keep channels and users in sync if props change
   useEffect(() => {
     setChannels(initialChannels);
   }, [initialChannels]);
@@ -261,7 +306,7 @@ export default function ChatInterface({
     }
   }, [mediaTab, gifSearch, gifCategory]);
 
-  // Polling e heartbeat em segundo plano para manter a presença Online/Offline sempre atualizada
+  // Polling e heartbeat de presença Online/Offline
   const fetchUsersAndPresence = async () => {
     if (typeof document !== "undefined" && document.hidden) return;
     try {
@@ -298,9 +343,7 @@ export default function ChatInterface({
 
   useEffect(() => {
     fetchUsersAndPresence();
-    // Heartbeat leve a cada 7 segundos para presença em tempo real com baixo overhead
     const heartbeatInterval = setInterval(sendHeartbeatAndUpdatePresence, 7000);
-    // Recarregamento completo da lista de usuários a cada 60 segundos
     const usersInterval = setInterval(fetchUsersAndPresence, 60000);
     
     const handleVis = () => { 
@@ -321,7 +364,7 @@ export default function ChatInterface({
     return channels.find(c => c.id === activeChannelId);
   }, [channels, activeChannelId]);
 
-  // Determine the counterpart user if active channel is a Direct Message
+  // Determine counterpart user if active channel is DM
   const activeDMUser = useMemo(() => {
     if (!activeChannel || activeChannel.is_group) return null;
     const otherMember = activeChannel.members?.find(m => m.id !== currentUser.id);
@@ -362,7 +405,7 @@ export default function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Filtered lists and presence metrics
+  // Filtered lists
   const filteredUsers = useMemo(() => {
     let list = userList;
     if (search.trim()) {
@@ -389,6 +432,27 @@ export default function ChatInterface({
   const groupChannels = useMemo(() => {
     return channels.filter(c => c.is_group);
   }, [channels]);
+
+  // Mensagens filtradas (com busca interna ou fixadas)
+  const displayedMessages = useMemo(() => {
+    let list = messages;
+    if (showPinnedOnly) {
+      list = list.filter(m => m.is_pinned);
+    }
+    if (chatSearchQuery.trim()) {
+      const q = chatSearchQuery.toLowerCase();
+      list = list.filter(m => 
+        m.content.toLowerCase().includes(q) || 
+        m.sender.name.toLowerCase().includes(q) ||
+        (m.file_name && m.file_name.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [messages, showPinnedOnly, chatSearchQuery]);
+
+  const pinnedMessagesCount = useMemo(() => {
+    return messages.filter(m => m.is_pinned).length;
+  }, [messages]);
 
   // Handle clicking on a user in the Direct Messages list
   const handleSelectUser = async (targetUser: User) => {
@@ -432,7 +496,9 @@ export default function ChatInterface({
     if (!input.trim() || !activeChannelId) return;
 
     const currentInput = input;
+    const currentReplyId = replyingTo?.id || null;
     setInput("");
+    setReplyingTo(null);
 
     // Optimistic UI update
     const optId = "opt_" + Date.now();
@@ -440,6 +506,7 @@ export default function ChatInterface({
       id: optId,
       content: currentInput,
       type: "text",
+      reply_to_id: currentReplyId,
       sender: { name: currentUser.name, avatar: currentUser.avatar },
       created_at: new Date().toISOString(),
       sender_id: currentUser.id,
@@ -450,7 +517,12 @@ export default function ChatInterface({
       await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: activeChannelId, content: currentInput, type: "text" })
+        body: JSON.stringify({ 
+          channelId: activeChannelId, 
+          content: currentInput, 
+          type: "text",
+          replyToId: currentReplyId
+        })
       });
       fetchMessages();
     } catch (err) {
@@ -458,12 +530,11 @@ export default function ChatInterface({
     }
   };
 
-  // Enviar mídia direta (Figurinha ou GIF)
+  // Enviar Mídia Direta (Figurinha ou GIF)
   const sendMedia = async (url: string, type: "gif" | "sticker") => {
     if (!url || !activeChannelId) return;
     setShowMediaPicker(false);
 
-    // Optimistic UI update
     const optId = "opt_" + Date.now();
     setMessages(prev => [...prev, {
       id: optId,
@@ -487,15 +558,134 @@ export default function ChatInterface({
     }
   };
 
-  // Inserir emoji no campo de texto
-  const insertEmoji = (emoji: string) => {
-    setInput(prev => prev + emoji);
-    inputRef.current?.focus();
+  // Upload e envio de arquivos (Imagens, Vídeos, Documentos, Áudios)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChannelId) return;
+
+    setUploadingFile(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData?.error || "Erro no upload");
+      }
+
+      const data = await res.json();
+      
+      // Determina tipo da mensagem
+      let msgType = "file";
+      if (file.type.startsWith("image/")) msgType = "image";
+      else if (file.type.startsWith("video/")) msgType = "video";
+      else if (file.type.startsWith("audio/")) msgType = "audio";
+
+      await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: activeChannelId,
+          content: data.url,
+          type: msgType,
+          fileName: file.name,
+          fileSize: file.size,
+        }),
+      });
+
+      fetchMessages();
+      showToast("Arquivo compartilhado com sucesso!");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || "Falha ao enviar arquivo.");
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
-  // Alternar reação (curtir / emoji) em uma mensagem
+  // Gravação de Áudio / Mensagem de Voz
+  const startRecordingAudio = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (audioChunksRef.current.length === 0) return;
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const dataUri = reader.result as string;
+          try {
+            await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                channelId: activeChannelId,
+                content: dataUri,
+                type: "audio",
+                fileName: `audio-${Date.now()}.webm`,
+                fileSize: audioBlob.size,
+              }),
+            });
+            fetchMessages();
+            showToast("Mensagem de voz enviada!");
+          } catch (e) {
+            console.error(e);
+          }
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecordingAudio(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error(err);
+      showToast("Não foi possível acessar o microfone.");
+    }
+  };
+
+  const stopRecordingAudio = () => {
+    if (mediaRecorderRef.current && isRecordingAudio) {
+      mediaRecorderRef.current.stop();
+      setIsRecordingAudio(false);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const cancelRecordingAudio = () => {
+    if (mediaRecorderRef.current && isRecordingAudio) {
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      mediaRecorderRef.current = null;
+      audioChunksRef.current = [];
+      setIsRecordingAudio(false);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      showToast("Gravação de voz cancelada.");
+    }
+  };
+
+  // Reações
   const handleToggleReaction = async (messageId: string, emoji: string) => {
-    // Atualização otimista imediata na interface (0ms)
     setMessages(prev => prev.map(msg => {
       if (msg.id !== messageId) return msg;
       const currentReactions = msg.reactions || [];
@@ -538,7 +728,84 @@ export default function ChatInterface({
     }
   };
 
-  // Salvar imagem/GIF/figurinha como favorita
+  // Fixar / Desafixar Mensagem
+  const handleTogglePin = async (msg: Message) => {
+    const nextPin = !msg.is_pinned;
+    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: nextPin } : m));
+
+    try {
+      await fetch("/api/chat", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: msg.id, isPinned: nextPin })
+      });
+      showToast(nextPin ? "📌 Mensagem fixada no canal!" : "Mensagem desafixada.");
+    } catch (e) {
+      fetchMessages();
+    }
+  };
+
+  // Edição de Mensagem
+  const handleStartEdit = (msg: Message) => {
+    setEditingMessageId(msg.id);
+    setEditInput(msg.content);
+  };
+
+  const handleSaveEdit = async (msgId: string) => {
+    if (!editInput.trim()) return;
+
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, content: editInput.trim(), is_edited: true } : m));
+    setEditingMessageId(null);
+
+    try {
+      await fetch("/api/chat", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: msgId, content: editInput.trim() })
+      });
+      showToast("Mensagem atualizada.");
+    } catch (e) {
+      fetchMessages();
+    }
+  };
+
+  // Exclusão de Mensagem
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!confirm("Deseja realmente excluir esta mensagem?")) return;
+
+    setMessages(prev => prev.filter(m => m.id !== msgId));
+    try {
+      await fetch(`/api/chat?messageId=${msgId}`, { method: "DELETE" });
+      showToast("Mensagem excluída.");
+    } catch (e) {
+      fetchMessages();
+    }
+  };
+
+  // Encaminhar Mensagem
+  const handleForwardMessage = async (targetChannelId: string) => {
+    if (!forwardingMessage) return;
+
+    try {
+      await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId: targetChannelId,
+          content: forwardingMessage.content,
+          type: forwardingMessage.type || "text",
+          fileName: forwardingMessage.file_name,
+          fileSize: forwardingMessage.file_size,
+        }),
+      });
+      showToast("Mensagem encaminhada com sucesso!");
+    } catch (e) {
+      console.error(e);
+      showToast("Falha ao encaminhar mensagem.");
+    }
+  };
+
+  // Salvar figurinha favorita
   const handleSaveSticker = async (url: string, name?: string) => {
     try {
       const res = await fetch("/api/chat/stickers", {
@@ -548,31 +815,27 @@ export default function ChatInterface({
       });
       if (res.ok) {
         const newSticker = await res.json();
-        setSavedStickers(prev => {
-          if (prev.some(s => s.id === newSticker.id || s.url === newSticker.url)) return prev;
-          return [newSticker, ...prev];
-        });
+        setSavedStickers(prev => [newSticker, ...prev]);
         showToast("⭐ Figurinha salva nos seus favoritos!");
       }
     } catch (e) {
-      console.error("Erro ao salvar figurinha:", e);
+      console.error(e);
     }
   };
 
-  // Remover figurinha dos favoritos
   const handleDeleteSticker = async (stickerId: string) => {
     try {
-      const res = await fetch(`/api/chat/stickers?id=${stickerId}`, { method: "DELETE" });
-      if (res.ok) {
-        setSavedStickers(prev => prev.filter(s => s.id !== stickerId));
-        showToast("Figurinha removida.");
-      }
-    } catch (e) {
-      console.error("Erro ao remover figurinha:", e);
-    }
+      await fetch(`/api/chat/stickers?id=${stickerId}`, { method: "DELETE" });
+      setSavedStickers(prev => prev.filter(s => s.id !== stickerId));
+      showToast("Figurinha removida.");
+    } catch (e) {}
   };
 
-  // Agrupa reações por emoji para exibição nas pílulas
+  const insertEmoji = (emoji: string) => {
+    setInput(prev => prev + emoji);
+    inputRef.current?.focus();
+  };
+
   const getGroupedReactions = (reactions: Reaction[] = []) => {
     const map = new Map<string, { count: number; users: string[]; hasReacted: boolean }>();
     for (const r of reactions) {
@@ -589,26 +852,16 @@ export default function ChatInterface({
     return Array.from(map.entries()).map(([emoji, data]) => ({ emoji, ...data }));
   };
 
-  // Verifica se é URL de imagem ou GIF
-  const isMediaUrl = (text: string, type?: string) => {
-    if (type === "gif" || type === "sticker" || type === "image") return true;
-    if (typeof text !== "string") return false;
-    const clean = text.trim();
-    return clean.startsWith("http") && (
-      clean.includes("giphy.com") ||
-      clean.includes("unsplash.com") ||
-      clean.endsWith(".gif") ||
-      clean.endsWith(".png") ||
-      clean.endsWith(".jpg") ||
-      clean.endsWith(".jpeg") ||
-      clean.endsWith(".webp")
-    );
-  };
-
-  // Check if a user currently has an open active DM
   const isUserActive = (userId: string) => {
     if (!activeChannel || activeChannel.is_group) return false;
     return activeChannel.members?.some(m => m.id === userId);
+  };
+
+  const formatFileSize = (bytes?: number | null) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
@@ -621,31 +874,96 @@ export default function ChatInterface({
         </div>
       )}
 
-      {/* Sidebar de Canais e Usuários */}
+      {/* Input Oculto de Arquivos */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileUpload}
+      />
+
+      {/* Modais Integrados do CONNECT CHAT 2.0 */}
+      <CreateGroupModal
+        isOpen={isCreateGroupOpen}
+        onClose={() => setIsCreateGroupOpen(false)}
+        currentUser={currentUser}
+        users={userList}
+        departments={departments}
+        onGroupCreated={(created) => {
+          setChannels(prev => [...prev, created]);
+          setActiveChannelId(created.id);
+          showToast(`Grupo "${created.name}" criado com sucesso!`);
+        }}
+      />
+
+      <StickerCreatorModal
+        isOpen={isStickerCreatorOpen}
+        onClose={() => setIsStickerCreatorOpen(false)}
+        onStickerCreated={(saved) => {
+          setSavedStickers(prev => [saved, ...prev]);
+          showToast("Figurinha criada e disponível para envio!");
+        }}
+      />
+
+      <CallModal
+        isOpen={isCallModalOpen}
+        onClose={() => setIsCallModalOpen(false)}
+        targetName={activeChannel?.is_group ? (activeChannel.name || "Canal") : (activeDMUser?.name || "Usuário")}
+        targetAvatar={activeDMUser?.avatar}
+        callType={callType}
+      />
+
+      <ForwardModal
+        isOpen={!!forwardingMessage}
+        onClose={() => setForwardingMessage(null)}
+        messageContent={forwardingMessage?.content || ""}
+        messageType={forwardingMessage?.type}
+        fileName={forwardingMessage?.file_name}
+        fileSize={forwardingMessage?.file_size}
+        channels={channels}
+        users={userList}
+        currentUser={currentUser}
+        onForward={handleForwardMessage}
+      />
+
+      <MediaLightbox
+        isOpen={!!lightboxUrl}
+        onClose={() => setLightboxUrl(null)}
+        mediaUrl={lightboxUrl}
+        mediaTitle={lightboxTitle}
+      />
+
+      {/* ========================================================================= */}
+      {/* SIDEBAR DE CANAIS, GRUPOS E MENSAGENS DIRETAS                             */}
+      {/* ========================================================================= */}
       <div className={`${mobileView === 'list' ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-border bg-surface flex-col h-full flex-shrink-0 min-h-0`}>
         
-        {/* Header da Sidebar com Busca */}
+        {/* Header da Sidebar com Botão Criar Grupo */}
         <div className="p-3.5 sm:p-4 border-b border-border space-y-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold text-foreground tracking-wider uppercase flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-primary" />
-              SYNGETI Connect
+              SYNGETI Connect 2.0
             </h2>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold flex items-center gap-1.5 shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                {onlineCount} {onlineCount === 1 ? 'online' : 'online'}
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsCreateGroupOpen(true)}
+              className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex items-center gap-1 text-[11px] font-bold"
+              title="Criar Novo Grupo ou Canal"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Novo</span>
+            </button>
           </div>
+
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input 
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar usuário ou canal..."
-              className="w-full bg-background border border-border text-foreground text-xs rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:border-primary transition-colors placeholder:text-muted-foreground"
+              placeholder="Buscar canal ou colaborador..."
+              className="w-full bg-background border border-border text-foreground text-xs rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:border-primary transition-colors placeholder:text-muted-foreground"
             />
           </div>
         </div>
@@ -653,13 +971,14 @@ export default function ChatInterface({
         {/* Listas Roláveis */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-6 min-h-0">
           
-          {/* 1. Canais de Equipe */}
+          {/* 1. Canais e Grupos de Equipe */}
           <div>
             <div className="px-2 mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Canais de Equipe
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Hash className="w-3.5 h-3.5 text-primary" />
+                <span>Canais & Grupos</span>
               </span>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground font-semibold">
                 {groupChannels.length}
               </span>
             </div>
@@ -673,14 +992,21 @@ export default function ChatInterface({
                         setActiveChannelId(channel.id);
                         setMobileView('chat');
                       }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left ${
                         isActive 
-                          ? 'bg-primary text-primary-foreground shadow-sm' 
-                          : 'text-foreground hover:bg-surface-hover hover:text-foreground'
+                          ? 'bg-primary text-white shadow-sm' 
+                          : 'text-foreground hover:bg-surface-hover'
                       }`}
                     >
-                      <Hash className={`w-4 h-4 ${isActive ? 'text-white' : 'text-primary'}`} />
-                      <span className="truncate">{channel.name || "Geral"}</span>
+                      <div className="flex items-center gap-2 truncate">
+                        <Hash className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-primary'}`} />
+                        <span className="truncate">{channel.name || "Geral"}</span>
+                      </div>
+                      {channel.members && channel.members.length > 0 && (
+                        <span className={`text-[10px] opacity-75 shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground'}`}>
+                          {channel.members.length}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
@@ -688,20 +1014,21 @@ export default function ChatInterface({
             </ul>
           </div>
 
-          {/* 2. Mensagens Diretas / Usuários da Plataforma */}
+          {/* 2. Mensagens Diretas / Usuários */}
           <div>
             <div className="px-2 mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Mensagens Diretas
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-primary" />
+                <span>Mensagens Diretas</span>
               </span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                {userList.length} cadastrados
+                {userList.length}
               </span>
             </div>
             
             {filteredUsers.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                Nenhum usuário encontrado.
+                Nenhum colaborador encontrado.
               </div>
             ) : (
               <ul className="space-y-1">
@@ -712,7 +1039,7 @@ export default function ChatInterface({
                       <button
                         onClick={() => handleSelectUser(user)}
                         disabled={creatingDM}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all text-left group ${
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all text-left group ${
                           active 
                             ? 'bg-primary/15 text-primary border border-primary/30 font-semibold' 
                             : 'text-foreground hover:bg-surface-hover'
@@ -720,42 +1047,23 @@ export default function ChatInterface({
                       >
                         <div className="relative flex-shrink-0">
                           <UserAvatar name={user.name} url={user.avatar} className="w-8 h-8" />
-                          {user.isOnline ? (
-                            <span 
-                              className="w-3 h-3 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full shadow-sm ring-1 ring-emerald-400/50" 
-                              title="Online agora"
-                            />
-                          ) : (
-                            <span 
-                              className="w-3 h-3 bg-red-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full shadow-sm ring-1 ring-red-400/40 opacity-85" 
-                              title="Offline"
-                            />
-                          )}
+                          <span 
+                            className={`w-2.5 h-2.5 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full shadow-sm ${
+                              user.isOnline ? 'bg-emerald-500 ring-1 ring-emerald-400/50' : 'bg-red-500 opacity-80'
+                            }`}
+                            title={user.isOnline ? "Online" : "Offline"}
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
-                            <span className="truncate font-semibold text-xs group-hover:text-primary transition-colors flex items-center gap-1.5">
-                              <span 
-                                className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors ${
-                                  user.isOnline 
-                                    ? "bg-emerald-500 ring-1 ring-emerald-400/50 shadow-xs" 
-                                    : "bg-red-500 ring-1 ring-red-400/40 opacity-80"
-                                }`}
-                                title={user.isOnline ? "Online" : "Offline"}
-                              />
-                              <span className="truncate">{user.name}</span>
+                            <span className="truncate font-semibold text-xs group-hover:text-primary transition-colors">
+                              {user.name}
                             </span>
-                            {user.isOnline ? (
-                              <span className="text-[9px] font-extrabold text-emerald-500 uppercase tracking-wider flex-shrink-0 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Online
-                              </span>
-                            ) : (
-                              <span className="text-[9px] font-medium text-red-400/90 uppercase tracking-wider flex-shrink-0 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500/80"></span>
-                                Offline
-                              </span>
-                            )}
+                            <span className={`text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                              user.isOnline ? 'text-emerald-500' : 'text-red-400/90'
+                            }`}>
+                              {user.isOnline ? 'Online' : 'Offline'}
+                            </span>
                           </div>
                           <span className="text-[10px] text-muted-foreground block truncate mt-0.5">
                             {user.job_title || user.email}
@@ -788,25 +1096,25 @@ export default function ChatInterface({
 
       </div>
 
-      {/* Área Principal de Conversa */}
+      {/* ========================================================================= */}
+      {/* ÁREA PRINCIPAL DA CONVERSA ATIVA                                          */}
+      {/* ========================================================================= */}
       <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} md:flex flex-1 flex-col h-full bg-background min-w-0 min-h-0 relative`}>
         
-        {/* Topbar da Conversa Ativa */}
+        {/* Topbar da Conversa Ativa com Ações de Chamada */}
         <div className="h-16 px-3.5 sm:px-6 border-b border-border bg-surface flex justify-between items-center z-10 shadow-sm flex-shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {/* Botão Voltar para Lista no Mobile */}
             <button
               type="button"
               onClick={() => setMobileView('list')}
               className="md:hidden p-2 -ml-1 mr-0.5 rounded-lg hover:bg-surface-hover text-foreground/80 hover:text-foreground transition-colors flex items-center justify-center flex-shrink-0"
-              aria-label="Voltar para a lista de conversas"
               title="Voltar"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
 
             {activeChannel?.is_group ? (
-              <div className="w-9 h-9 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold flex-shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold flex-shrink-0">
                 <Hash className="w-5 h-5" />
               </div>
             ) : (
@@ -816,11 +1124,11 @@ export default function ChatInterface({
                   url={activeDMUser?.avatar} 
                   className="w-9 h-9 sm:w-10 sm:h-10" 
                 />
-                {isTargetOnline ? (
-                  <span className="w-3 h-3 bg-emerald-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full ring-1 ring-emerald-400/50 shadow-sm" title="Online" />
-                ) : (
-                  <span className="w-3 h-3 bg-red-500 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full ring-1 ring-red-400/40 shadow-sm opacity-85" title="Offline" />
-                )}
+                <span 
+                  className={`w-3 h-3 absolute -bottom-0.5 -right-0.5 border-2 border-surface rounded-full shadow-sm ${
+                    isTargetOnline ? "bg-emerald-500 ring-1 ring-emerald-400/50" : "bg-red-500 opacity-80"
+                  }`} 
+                />
               </div>
             )}
             
@@ -829,68 +1137,147 @@ export default function ChatInterface({
                 {activeChannel?.is_group ? (
                   `# ${activeChannel.name || "Geral"}`
                 ) : (
-                  <>
-                    <span className="truncate">@{activeDMUser?.name || "Chat Direto"}</span>
-                    <span 
-                      className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors ${
-                        isTargetOnline 
-                          ? "bg-emerald-500 ring-1 ring-emerald-400/50 shadow-xs" 
-                          : "bg-red-500 ring-1 ring-red-400/40 opacity-80"
-                      }`}
-                      title={isTargetOnline ? "Online" : "Offline"}
-                    />
-                  </>
+                  activeDMUser?.name || "Chat Direto"
                 )}
               </h2>
-              {activeChannel?.is_group ? (
-                <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
-                  <span className="text-emerald-500 font-semibold flex items-center gap-1 flex-shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    {onlineCount} {onlineCount === 1 ? 'membro online' : 'membros online'}
+              <div className="text-[11px] text-muted-foreground truncate">
+                {activeChannel?.is_group ? (
+                  activeChannel.description || `${activeChannel.members?.length || 0} participantes`
+                ) : (
+                  <span className={isTargetOnline ? "text-emerald-500 font-semibold" : "text-muted-foreground"}>
+                    {isTargetOnline ? "Online agora" : "Offline"}
                   </span>
-                  <span className="hidden sm:inline">•</span>
-                  <span className="hidden sm:inline truncate">Canal público da equipe de TI</span>
-                </p>
-              ) : (
-                <div className="flex items-center gap-2 text-[11px] truncate mt-0.5">
-                  {isTargetOnline ? (
-                    <span className="text-emerald-500 font-semibold flex items-center gap-1 flex-shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Online agora
-                    </span>
-                  ) : (
-                    <span className="text-red-400/90 font-medium flex items-center gap-1 flex-shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500/80"></span>
-                      Offline
-                    </span>
-                  )}
-                  <span className="text-muted-foreground/40 hidden sm:inline">•</span>
-                  <span className="text-muted-foreground truncate hidden sm:inline">
-                    {activeDMUser?.job_title ? `${activeDMUser.job_title} • ${activeDMUser.email}` : activeDMUser?.email || "Conversa direta"}
-                  </span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Ações da Conversa: Áudio, Vídeo, Busca e Mensagens Fixadas */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            
+            {/* Mensagens Fixadas Toggle */}
+            {pinnedMessagesCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowPinnedOnly(prev => !prev)}
+                className={`p-2 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-bold ${
+                  showPinnedOnly ? "bg-amber-500 text-black shadow-sm" : "bg-surface-elevated text-muted-foreground hover:text-foreground"
+                }`}
+                title="Filtrar Mensagens Fixadas"
+              >
+                <Pin className="w-4 h-4 fill-current" />
+                <span className="hidden sm:inline">{pinnedMessagesCount}</span>
+              </button>
+            )}
+
+            {/* Busca no Chat */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowChatSearch(prev => !prev);
+                if (showChatSearch) setChatSearchQuery("");
+              }}
+              className={`p-2 rounded-xl transition-colors ${
+                showChatSearch ? "bg-primary text-white" : "bg-surface-elevated text-muted-foreground hover:text-foreground hover:bg-surface-hover"
+              }`}
+              title="Pesquisar mensagens"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
+            {/* Chamada de Áudio (WebRTC) */}
+            <button
+              type="button"
+              onClick={() => {
+                setCallType("audio");
+                setIsCallModalOpen(true);
+              }}
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-surface-elevated hover:bg-emerald-500/15 text-muted-foreground hover:text-emerald-500 transition-colors flex items-center gap-1.5 text-xs font-bold"
+              title="Iniciar Chamada de Áudio"
+            >
+              <Phone className="w-4 h-4 text-emerald-500" />
+              <span className="hidden sm:inline">Voz</span>
+            </button>
+
+            {/* Chamada de Vídeo (WebRTC) */}
+            <button
+              type="button"
+              onClick={() => {
+                setCallType("video");
+                setIsCallModalOpen(true);
+              }}
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm"
+              title="Iniciar Chamada de Vídeo"
+            >
+              <Video className="w-4 h-4" />
+              <span className="hidden sm:inline">Vídeo</span>
+            </button>
+
+          </div>
         </div>
+
+        {/* Barra de Pesquisa Rápida Interna no Chat */}
+        {showChatSearch && (
+          <div className="p-2.5 bg-surface-hover/60 border-b border-border flex items-center gap-2 animate-in fade-in">
+            <Search className="w-4 h-4 text-primary shrink-0" />
+            <input
+              type="text"
+              value={chatSearchQuery}
+              onChange={(e) => setChatSearchQuery(e.target.value)}
+              placeholder="Pesquisar mensagens ou arquivos nesta conversa..."
+              className="flex-1 bg-background border border-border rounded-xl px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+              autoFocus
+            />
+            {chatSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setChatSearchQuery("")}
+                className="text-muted-foreground hover:text-foreground text-xs"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Barra Informativa de Filtro de Mensagens Fixadas */}
+        {showPinnedOnly && (
+          <div className="px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 text-amber-500 text-xs font-bold flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Pin className="w-3.5 h-3.5 fill-amber-500" />
+              Exibindo apenas mensagens fixadas ({displayedMessages.length})
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPinnedOnly(false)}
+              className="text-[11px] underline font-bold"
+            >
+              Ver todas as mensagens
+            </button>
+          </div>
+        )}
         
         {/* Feed de Mensagens */}
         <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-3 sm:space-y-4 custom-scrollbar min-h-0">
-          {messages.length === 0 ? (
+          {displayedMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-16 px-4">
               <MessageSquare className="w-12 h-12 text-muted-foreground/30 mb-3" />
-              <p className="text-sm font-semibold text-foreground">Nenhuma mensagem neste canal ainda.</p>
+              <p className="text-sm font-semibold text-foreground">
+                {chatSearchQuery ? "Nenhum resultado para esta pesquisa." : "Nenhuma mensagem neste canal ainda."}
+              </p>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                Inicie uma conversa digitando abaixo para compartilhar informações com {activeChannel?.is_group ? "a equipe" : activeDMUser?.name || "o usuário"}.
+                Envie uma mensagem de texto, imagem, documento ou figurinha para colaborar com a equipe.
               </p>
             </div>
           ) : (
-            messages.map((msg, idx) => {
+            displayedMessages.map((msg, idx) => {
               const isMe = msg.sender_id === currentUser.id;
-              const prevMsg = idx > 0 ? messages[idx - 1] : null;
+              const prevMsg = idx > 0 ? displayedMessages[idx - 1] : null;
               const isSameSenderAsPrev = prevMsg && prevMsg.sender_id === msg.sender_id;
               const groupedReactions = getGroupedReactions(msg.reactions);
-              const isMedia = isMediaUrl(msg.content, msg.type);
+
+              // Procura se tem mensagem respondida
+              const repliedMessage = msg.reply_to_id ? messages.find(m => m.id === msg.reply_to_id) : null;
 
               return (
                 <div 
@@ -916,59 +1303,247 @@ export default function ChatInterface({
                         <span className="text-[10px] text-muted-foreground font-medium">
                           {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' })}
                         </span>
+                        {msg.is_pinned && (
+                          <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-0.5">
+                            <Pin className="w-3 h-3 fill-amber-500" />
+                            Fixada
+                          </span>
+                        )}
+                        {msg.is_edited && (
+                          <span className="text-[9px] text-muted-foreground italic">(editada)</span>
+                        )}
                       </div>
                     )}
 
-                    {/* Balão de Conteúdo (Texto ou Mídia/Figurinha/GIF) */}
+                    {/* Bloco de Citação / Resposta (Reply) */}
+                    {repliedMessage && (
+                      <div className="mb-1 p-2 rounded-xl bg-surface-hover/80 border-l-4 border-primary text-[11px] text-muted-foreground max-w-full truncate">
+                        <span className="font-bold text-foreground block">
+                          {repliedMessage.sender_id === currentUser.id ? "Você" : repliedMessage.sender.name}
+                        </span>
+                        <span className="truncate block">
+                          {repliedMessage.type === "image" ? "📷 Imagem" : repliedMessage.type === "file" ? `📄 ${repliedMessage.file_name || "Arquivo"}` : repliedMessage.content}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Balão de Conteúdo (Texto, Imagem, Vídeo, Áudio, Arquivo, Figurinha, GIF) */}
                     <div className="relative group/bubble">
-                      {isMedia ? (
-                        <div className="relative group/media overflow-hidden rounded-2xl border border-border/60 bg-surface/80 p-1 shadow-xs">
-                          <img 
-                            src={msg.content} 
-                            alt={msg.type === "sticker" ? "Figurinha" : "GIF animado"}
-                            className={`rounded-xl object-contain max-w-full ${
-                              msg.type === "sticker" ? "max-h-36 sm:max-h-44 bg-transparent" : "max-h-52 sm:max-h-60"
-                            }`}
-                            loading="lazy"
+                      
+                      {/* Modo de Edição Inline */}
+                      {editingMessageId === msg.id ? (
+                        <div className="p-2 bg-surface border border-primary rounded-xl space-y-2 min-w-[280px]">
+                          <input
+                            type="text"
+                            value={editInput}
+                            onChange={(e) => setEditInput(e.target.value)}
+                            className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary"
+                            autoFocus
                           />
-                          {/* Botão de Salvar como Figurinha Favorita */}
-                          <button
-                            type="button"
-                            onClick={() => handleSaveSticker(msg.content)}
-                            className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/80 hover:bg-black text-amber-300 text-[10px] font-bold opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1 shadow-md border border-amber-400/30"
-                            title="Salvar como figurinha favorita"
-                          >
-                            <Star className="w-3 h-3 fill-amber-300" />
-                            <span>Favoritar</span>
-                          </button>
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditingMessageId(null)}
+                              className="px-2.5 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEdit(msg.id)}
+                              className="px-3 py-1 rounded bg-primary text-white text-[11px] font-bold hover:bg-primary-hover"
+                            >
+                              Salvar
+                            </button>
+                          </div>
                         </div>
                       ) : (
-                        <div 
-                          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap shadow-xs ${
-                            isMe 
-                              ? 'bg-primary text-white rounded-tr-xs' 
-                              : 'bg-surface border border-border text-foreground rounded-tl-xs'
-                          }`}
-                        >
-                          {msg.content}
-                        </div>
+                        <>
+                          {/* 1. Imagem */}
+                          {msg.type === "image" && (
+                            <div className="relative group/media overflow-hidden rounded-2xl border border-border/60 bg-surface/80 p-1 shadow-xs">
+                              <img 
+                                src={msg.content} 
+                                alt="Imagem"
+                                onClick={() => {
+                                  setLightboxUrl(msg.content);
+                                  setLightboxTitle(msg.file_name || "Imagem Compartilhada");
+                                }}
+                                className="rounded-xl object-contain max-w-full max-h-64 sm:max-h-80 cursor-pointer hover:opacity-95 transition-opacity"
+                                loading="lazy"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveSticker(msg.content)}
+                                className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/80 hover:bg-black text-amber-300 text-[10px] font-bold opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1 shadow-md border border-amber-400/30"
+                              >
+                                <Star className="w-3 h-3 fill-amber-300" />
+                                <span>Favoritar</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* 2. Vídeo */}
+                          {msg.type === "video" && (
+                            <div className="rounded-2xl border border-border overflow-hidden bg-black max-w-sm sm:max-w-md shadow-md">
+                              <video 
+                                src={msg.content} 
+                                controls 
+                                className="w-full max-h-72 object-contain"
+                              />
+                            </div>
+                          )}
+
+                          {/* 3. Gravação de Áudio / Mensagem de Voz */}
+                          {msg.type === "audio" && (
+                            <div className={`p-3 rounded-2xl border shadow-xs flex flex-col gap-1.5 ${
+                              isMe ? 'bg-primary text-white rounded-tr-xs' : 'bg-surface border-border text-foreground rounded-tl-xs'
+                            }`}>
+                              <div className="flex items-center gap-2 text-xs font-bold">
+                                <Volume2 className="w-4 h-4 text-emerald-400" />
+                                <span>Mensagem de Voz</span>
+                                {msg.file_size && <span className="opacity-70 text-[10px] font-normal">• {formatFileSize(msg.file_size)}</span>}
+                              </div>
+                              <audio src={msg.content} controls className="h-8 max-w-[240px] sm:max-w-[280px]" />
+                            </div>
+                          )}
+
+                          {/* 4. Documento / Arquivo Geral (PDF, DOCX, XLSX, etc.) */}
+                          {msg.type === "file" && (
+                            <div className={`p-3.5 rounded-2xl border shadow-xs flex items-center gap-3 min-w-[220px] max-w-sm ${
+                              isMe ? 'bg-primary/10 border-primary/30 text-foreground' : 'bg-surface border-border text-foreground'
+                            }`}>
+                              <div className="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold truncate text-foreground">{msg.file_name || "Arquivo"}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{formatFileSize(msg.file_size)}</p>
+                              </div>
+                              <a
+                                href={msg.content}
+                                download={msg.file_name || "download"}
+                                className="p-2 rounded-xl bg-surface hover:bg-surface-hover text-primary border border-border transition-colors shrink-0"
+                                title="Baixar Arquivo"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
+                            </div>
+                          )}
+
+                          {/* 5. Figurinha ou GIF */}
+                          {(msg.type === "sticker" || msg.type === "gif") && (
+                            <div className="relative group/media overflow-hidden rounded-2xl border border-border/60 bg-surface/80 p-1 shadow-xs">
+                              <img 
+                                src={msg.content} 
+                                alt="Figurinha ou GIF"
+                                className={`rounded-xl object-contain max-w-full ${
+                                  msg.type === "sticker" ? "max-h-36 sm:max-h-44 bg-transparent" : "max-h-52 sm:max-h-60"
+                                }`}
+                                loading="lazy"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveSticker(msg.content)}
+                                className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/80 hover:bg-black text-amber-300 text-[10px] font-bold opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1 shadow-md border border-amber-400/30"
+                              >
+                                <Star className="w-3 h-3 fill-amber-300" />
+                                <span>Favoritar</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* 6. Texto Padrão */}
+                          {(!msg.type || msg.type === "text") && (
+                            <div 
+                              className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap shadow-xs ${
+                                isMe 
+                                  ? 'bg-primary text-white rounded-tr-xs' 
+                                  : 'bg-surface border border-border text-foreground rounded-tl-xs'
+                              }`}
+                            >
+                              {msg.content}
+                            </div>
+                          )}
+                        </>
                       )}
 
-                      {/* Barra Flutuante de Reações Rápidas (Hover no Desktop / Botão no Mobile) */}
+                      {/* Barra Flutuante de Ações e Reações (Hover) */}
                       <div 
-                        className={`absolute -top-3.5 ${isMe ? 'right-2' : 'left-2'} z-20 hidden group-hover/message:flex items-center gap-0.5 bg-surface border border-border shadow-md rounded-full px-1.5 py-0.5 animate-in fade-in duration-150`}
+                        className={`absolute -top-3.5 ${isMe ? 'right-2' : 'left-2'} z-20 hidden group-hover/message:flex items-center gap-0.5 bg-surface border border-border shadow-md rounded-full px-2 py-0.5 animate-in fade-in duration-150`}
                       >
-                        {QUICK_REACTION_EMOJIS.map(emoji => (
+                        {/* Emojis rápidos */}
+                        {QUICK_REACTION_EMOJIS.slice(0, 4).map(emoji => (
                           <button
                             key={emoji}
                             type="button"
                             onClick={() => handleToggleReaction(msg.id, emoji)}
                             className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-surface-hover hover:scale-125 transition-transform text-xs"
-                            title={`Reagir com ${emoji}`}
                           >
                             {emoji}
                           </button>
                         ))}
+
+                        <span className="w-px h-3.5 bg-border mx-1" />
+
+                        {/* Responder */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyingTo(msg);
+                            inputRef.current?.focus();
+                          }}
+                          className="p-1 rounded-full hover:bg-surface-hover text-muted-foreground hover:text-primary transition-colors"
+                          title="Responder"
+                        >
+                          <CornerDownLeft className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Encaminhar */}
+                        <button
+                          type="button"
+                          onClick={() => setForwardingMessage(msg)}
+                          className="p-1 rounded-full hover:bg-surface-hover text-muted-foreground hover:text-primary transition-colors"
+                          title="Encaminhar"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Fixar Mensagem */}
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePin(msg)}
+                          className={`p-1 rounded-full hover:bg-surface-hover transition-colors ${
+                            msg.is_pinned ? "text-amber-500" : "text-muted-foreground hover:text-amber-500"
+                          }`}
+                          title={msg.is_pinned ? "Desafixar" : "Fixar Mensagem"}
+                        >
+                          <Pin className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Se for autor: Editar e Excluir */}
+                        {isMe && (
+                          <>
+                            {(!msg.type || msg.type === "text") && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartEdit(msg)}
+                                className="p-1 rounded-full hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors"
+                                title="Editar"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(msg.id)}
+                              className="p-1 rounded-full hover:bg-surface-hover text-muted-foreground hover:text-danger transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
 
                     </div>
@@ -1003,11 +1578,35 @@ export default function ChatInterface({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Painel Flutuante / Drawer de Mídia (Emojis, Figurinhas, GIFs) */}
+        {/* Banner de Resposta (Reply To) */}
+        {replyingTo && (
+          <div className="px-4 py-2 bg-surface-elevated border-t border-border flex items-center justify-between text-xs animate-in fade-in">
+            <div className="flex items-center gap-2 truncate">
+              <CornerDownLeft className="w-4 h-4 text-primary shrink-0" />
+              <div className="truncate">
+                <span className="font-bold text-foreground">
+                  Respondendo a {replyingTo.sender_id === currentUser.id ? "Você" : replyingTo.sender.name}:
+                </span>{" "}
+                <span className="text-muted-foreground truncate">
+                  {replyingTo.content.slice(0, 60)}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="p-1 rounded hover:bg-surface text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Drawer de Mídia (Emojis, Figurinhas, GIFs) */}
         {showMediaPicker && (
           <div 
             ref={pickerRef}
-            className="absolute bottom-16 sm:bottom-20 left-2 right-2 sm:left-6 sm:right-auto sm:w-[380px] max-h-[380px] bg-surface border border-border rounded-2xl shadow-2xl z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2"
+            className="absolute bottom-16 sm:bottom-20 left-2 right-2 sm:left-6 sm:right-auto sm:w-[400px] max-h-[420px] bg-surface border border-border rounded-2xl shadow-2xl z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2"
           >
             {/* Header com Abas */}
             <div className="flex items-center justify-between border-b border-border p-2 bg-surface-hover/50">
@@ -1047,16 +1646,14 @@ export default function ChatInterface({
                 type="button"
                 onClick={() => setShowMediaPicker(false)}
                 className="p-1 rounded-lg hover:bg-surface text-muted-foreground hover:text-foreground"
-                title="Fechar"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Conteúdo da Aba 1: EMOJIS */}
+            {/* Conteúdo Aba 1: EMOJIS */}
             {mediaTab === 'emojis' && (
               <div className="flex flex-col flex-1 overflow-hidden p-2">
-                {/* Categorias de Emojis */}
                 <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar pb-1.5 mb-1.5 border-b border-border/50 text-[10px]">
                   {EMOJI_CATEGORIES.map(cat => (
                     <button
@@ -1071,7 +1668,6 @@ export default function ChatInterface({
                     </button>
                   ))}
                 </div>
-                {/* Grade de Emojis */}
                 <div className="grid grid-cols-7 sm:grid-cols-8 gap-1.5 overflow-y-auto max-h-60 p-1 custom-scrollbar">
                   {EMOJI_CATEGORIES.find(c => c.name === activeEmojiCategory)?.emojis.map((emoji, i) => (
                     <button
@@ -1079,7 +1675,6 @@ export default function ChatInterface({
                       type="button"
                       onClick={() => insertEmoji(emoji)}
                       className="w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:bg-surface-hover hover:scale-125 transition-transform"
-                      title={emoji}
                     >
                       {emoji}
                     </button>
@@ -1088,22 +1683,32 @@ export default function ChatInterface({
               </div>
             )}
 
-            {/* Conteúdo da Aba 2: FIGURINHAS */}
+            {/* Conteúdo Aba 2: FIGURINHAS COM BOTÃO "CRIAR FIGURINHA" */}
             {mediaTab === 'stickers' && (
               <div className="flex flex-col flex-1 overflow-hidden p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Suas Figurinhas Salvas ({savedStickers.length})
+                    Suas Figurinhas ({savedStickers.length})
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMediaPicker(false);
+                      setIsStickerCreatorOpen(true);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-500 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Criar Figurinha</span>
+                  </button>
                 </div>
 
                 <div className="overflow-y-auto max-h-60 custom-scrollbar space-y-3">
-                  {/* Figurinhas Favoritas do Usuário */}
                   {savedStickers.length === 0 ? (
                     <div className="p-3 text-center rounded-xl bg-surface-hover/30 border border-dashed border-border text-xs text-muted-foreground">
                       <Star className="w-5 h-5 mx-auto mb-1 text-muted-foreground/40" />
-                      <p className="font-semibold">Nenhuma figurinha salva ainda.</p>
-                      <p className="text-[10px] mt-0.5">Passe o mouse sobre qualquer imagem ou GIF no chat e clique em &quot;Favoritar&quot; para salvá-la aqui!</p>
+                      <p className="font-semibold">Nenhuma figurinha criada ainda.</p>
+                      <p className="text-[10px] mt-0.5">Clique em &quot;Criar Figurinha&quot; para fazer a sua ou favorite no chat!</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -1113,7 +1718,6 @@ export default function ChatInterface({
                             type="button"
                             onClick={() => sendMedia(stk.url, "sticker")}
                             className="w-full h-full p-1 hover:scale-105 transition-transform"
-                            title="Clique para enviar"
                           >
                             <img src={stk.url} alt="Figurinha" className="w-full h-full object-contain" />
                           </button>
@@ -1121,7 +1725,6 @@ export default function ChatInterface({
                             type="button"
                             onClick={() => handleDeleteSticker(stk.id)}
                             className="absolute top-1 right-1 p-1 rounded-md bg-danger text-white opacity-0 group-hover/stk:opacity-100 transition-opacity shadow-sm"
-                            title="Remover dos favoritos"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -1130,10 +1733,10 @@ export default function ChatInterface({
                     </div>
                   )}
 
-                  {/* Figurinhas Rápidas do Sistema */}
+                  {/* Padrão do Sistema */}
                   <div>
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-2">
-                      Figurinhas Rápidas do Sistema
+                      Corporativas Padrão
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {DEFAULT_SYSTEM_STICKERS.map(item => (
@@ -1142,7 +1745,6 @@ export default function ChatInterface({
                           type="button"
                           onClick={() => sendMedia(item.url, "sticker")}
                           className="flex items-center gap-2 p-2 rounded-xl bg-surface border border-border hover:border-primary/50 hover:bg-surface-hover transition-all text-left group"
-                          title="Clique para enviar"
                         >
                           <img src={item.url} alt={item.name} className="w-8 h-8 rounded-lg object-cover" />
                           <span className="text-[11px] font-bold text-foreground group-hover:text-primary transition-colors">
@@ -1156,10 +1758,9 @@ export default function ChatInterface({
               </div>
             )}
 
-            {/* Conteúdo da Aba 3: GIFs */}
+            {/* Conteúdo Aba 3: GIFs */}
             {mediaTab === 'gifs' && (
               <div className="flex flex-col flex-1 overflow-hidden p-2.5 space-y-2">
-                {/* Campo de Busca de GIFs */}
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -1170,114 +1771,125 @@ export default function ChatInterface({
                     className="w-full bg-background border border-border text-foreground text-xs rounded-xl pl-9 pr-3 py-1.5 focus:outline-none focus:border-primary transition-colors placeholder:text-muted-foreground"
                   />
                 </div>
-
-                {/* Filtro Rápido de Categorias */}
-                <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar pb-1 text-[10px]">
-                  {[
-                    { id: "todos", label: "Todos" },
-                    { id: "comemoracao", label: "Festa 🎉" },
-                    { id: "joinha", label: "Joinha 👍" },
-                    { id: "ti", label: "TI / Código 💻" },
-                    { id: "risos", label: "Risos 😂" },
-                    { id: "aplausos", label: "Palmas 👏" },
-                    { id: "pensando", label: "Pensando 🤔" },
-                    { id: "saudacoes", label: "Bom dia ☕" }
-                  ].map(cat => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 overflow-y-auto max-h-60 custom-scrollbar">
+                  {gifs.map(g => (
                     <button
-                      key={cat.id}
+                      key={g.id}
                       type="button"
-                      onClick={() => setGifCategory(cat.id)}
-                      className={`px-2 py-0.5 rounded-full font-bold whitespace-nowrap transition-colors ${
-                        gifCategory === cat.id ? 'bg-primary text-white' : 'bg-surface-hover text-muted-foreground hover:text-foreground'
-                      }`}
+                      onClick={() => sendMedia(g.url, "gif")}
+                      className="relative group/gif rounded-lg overflow-hidden border border-border bg-black/10 aspect-video hover:scale-105 transition-transform"
                     >
-                      {cat.label}
+                      <img src={g.preview || g.url} alt={g.title} className="w-full h-full object-cover" loading="lazy" />
                     </button>
                   ))}
-                </div>
-
-                {/* Grade de GIFs */}
-                <div className="overflow-y-auto max-h-60 custom-scrollbar">
-                  {loadingGifs ? (
-                    <div className="flex items-center justify-center py-10 text-muted-foreground gap-2 text-xs">
-                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      <span>Carregando GIFs...</span>
-                    </div>
-                  ) : gifs.length === 0 ? (
-                    <div className="text-center py-8 text-xs text-muted-foreground">
-                      Nenhum GIF encontrado para &quot;{gifSearch}&quot;.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                      {gifs.map(g => (
-                        <button
-                          key={g.id}
-                          type="button"
-                          onClick={() => sendMedia(g.url, "gif")}
-                          className="relative group/gif rounded-lg overflow-hidden border border-border bg-black/10 aspect-video hover:scale-105 transition-transform"
-                          title={g.title}
-                        >
-                          <img src={g.preview || g.url} alt={g.title} className="w-full h-full object-cover" loading="lazy" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/gif:opacity-100 transition-opacity flex items-end p-1">
-                            <span className="text-[9px] text-white font-bold truncate drop-shadow">{g.title}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Formulário de Envio com Barra Integrada */}
+        {/* ========================================================================= */}
+        {/* BARRA DE COMPOSIÇÃO DE MENSAGENS COM ÁUDIO, ANEXOS E EMOJIS              */}
+        {/* ========================================================================= */}
         <div className="p-2.5 sm:p-4 bg-surface border-t border-border flex-shrink-0">
-          <form onSubmit={sendMessage} className="flex items-center gap-1.5 sm:gap-2 max-w-5xl mx-auto">
-            
-            {/* Botão para Abrir Seletor Integrado (Emojis, Figurinhas, GIFs) */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowMediaPicker(prev => !prev);
-                setMediaTab('emojis');
-              }}
-              className={`p-2 sm:p-2.5 rounded-xl border transition-colors flex items-center justify-center shrink-0 ${
-                showMediaPicker 
-                  ? 'bg-primary/15 text-primary border-primary/40' 
-                  : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-surface-hover'
-              }`}
-              title="Emojis, Figurinhas e GIFs"
-              aria-label="Abrir seletor de emojis e mídia"
-            >
-              <Smile className="w-5 h-5" />
-            </button>
+          
+          {/* Gravador de Voz Ativo */}
+          {isRecordingAudio ? (
+            <div className="flex items-center justify-between gap-3 max-w-5xl mx-auto p-2 bg-red-500/10 border border-red-500/30 rounded-2xl animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs font-bold text-red-500 uppercase tracking-wider">
+                  Gravando Áudio: {Math.floor(recordingSeconds / 60).toString().padStart(2, "0")}:{(recordingSeconds % 60).toString().padStart(2, "0")}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={cancelRecordingAudio}
+                  className="px-3 py-1.5 rounded-xl border border-border bg-surface text-xs font-bold text-muted-foreground hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={stopRecordingAudio}
+                  className="px-4 py-1.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Enviar Áudio</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={sendMessage} className="flex items-center gap-1.5 sm:gap-2 max-w-5xl mx-auto">
+              
+              {/* Botão de Anexo (Fotos, Vídeos, Documentos) */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingFile}
+                className="p-2 sm:p-2.5 rounded-xl bg-background border border-border text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors shrink-0 disabled:opacity-50"
+                title="Anexar arquivo, foto ou documento"
+              >
+                {uploadingFile ? <Loader2 className="w-5 h-5 animate-spin text-primary" /> : <Paperclip className="w-5 h-5" />}
+              </button>
 
-            {/* Input de Mensagem */}
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                activeChannel?.is_group 
-                  ? `Mensagem #${activeChannel.name || "Geral"}...` 
-                  : `Mensagem para ${activeDMUser?.name || "usuário"}...`
-              }
-              className="flex-1 border border-border bg-background rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground min-w-0"
-            />
+              {/* Botão Seletor de Emojis, Figurinhas e GIFs */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMediaPicker(prev => !prev);
+                  setMediaTab('emojis');
+                }}
+                className={`p-2 sm:p-2.5 rounded-xl border transition-colors flex items-center justify-center shrink-0 ${
+                  showMediaPicker 
+                    ? 'bg-primary/15 text-primary border-primary/40' 
+                    : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-surface-hover'
+                }`}
+                title="Emojis, Figurinhas e GIFs"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
 
-            {/* Botão Enviar */}
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="bg-primary text-white rounded-xl px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
-              title="Enviar mensagem"
-            >
-              <span className="hidden sm:inline">Enviar</span>
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+              {/* Input de Mensagem */}
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={
+                  activeChannel?.is_group 
+                    ? `Mensagem #${activeChannel.name || "Geral"}...` 
+                    : `Mensagem para ${activeDMUser?.name || "usuário"}...`
+                }
+                className="flex-1 border border-border bg-background rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors text-foreground placeholder:text-muted-foreground min-w-0"
+              />
+
+              {/* Gravação de Voz (Microfone) quando o campo estiver vazio */}
+              {!input.trim() ? (
+                <button
+                  type="button"
+                  onClick={startRecordingAudio}
+                  className="p-2.5 sm:p-3 rounded-xl bg-surface-elevated hover:bg-surface-hover border border-border text-primary transition-colors flex items-center justify-center shrink-0"
+                  title="Gravar mensagem de voz"
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+              ) : (
+                /* Botão Enviar Mensagem */
+                <button
+                  type="submit"
+                  className="bg-primary text-white rounded-xl px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold hover:bg-primary-hover transition-all shadow-sm flex items-center gap-1.5 sm:gap-2 flex-shrink-0"
+                  title="Enviar mensagem"
+                >
+                  <span className="hidden sm:inline">Enviar</span>
+                  <Send className="w-4 h-4" />
+                </button>
+              )}
+
+            </form>
+          )}
+
         </div>
 
       </div>

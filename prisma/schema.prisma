@@ -625,9 +625,12 @@ model Booking {
 // ---------------------------------------------------------
 
 model ChatChannel {
-  id       String  @id @default(cuid())
-  name     String? // Nulo se for chat direto entre 2 pessoas
-  is_group Boolean @default(false)
+  id          String   @id @default(cuid())
+  name        String?  // Nulo se for chat direto entre 2 pessoas
+  description String?
+  image       String?
+  is_group    Boolean  @default(false)
+  admin_id    String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -640,13 +643,19 @@ model ChatChannel {
 }
 
 model ChatMessage {
-  id         String @id @default(cuid())
-  content    String
-  type       String @default("text") // "text" | "gif" | "sticker" | "image"
-  channel_id String
-  sender_id  String
+  id          String   @id @default(cuid())
+  content     String
+  type        String   @default("text") // "text" | "gif" | "sticker" | "image" | "video" | "audio" | "file"
+  channel_id  String
+  sender_id   String
 
-  is_read Boolean @default(false)
+  is_read     Boolean  @default(false)
+  is_pinned   Boolean  @default(false)
+  is_edited   Boolean  @default(false)
+  reply_to_id String?
+  file_name   String?
+  file_size   Int?
+  metadata    String?
 
   channel ChatChannel @relation(fields: [channel_id], references: [id], onDelete: Cascade)
   sender  User        @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)

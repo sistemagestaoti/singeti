@@ -15,7 +15,7 @@ export default async function ConnectPage() {
   const currentUserEmail = session.user.email?.toLowerCase();
 
   // Executa todas as consultas de forma paralela simultânea (reduz tempo de resposta em ~50%)
-  const [dbUser, prismaUsers, mainChannelFound, userChannels] = await Promise.all([
+  const [dbUser, prismaUsers, mainChannelFound, userChannels, departments] = await Promise.all([
     prisma.user.findFirst({
       where: {
         OR: [
@@ -52,6 +52,10 @@ export default async function ConnectPage() {
         }
       },
       orderBy: { created_at: 'asc' }
+    }),
+    prisma.department.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' }
     })
   ]);
 
@@ -105,6 +109,7 @@ export default async function ConnectPage() {
         users={users}
         channels={channels}
         mainChannelId={mainChannel.id}
+        departments={departments}
       />
     </div>
   );
