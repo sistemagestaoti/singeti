@@ -1369,25 +1369,6 @@ export default function TicketDetailClient({
               )}
             </div>
 
-              {ticket.asset && (
-                <div className="mt-2.5 p-2.5 rounded-lg bg-surface-elevated border border-border flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <Laptop className="w-4 h-4 text-primary" />
-                    <div>
-                      <div className="font-bold text-foreground">{ticket.asset.name}</div>
-                      <div className="text-[10px] text-muted-foreground">ID: {ticket.asset.internal_id}</div>
-                    </div>
-                  </div>
-                  <Link
-                    href={`/cmdb/${ticket.asset.id}`}
-                    className="text-primary hover:underline font-bold text-[11px]"
-                  >
-                    Ver no CMDB
-                  </Link>
-                </div>
-              )}
-            </div>
-
           </div>
         </div>
 

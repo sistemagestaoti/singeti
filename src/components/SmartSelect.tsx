@@ -5,12 +5,17 @@ import { Check, ChevronDown, Plus, Search, Loader2, AlertCircle, X } from "lucid
 import { normalizeString, areStringsEquivalent } from "@/lib/normalize";
 
 export interface SmartOption {
-  value: string;
+  value?: string;
+  id?: string;
   label: string;
   sublabel?: string | null;
   badge?: string | null;
   data?: any;
 }
+
+export type SmartSelectOption = SmartOption;
+
+export const getOptionValue = (opt: SmartOption): string => opt.value ?? opt.id ?? opt.label ?? "";
 
 export interface SmartSelectProps {
   label?: string;
@@ -21,6 +26,9 @@ export interface SmartSelectProps {
   onChange: (value: string, option?: SmartOption | null) => void;
   /** Função assíncrona para persistir uma nova opção no banco de dados */
   onCreateOption?: (inputValue: string) => Promise<SmartOption>;
+  creatableText?: string;
+  clearable?: boolean;
+  showAddIconOnEmpty?: boolean;
   /** Se habilitado, permite selecionar/manter texto livre mesmo sem salvar no banco */
   allowFreeText?: boolean;
   required?: boolean;
@@ -38,6 +46,9 @@ export default function SmartSelect({
   value,
   onChange,
   onCreateOption,
+  creatableText,
+  clearable,
+  showAddIconOnEmpty,
   allowFreeText = false,
   required = false,
   disabled = false,
@@ -56,7 +67,7 @@ export default function SmartSelect({
   const listboxId = useId();
 
   // Opção atualmente selecionada
-  const selectedOption = options.find((opt) => opt.value === value) || (value ? { value, label: value } : null);
+  const selectedOption = options.find((opt) => getOptionValue(opt) === value) || (value ? { value, label: value } : null);
 
   // Filtragem tolerante a acentos e maiúsculas/minúsculas
   const filteredOptions = options.filter((opt) => {
@@ -101,7 +112,7 @@ export default function SmartSelect({
   }, [isOpen]);
 
   const handleSelect = (option: SmartOption) => {
-    onChange(option.value, option);
+    onChange(getOptionValue(option), option);
     setIsOpen(false);
     setSearchTerm("");
     setErrorMessage(null);
@@ -122,8 +133,9 @@ export default function SmartSelect({
 
     try {
       const created = await onCreateOption(trimmed);
-      if (created && created.value) {
-        onChange(created.value, created);
+      const createdVal = created ? getOptionValue(created) : null;
+      if (createdVal) {
+        onChange(createdVal, { ...created, value: createdVal });
         setIsOpen(false);
         setSearchTerm("");
       } else {
@@ -293,7 +305,7 @@ export default function SmartSelect({
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="truncate">
-                    {isCreating ? "Salvando no banco de dados..." : `+ Adicionar "${searchTerm.trim()}"`}
+                    {isCreating ? "Salvando no banco de dados..." : creatableText ? `${creatableText} "${searchTerm.trim()}"` : `+ Adicionar "${searchTerm.trim()}"`}
                   </div>
                   <div className="text-[10px] font-normal opacity-80">
                     Cadastrar e persistir permanentemente para novos chamados
@@ -305,12 +317,13 @@ export default function SmartSelect({
             {/* Opções Filtradas */}
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt, idx) => {
-                const isSelected = opt.value === value;
+                const optVal = getOptionValue(opt);
+                const isSelected = optVal === value;
                 const isHighlighted = idx === highlightedIndex;
 
                 return (
                   <button
-                    key={`${opt.value}-${idx}`}
+                    key={`${optVal}-${idx}`}
                     type="button"
                     onClick={() => handleSelect(opt)}
                     onMouseEnter={() => setHighlightedIndex(idx)}

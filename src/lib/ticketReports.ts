@@ -451,14 +451,6 @@ export function exportTicketsToPDF(tickets: TicketReportItem[], options: ReportO
         }
       }
     },
-          data.cell.styles.textColor = [16, 185, 129]; // Emerald 600
-        } else if (val === "Em Atendimento") {
-          data.cell.styles.textColor = [217, 119, 6]; // Amber 600
-        } else if (val === "Novo" || val === "Em Triagem") {
-          data.cell.styles.textColor = [2, 132, 199]; // Sky 600
-        }
-      }
-    },
     didDrawPage: function (data: any) {
       // 4. Rodapé Profissional com Paginação
       const str = `Página ${data.pageNumber} de ${data.pageCount || doc.getNumberOfPages()}`;
