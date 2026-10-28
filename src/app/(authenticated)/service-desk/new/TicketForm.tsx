@@ -60,12 +60,18 @@ export default function TicketForm({
   departments: initialDepartments,
   users: initialUsers,
   currentUserId,
+  onClose,
+  onSuccess,
+  isModal = false,
 }: {
   categories: CategoryItem[];
   assets: AssetItem[];
   departments: DepartmentItem[];
   users: UserItem[];
   currentUserId: string;
+  onClose?: () => void;
+  onSuccess?: (ticket: any) => void;
+  isModal?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -136,7 +142,11 @@ export default function TicketForm({
         return;
       }
     }
-    router.push("/service-desk");
+    if (onClose) {
+      onClose();
+    } else {
+      router.push("/service-desk");
+    }
   };
 
   // Modals for Manual Additions
@@ -517,8 +527,12 @@ export default function TicketForm({
       }
 
       const createdTicket = await res.json();
-      router.push(`/service-desk/${createdTicket.id}`);
-      router.refresh();
+      if (onSuccess) {
+        onSuccess(createdTicket);
+      } else {
+        router.push(`/service-desk/${createdTicket.id}`);
+        router.refresh();
+      }
     } catch (error: any) {
       alert(error.message || "Erro ao registrar o chamado.");
       setLoading(false);

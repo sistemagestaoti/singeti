@@ -14,8 +14,8 @@ export default async function ServiceDeskPage() {
     redirect("/login");
   }
 
-  // Busca usuário atual, categorias, chamados, departamentos e usuários em paralelo (reduz latência sequencial de rede)
-  const [currentUser, categories, tickets, departments, attendants] = await Promise.all([
+  // Busca usuário atual, categorias, chamados, departamentos, usuários e ativos em paralelo (reduz latência de rede)
+  const [currentUser, categories, tickets, departments, attendants, assets] = await Promise.all([
     resolveCurrentUser(session),
     prisma.ticketCategory.findMany({
       select: { id: true, name: true },
@@ -47,7 +47,24 @@ export default async function ServiceDeskPage() {
       orderBy: { name: "asc" }
     }),
     prisma.user.findMany({
-      select: { id: true, name: true, email: true },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true,
+        job_title: true,
+        department: { select: { id: true, name: true } }
+      },
+      orderBy: { name: "asc" }
+    }),
+    prisma.asset.findMany({
+      select: {
+        id: true,
+        name: true,
+        internal_id: true,
+        asset_tag: true,
+        type: true,
+        status: true,
+      },
       orderBy: { name: "asc" }
     })
   ]);
@@ -59,6 +76,7 @@ export default async function ServiceDeskPage() {
       currentUser={currentUser}
       departments={departments}
       attendants={attendants}
+      initialAssets={assets}
     />
   );
 }

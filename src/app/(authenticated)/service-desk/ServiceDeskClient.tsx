@@ -15,6 +15,9 @@ import dynamic from "next/dynamic";
 const ServiceDeskExportModal = dynamic(() => import("@/components/ServiceDeskExportModal"), {
   ssr: false,
 });
+const NewTicketModal = dynamic(() => import("@/components/NewTicketModal"), {
+  ssr: false,
+});
 import { 
   exportTicketsToPDF, 
   exportTicketsToExcel, 
@@ -120,16 +123,19 @@ export default function ServiceDeskClient({
   currentUser,
   departments = [],
   attendants = [],
+  initialAssets = [],
 }: {
   initialTickets: any[];
   categories: Category[];
   currentUser: CurrentUser | null;
   departments?: { id: string; name: string }[];
   attendants?: { id: string; name: string; email: string }[];
+  initialAssets?: any[];
 }) {
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
   const [viewMode, setViewMode] = useState<"table" | "kanban" | "reports">("table");
+  const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<"TODAY" | "LAST_7_DAYS" | "THIS_MONTH" | "LAST_30_DAYS" | "ALL">("THIS_MONTH");
   const [searchQuery, setSearchQuery] = useState("");
@@ -609,13 +615,15 @@ export default function ServiceDeskClient({
             <span>Exportar & Relatórios</span>
           </button>
 
-          <Link
-            href="/service-desk/new"
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors shadow-xs shrink-0"
+          <button
+            type="button"
+            onClick={() => setIsNewTicketModalOpen(true)}
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors shadow-xs shrink-0 cursor-pointer"
+            title="Abertura instantânea de novo chamado (0ms)"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Abrir Chamado</span>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -1227,12 +1235,13 @@ export default function ServiceDeskClient({
                           >
                             Ver Todo o Histórico
                           </button>
-                          <Link
-                            href="/service-desk/new"
-                            className="bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors"
+                          <button
+                            type="button"
+                            onClick={() => setIsNewTicketModalOpen(true)}
+                            className="bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-primary-hover transition-colors cursor-pointer"
                           >
                             + Abrir Novo Chamado
-                          </Link>
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -1246,7 +1255,12 @@ export default function ServiceDeskClient({
                       <tr key={ticket.id} className="hover:bg-surface-hover/60 transition-colors group">
                         {/* Code */}
                         <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap">
-                          <Link href={`/service-desk/${ticket.id}`} className="font-mono text-xs font-bold text-primary hover:underline">
+                          <Link 
+                            href={`/service-desk/${ticket.id}`} 
+                            onMouseEnter={() => router.prefetch(`/service-desk/${ticket.id}`)}
+                            onFocus={() => router.prefetch(`/service-desk/${ticket.id}`)}
+                            className="font-mono text-xs font-bold text-primary hover:underline"
+                          >
                             {ticket.code}
                           </Link>
                           <div className="text-[10px] text-muted-foreground font-semibold uppercase">
@@ -1256,7 +1270,12 @@ export default function ServiceDeskClient({
 
                         {/* Title & Description */}
                         <td className="px-3.5 py-2.5 sm:py-3">
-                          <Link href={`/service-desk/${ticket.id}`} className="font-bold text-xs sm:text-sm text-foreground hover:text-primary transition-colors block line-clamp-1">
+                          <Link 
+                            href={`/service-desk/${ticket.id}`} 
+                            onMouseEnter={() => router.prefetch(`/service-desk/${ticket.id}`)}
+                            onFocus={() => router.prefetch(`/service-desk/${ticket.id}`)}
+                            className="font-bold text-xs sm:text-sm text-foreground hover:text-primary transition-colors block line-clamp-1"
+                          >
                             {ticket.title}
                           </Link>
                           <div className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
@@ -1345,6 +1364,8 @@ export default function ServiceDeskClient({
                           <div className="flex items-center justify-end gap-1">
                             <Link
                               href={`/service-desk/${ticket.id}`}
+                              onMouseEnter={() => router.prefetch(`/service-desk/${ticket.id}`)}
+                              onFocus={() => router.prefetch(`/service-desk/${ticket.id}`)}
                               className="p-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                               title="Visualizar chamado"
                             >
@@ -1783,6 +1804,22 @@ export default function ServiceDeskClient({
         departments={departments}
         attendants={attendants}
         currentUserName={currentUser?.name || "Administrador"}
+      />
+
+      {/* Modal Instantâneo de Abertura de Novo Chamado (0ms) */}
+      <NewTicketModal
+        isOpen={isNewTicketModalOpen}
+        onClose={() => setIsNewTicketModalOpen(false)}
+        onSuccess={(newTicket) => {
+          setIsNewTicketModalOpen(false);
+          setTickets(prev => [newTicket, ...prev]);
+          router.refresh();
+        }}
+        categories={categories}
+        assets={initialAssets}
+        departments={departments}
+        users={attendants}
+        currentUserId={currentUser?.id || ""}
       />
 
     </div>
