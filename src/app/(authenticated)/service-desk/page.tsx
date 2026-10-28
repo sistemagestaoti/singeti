@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { resolveCurrentUser } from "@/lib/currentUser";
+import { getUnifiedRequesters } from "@/lib/requesters";
+import { getUnifiedCatalogItems } from "@/lib/itemCatalog";
 import ServiceDeskClient from "./ServiceDeskClient";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +16,8 @@ export default async function ServiceDeskPage() {
     redirect("/login");
   }
 
-  // Busca usuário atual, categorias, chamados, departamentos, usuários e ativos em paralelo (reduz latência de rede)
-  const [currentUser, categories, tickets, departments, attendants, assets] = await Promise.all([
+  // Busca dados em paralelo simultâneo no servidor (reduz latência e elimina waterfalls do cliente)
+  const [currentUser, categories, tickets, departments, attendants, assets, requesters, catalogItems] = await Promise.all([
     resolveCurrentUser(session),
     prisma.ticketCategory.findMany({
       select: { id: true, name: true },
@@ -66,7 +68,9 @@ export default async function ServiceDeskPage() {
         status: true,
       },
       orderBy: { name: "asc" }
-    })
+    }),
+    getUnifiedRequesters().catch(() => []),
+    getUnifiedCatalogItems().catch(() => [])
   ]);
 
   return (
@@ -77,6 +81,8 @@ export default async function ServiceDeskPage() {
       departments={departments}
       attendants={attendants}
       initialAssets={assets}
+      initialRequesters={requesters}
+      initialCatalogItems={catalogItems}
     />
   );
 }

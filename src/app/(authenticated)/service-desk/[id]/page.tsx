@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { resolveCurrentUser } from "@/lib/currentUser";
+import { getUnifiedRequesters } from "@/lib/requesters";
+import { getUnifiedCatalogItems } from "@/lib/itemCatalog";
 import TicketDetailClient from "./TicketDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
   const resolvedParams = await params;
 
   // Busca o chamado, usuário e todas as listas auxiliares em paralelo simultâneo (reduz latência de 800ms para ~150ms)
-  const [currentUser, ticket, categories, departments, assets, users] = await Promise.all([
+  const [currentUser, ticket, categories, departments, assets, users, requesters, catalogItems] = await Promise.all([
     resolveCurrentUser(session),
     prisma.ticket.findUnique({
       where: { id: resolvedParams.id },
@@ -96,7 +98,9 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
     prisma.user.findMany({
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" }
-    })
+    }),
+    getUnifiedRequesters().catch(() => []),
+    getUnifiedCatalogItems().catch(() => [])
   ]);
 
   if (!ticket) {
@@ -111,6 +115,8 @@ export default async function TicketViewPage({ params }: { params: Promise<{ id:
       assets={assets}
       users={users}
       currentUser={currentUser}
+      initialRequesters={requesters}
+      initialCatalogItems={catalogItems}
     />
   );
 }

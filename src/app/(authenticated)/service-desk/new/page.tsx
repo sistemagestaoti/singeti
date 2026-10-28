@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import TicketForm from "./TicketForm";
 import { resolveCurrentUser } from "@/lib/currentUser";
+import { getUnifiedRequesters } from "@/lib/requesters";
+import { getUnifiedCatalogItems } from "@/lib/itemCatalog";
 import Link from "next/link";
 import { ArrowLeft, HeadphonesIcon } from "lucide-react";
 
@@ -15,7 +17,7 @@ export default async function NewTicketPage() {
   }
 
   // Executa todas as buscas em paralelo usando Promise.all (reduz latência de abertura em ~68%)
-  const [currentUser, initialCategories, assets, departments, users] = await Promise.all([
+  const [currentUser, initialCategories, assets, departments, users, requesters, catalogItems] = await Promise.all([
     resolveCurrentUser(session),
     prisma.ticketCategory.findMany({
       orderBy: { name: "asc" },
@@ -49,6 +51,8 @@ export default async function NewTicketPage() {
       },
       orderBy: { name: "asc" },
     }),
+    getUnifiedRequesters().catch(() => []),
+    getUnifiedCatalogItems().catch(() => []),
   ]);
 
   let categories = initialCategories;
@@ -101,6 +105,8 @@ export default async function NewTicketPage() {
         assets={assets} 
         departments={departments}
         users={users}
+        initialRequesters={requesters}
+        initialCatalogItems={catalogItems}
         currentUserId={currentUser?.id || session.user?.id || ""}
       />
     </div>

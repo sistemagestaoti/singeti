@@ -11,6 +11,8 @@ interface NewTicketModalProps {
   assets?: any[];
   departments: any[];
   users: any[];
+  initialRequesters?: any[];
+  initialCatalogItems?: any[];
   currentUserId: string;
 }
 
@@ -22,6 +24,8 @@ export default function NewTicketModal({
   assets = [],
   departments,
   users,
+  initialRequesters,
+  initialCatalogItems,
   currentUserId,
 }: NewTicketModalProps) {
   if (!isOpen) return null;
@@ -67,6 +71,8 @@ export default function NewTicketModal({
             assets={assets}
             departments={departments}
             users={users}
+            initialRequesters={initialRequesters}
+            initialCatalogItems={initialCatalogItems}
             currentUserId={currentUserId}
             onClose={onClose}
             onSuccess={onSuccess}

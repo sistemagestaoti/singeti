@@ -15,9 +15,7 @@ import dynamic from "next/dynamic";
 const ServiceDeskExportModal = dynamic(() => import("@/components/ServiceDeskExportModal"), {
   ssr: false,
 });
-const NewTicketModal = dynamic(() => import("@/components/NewTicketModal"), {
-  ssr: false,
-});
+import NewTicketModal from "@/components/NewTicketModal";
 import { 
   exportTicketsToPDF, 
   exportTicketsToExcel, 
@@ -124,6 +122,8 @@ export default function ServiceDeskClient({
   departments = [],
   attendants = [],
   initialAssets = [],
+  initialRequesters = [],
+  initialCatalogItems = [],
 }: {
   initialTickets: any[];
   categories: Category[];
@@ -131,6 +131,8 @@ export default function ServiceDeskClient({
   departments?: { id: string; name: string }[];
   attendants?: { id: string; name: string; email: string }[];
   initialAssets?: any[];
+  initialRequesters?: any[];
+  initialCatalogItems?: any[];
 }) {
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
@@ -1819,6 +1821,8 @@ export default function ServiceDeskClient({
         assets={initialAssets}
         departments={departments}
         users={attendants}
+        initialRequesters={initialRequesters}
+        initialCatalogItems={initialCatalogItems}
         currentUserId={currentUser?.id || ""}
       />
 

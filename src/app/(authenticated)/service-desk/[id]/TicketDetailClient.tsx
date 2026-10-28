@@ -31,6 +31,8 @@ interface TicketDetailProps {
   assets: Array<{ id: string; name: string; internal_id: string; asset_tag?: string | null; type?: string }>;
   users: Array<{ id: string; name: string; email: string; job_title?: string | null }>;
   currentUser: { id: string; name: string; email: string; role?: string } | null;
+  initialRequesters?: any[];
+  initialCatalogItems?: any[];
 }
 
 const STATUS_STEPS = [
@@ -49,6 +51,8 @@ export default function TicketDetailClient({
   assets,
   users,
   currentUser,
+  initialRequesters = [],
+  initialCatalogItems = [],
 }: TicketDetailProps) {
   const router = useRouter();
   const [ticket, setTicket] = useState(initialTicket);
@@ -59,8 +63,8 @@ export default function TicketDetailClient({
   const [departmentsList, setDepartmentsList] = useState(departments);
   const [assetsList, setAssetsList] = useState(assets);
   const [usersList, setUsersList] = useState(users);
-  const [requestersList, setRequestersList] = useState<any[]>([]);
-  const [catalogItems, setCatalogItems] = useState<Array<{ id: string; name: string; category?: string }>>([]);
+  const [requestersList, setRequestersList] = useState<any[]>(initialRequesters || []);
+  const [catalogItems, setCatalogItems] = useState<Array<{ id: string; name: string; category?: string }>>(initialCatalogItems || []);
   const [isEditingRequester, setIsEditingRequester] = useState(false);
 
   // Interactive Property Edits
@@ -83,22 +87,26 @@ export default function TicketDetailClient({
   );
   const [manualResponsible, setManualResponsible] = useState(initialTicket.assigned_to_name || "");
 
-  // Load unified requesters & item catalog
+  // Load unified requesters & item catalog only if not preloaded by SSR
   useEffect(() => {
-    fetch("/api/requesters")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) setRequestersList(data);
-      })
-      .catch(() => {});
+    if (!initialRequesters || initialRequesters.length === 0) {
+      fetch("/api/requesters")
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) setRequestersList(data);
+        })
+        .catch(() => {});
+    }
 
-    fetch("/api/item-catalog")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) setCatalogItems(data);
-      })
-      .catch(() => {});
-  }, []);
+    if (!initialCatalogItems || initialCatalogItems.length === 0) {
+      fetch("/api/item-catalog")
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) setCatalogItems(data);
+        })
+        .catch(() => {});
+    }
+  }, [initialRequesters, initialCatalogItems]);
 
   // Ticket Items State
   const [items, setItems] = useState<any[]>(initialTicket.items || []);

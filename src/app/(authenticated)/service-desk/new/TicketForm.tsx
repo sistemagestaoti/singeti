@@ -59,6 +59,8 @@ export default function TicketForm({
   assets: initialAssets,
   departments: initialDepartments,
   users: initialUsers,
+  initialRequesters,
+  initialCatalogItems,
   currentUserId,
   onClose,
   onSuccess,
@@ -68,6 +70,8 @@ export default function TicketForm({
   assets: AssetItem[];
   departments: DepartmentItem[];
   users: UserItem[];
+  initialRequesters?: any[];
+  initialCatalogItems?: any[];
   currentUserId: string;
   onClose?: () => void;
   onSuccess?: (ticket: any) => void;
@@ -81,16 +85,17 @@ export default function TicketForm({
   const [assetsList, setAssetsList] = useState<AssetItem[]>(initialAssets);
   const [departmentsList, setDepartmentsList] = useState<DepartmentItem[]>(initialDepartments);
   const [usersList, setUsersList] = useState<UserItem[]>(initialUsers);
-  const [requestersList, setRequestersList] = useState<RequesterItem[]>(
-    initialUsers.map(u => ({
+  const [requestersList, setRequestersList] = useState<RequesterItem[]>(() => {
+    if (initialRequesters && initialRequesters.length > 0) return initialRequesters;
+    return initialUsers.map(u => ({
       id: u.id,
       name: u.name,
       email: u.email,
       department: u.department?.name || null,
       type: "USER"
-    }))
-  );
-  const [catalogItems, setCatalogItems] = useState<Array<{ id: string; name: string; category?: string; unit?: string }>>([]);
+    }));
+  });
+  const [catalogItems, setCatalogItems] = useState<Array<{ id: string; name: string; category?: string; unit?: string }>>(initialCatalogItems || []);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -113,26 +118,30 @@ export default function TicketForm({
   // Dynamic Requested Items List (manual item addition)
   const [requestedItems, setRequestedItems] = useState<RequestedItem[]>([]);
 
-  // Carrega lista unificada de solicitantes e catálogo de itens
+  // Carrega lista unificada de solicitantes e catálogo de itens apenas se não vieram pré-carregados pelo SSR
   useEffect(() => {
-    fetch("/api/requesters")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          setRequestersList(data);
-        }
-      })
-      .catch(() => {});
+    if (!initialRequesters || initialRequesters.length === 0) {
+      fetch("/api/requesters")
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            setRequestersList(data);
+          }
+        })
+        .catch(() => {});
+    }
 
-    fetch("/api/item-catalog")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setCatalogItems(data);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    if (!initialCatalogItems || initialCatalogItems.length === 0) {
+      fetch("/api/item-catalog")
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setCatalogItems(data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialRequesters, initialCatalogItems]);
 
   // Sair do Chamado (com confirmação se houver dados preenchidos)
   const handleExitTicket = () => {
