@@ -196,19 +196,29 @@ model Asset {
 }
 
 model Computer {
-  id          String  @id @default(cuid())
-  asset_id    String  @unique
-  hostname    String?
-  processor   String?
-  memory_mb   Int?
-  storage_gb  Int?
-  mac_address String?
-  ip_address  String?
-  os_name     String?
-  os_version  String?
+  id                 String  @id @default(cuid())
+  asset_id           String  @unique
+  hostname           String?
+  processor          String?
+  memory_mb          Int?
+  storage_gb         Int?
+  mac_address        String?
+  ip_address         String?
+  os_name            String?
+  os_version         String?
+  device_type        String? @default("DESKTOP") // DESKTOP, NOTEBOOK, MINI_PC, ALL_IN_ONE, SERVER, OUTRO
+  domain_workgroup   String? @default("WORKGROUP")
+  physical_location  String?
+  responsible_it_id  String?
+  primary_user_id    String?
 
-  asset Asset @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+  asset          Asset               @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+  assignments    PcUserAssignment[]
+  accounts       PcAccount[]
+  email_accounts PcEmailAccount[]
 
+  @@index([hostname])
+  @@index([ip_address])
   @@map("computers")
 }
 
@@ -775,4 +785,151 @@ model ItemCatalog {
 
   @@index([name])
   @@map("item_catalog")
+}
+
+// ---------------------------------------------------------
+// FASE 11: GESTÃO DE ACESSOS A COMPUTADORES (PCs) E COFRE SEGURO
+// ---------------------------------------------------------
+
+model PcCollaborator {
+  id              String   @id @default(cuid())
+  name            String
+  employee_code   String?  // Matrícula
+  job_title       String?  // Cargo / Função
+  department_name String?  // Setor
+  location_name   String?  // Unidade
+  email           String?  // E-mail corporativo
+  phone           String?  // Telefone / Ramal
+  status          String   @default("ACTIVE") // ACTIVE, INACTIVE
+  notes           String?  @db.Text
+  company_id      String?
+  user_id         String?  // Vínculo opcional se tiver conta de sistema no Syngeti
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  assignments     PcUserAssignment[]
+  accounts        PcAccount[]
+  email_accounts  PcEmailAccount[]
+
+  @@index([name])
+  @@index([email])
+  @@index([status])
+  @@map("pc_collaborators")
+}
+
+model PcUserAssignment {
+  id              String         @id @default(cuid())
+  computer_id     String
+  collaborator_id String
+  is_primary      Boolean        @default(false)
+  start_date      DateTime       @default(now())
+  end_date        DateTime?
+  status          String         @default("ACTIVE") // ACTIVE, INACTIVE, TRANSFERRED
+  assigned_by     String?
+  notes           String?        @db.Text
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+
+  collaborator    PcCollaborator @relation(fields: [collaborator_id], references: [id], onDelete: Cascade)
+  computer        Computer       @relation(fields: [computer_id], references: [id], onDelete: Cascade)
+
+  @@index([computer_id])
+  @@index([collaborator_id])
+  @@index([status])
+  @@map("pc_user_assignments")
+}
+
+model VaultSecret {
+  id             String    @id @default(cuid())
+  title          String
+  encrypted_data String    @db.Text // Ciphertext em Base64
+  iv             String    // 12 bytes IV em Hex ou Base64
+  auth_tag       String    // 16 bytes GCM auth tag em Hex ou Base64
+  key_version    Int       @default(1)
+  secret_type    String    @default("PASSWORD") // PASSWORD, PIN, RECOVERY_KEY, LOCAL_ADMIN, API_KEY
+  notes          String?   @db.Text
+  created_by     String?
+  updated_by     String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  accounts       PcAccount[]
+  email_accounts PcEmailAccount[]
+
+  @@map("vault_secrets")
+}
+
+model PcAccount {
+  id                   String          @id @default(cuid())
+  computer_id          String
+  collaborator_id      String?
+  username             String          // ex: "suporte.local", "joao.silva", "admin"
+  display_name         String?
+  account_type         String          @default("LOCAL_STANDARD") // LOCAL_STANDARD, LOCAL_ADMIN, DOMAIN_USER, DOMAIN_ADMIN, ENTRA_ID, SERVICE_ACCOUNT, OUTRO
+  domain               String?         @default("WORKGROUP")
+  status               String          @default("ACTIVE") // ACTIVE, INACTIVE, LOCKED, REVIEW_PENDING
+  vault_secret_id      String?
+  last_password_change DateTime?
+  notes                String?         @db.Text
+  created_at           DateTime        @default(now())
+  updated_at           DateTime        @updatedAt
+
+  computer             Computer        @relation(fields: [computer_id], references: [id], onDelete: Cascade)
+  collaborator         PcCollaborator? @relation(fields: [collaborator_id], references: [id], onDelete: SetNull)
+  vault_secret         VaultSecret?    @relation(fields: [vault_secret_id], references: [id], onDelete: SetNull)
+
+  @@index([computer_id])
+  @@index([collaborator_id])
+  @@index([status])
+  @@map("pc_accounts")
+}
+
+model PcEmailAccount {
+  id                String          @id @default(cuid())
+  email_address     String
+  account_name      String?
+  provider          String          @default("M365") // M365, GOOGLE_WORKSPACE, CORPORATE_IMAP, EXCHANGE, OUTRO
+  account_type      String          @default("INDIVIDUAL") // INDIVIDUAL, SHARED_MAILBOX, DISTRIBUTION_LIST, SERVICE
+  collaborator_id   String?
+  computer_id       String?
+  status            String          @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED, REVIEW_PENDING
+  activation_date   DateTime?
+  deactivation_date DateTime?
+  auth_method       String          @default("SSO_SAML") // SSO_SAML, OAUTH2, BASIC_AUTH, APPPASSWORD
+  mfa_enabled       String          @default("UNKNOWN") // YES, NO, UNKNOWN
+  vault_secret_id   String?
+  notes             String?         @db.Text
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+
+  collaborator      PcCollaborator? @relation(fields: [collaborator_id], references: [id], onDelete: SetNull)
+  computer          Computer?       @relation(fields: [computer_id], references: [id], onDelete: SetNull)
+  vault_secret      VaultSecret?    @relation(fields: [vault_secret_id], references: [id], onDelete: SetNull)
+
+  @@index([email_address])
+  @@index([collaborator_id])
+  @@index([computer_id])
+  @@index([status])
+  @@map("pc_email_accounts")
+}
+
+model PcAccessAuditLog {
+  id          String   @id @default(cuid())
+  action      String   // VIEW_SECRET, REVEAL_SECRET, COPY_SECRET, CREATE_COMPUTER, UPDATE_COMPUTER, DELETE_COMPUTER, CREATE_ACCOUNT, UPDATE_ACCOUNT, CREATE_EMAIL, UPDATE_EMAIL, ASSIGN_USER, UNASSIGN_USER, EXPORT_REPORT, IMPORT_INVENTORY
+  entity_type String   // COMPUTER, ACCOUNT, EMAIL, COLLABORATOR, SECRET
+  entity_id   String?
+  entity_name String?
+  user_id     String?
+  user_name   String?
+  user_email  String?
+  ip_address  String?
+  user_agent  String?
+  status      String   @default("SUCCESS") // SUCCESS, DENIED, FAILED
+  details     String?  @db.Text
+  created_at  DateTime @default(now())
+
+  @@index([action])
+  @@index([entity_type])
+  @@index([created_at])
+  @@map("pc_access_audit_logs")
 }

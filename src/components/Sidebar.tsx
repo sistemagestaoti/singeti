@@ -20,6 +20,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    'Atendimento': true,
     'Cadastros': true,
     'Configurações': true,
   });
@@ -99,10 +100,13 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       icon: Server 
     },
     { 
-      name: "Service Desk", 
-      subtitle: "Gestão de chamados",
-      href: "/service-desk", 
-      icon: HeadphonesIcon 
+      name: "Atendimento", 
+      subtitle: "Service Desk e Acessos",
+      icon: HeadphonesIcon,
+      subItems: [
+        { name: "Service Desk (Chamados)", href: "/service-desk" },
+        { name: "Gestão de Acessos a PCs", href: "/pc-access" },
+      ]
     },
     { 
       name: "Projetos", 

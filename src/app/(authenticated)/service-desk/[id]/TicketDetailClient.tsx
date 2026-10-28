@@ -1359,12 +1359,22 @@ export default function TicketDetailClient({
                       <div className="text-[10px] text-muted-foreground">ID: {ticket.asset.internal_id}</div>
                     </div>
                   </div>
-                  <Link
-                    href={`/cmdb/${ticket.asset.id}`}
-                    className="text-primary hover:underline font-bold text-[11px]"
-                  >
-                    Ver no CMDB
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    {ticket.asset.type === "COMPUTER" && (
+                      <Link
+                        href={`/pc-access?open=${ticket.asset.id}`}
+                        className="text-xs font-bold px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      >
+                        Ficha & Acessos
+                      </Link>
+                    )}
+                    <Link
+                      href={`/cmdb/${ticket.asset.id}`}
+                      className="text-muted-foreground hover:underline text-[11px]"
+                    >
+                      CMDB
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
