@@ -13,11 +13,13 @@ export default async function NewAssetPage() {
     redirect("/login");
   }
 
-  // Buscar dados para popular os selects do formulário
-  const companies = await prisma.company.findMany();
-  const locations = await prisma.location.findMany();
-  const departments = await prisma.department.findMany();
-  const users = await prisma.user.findMany({ select: { id: true, name: true } });
+  // Buscar dados para popular os selects do formulário em paralelo
+  const [companies, locations, departments, users] = await Promise.all([
+    prisma.company.findMany({ orderBy: { trade_name: "asc" } }),
+    prisma.location.findMany({ orderBy: { name: "asc" } }),
+    prisma.department.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="min-h-screen bg-background py-10">

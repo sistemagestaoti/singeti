@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { X, FileText, Download, Printer, Filter, Table, RefreshCw } from "lucide-react";
-import * as XLSX from "xlsx";
 
 interface ReportsModalProps {
   isOpen: boolean;
@@ -38,8 +37,9 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
 
   if (!isOpen) return null;
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!data.length) return;
+    const XLSX = await import("xlsx");
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, `Relatorio_${reportType}`);
@@ -49,8 +49,9 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
     );
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (!data.length) return;
+    const XLSX = await import("xlsx");
     const worksheet = XLSX.utils.json_to_sheet(data);
     const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
     const blob = new Blob(["\uFEFF" + csvOutput], { type: "text/csv;charset=utf-8;" });

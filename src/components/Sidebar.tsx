@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, Server, HeadphonesIcon, 
   AlertTriangle, ArrowRightLeft, CalendarClock, 
@@ -16,8 +16,18 @@ let brandingMemoryCache: any = null;
 let brandingCacheFetching = false;
 
 export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
+  const router = useRouter();
   const { isMobileOpen, closeMobileMenu, navigatingTo, startNavigation } = useMobileMenu();
   const pathname = usePathname();
+
+  // Prefetch inteligente sob demanda ao aproximar o mouse (elimina a latência de clique sem causar prefetch storm inicial)
+  const prefetchRoute = useCallback((href?: string) => {
+    if (href && href !== "#" && !href.startsWith("http")) {
+      try {
+        router.prefetch(href);
+      } catch {}
+    }
+  }, [router]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     'Gestão de Acessos': true,
@@ -293,6 +303,8 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                 key={item.name}
                 href={targetHref}
                 prefetch={false}
+                onMouseEnter={() => prefetchRoute(targetHref)}
+                onFocus={() => prefetchRoute(targetHref)}
                 onClick={() => {
                   startNavigation(targetHref);
                   closeMobileMenu();
@@ -333,6 +345,12 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
               {hasSubItems ? (
                 <button
                   type="button"
+                  onMouseEnter={() => {
+                    item.subItems?.forEach(sub => prefetchRoute(sub.href));
+                  }}
+                  onFocus={() => {
+                    item.subItems?.forEach(sub => prefetchRoute(sub.href));
+                  }}
                   onClick={(e) => {
                     e.preventDefault();
                     toggleMenu(item.name);
@@ -346,6 +364,8 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                 <Link
                   href={item.href!}
                   prefetch={false}
+                  onMouseEnter={() => prefetchRoute(item.href)}
+                  onFocus={() => prefetchRoute(item.href)}
                   onClick={() => {
                     startNavigation(item.href!);
                     closeMobileMenu();
@@ -372,6 +392,8 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                         key={subItem.name}
                         href={subItem.href}
                         prefetch={false}
+                        onMouseEnter={() => prefetchRoute(subItem.href)}
+                        onFocus={() => prefetchRoute(subItem.href)}
                         onClick={() => {
                           startNavigation(subItem.href);
                           closeMobileMenu();

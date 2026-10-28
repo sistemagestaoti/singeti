@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { X, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, ArrowRight, Check } from "lucide-react";
-import * as XLSX from "xlsx";
 
 interface ImportInventoryModalProps {
   isOpen: boolean;
@@ -25,7 +24,8 @@ export function ImportInventoryModal({
 
   if (!isOpen) return null;
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
+    const XLSX = await import("xlsx");
     const templateData = [
       {
         asset_tag: "PAT-1001",
@@ -93,6 +93,7 @@ export function ImportInventoryModal({
     setAnalyzing(true);
 
     try {
+      const XLSX = await import("xlsx");
       const buffer = await selectedFile.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
       const firstSheetName = workbook.SheetNames[0];

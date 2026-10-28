@@ -10,13 +10,15 @@ import {
   Users, Key, Mail, ChevronLeft, Building, X,
   Trash2, Lock, History, ExternalLink, Globe, Check
 } from "lucide-react";
-import { ComputerFormModal } from "./ComputerFormModal";
-import { CollaboratorFormModal } from "./CollaboratorFormModal";
-import { EmailFormModal } from "./EmailFormModal";
-import { ImportInventoryModal } from "./ImportInventoryModal";
-import { ReportsModal } from "./ReportsModal";
+import dynamic from "next/dynamic";
 import { PCDetailsDrawer } from "./PCDetailsDrawer";
-import { VaultRevealModal } from "./VaultRevealModal";
+
+const ComputerFormModal = dynamic(() => import("./ComputerFormModal").then(m => m.ComputerFormModal), { ssr: false });
+const CollaboratorFormModal = dynamic(() => import("./CollaboratorFormModal").then(m => m.CollaboratorFormModal), { ssr: false });
+const EmailFormModal = dynamic(() => import("./EmailFormModal").then(m => m.EmailFormModal), { ssr: false });
+const ImportInventoryModal = dynamic(() => import("./ImportInventoryModal").then(m => m.ImportInventoryModal), { ssr: false });
+const ReportsModal = dynamic(() => import("./ReportsModal").then(m => m.ReportsModal), { ssr: false });
+const VaultRevealModal = dynamic(() => import("./VaultRevealModal").then(m => m.VaultRevealModal), { ssr: false });
 
 export function PCAccessClient() {
   const searchParams = useSearchParams();

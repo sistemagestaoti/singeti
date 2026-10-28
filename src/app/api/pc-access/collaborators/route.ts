@@ -91,7 +91,11 @@ export async function GET(req: Request) {
       updated_at: c.updated_at,
     }));
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items }, {
+      headers: {
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+      },
+    });
   } catch (error: any) {
     console.error("Erro ao listar colaboradores:", error);
     return NextResponse.json({ error: "Erro ao buscar colaboradores" }, { status: 500 });

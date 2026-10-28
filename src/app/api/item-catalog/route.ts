@@ -19,11 +19,29 @@ const DEFAULT_ITEMS = [
   { name: "SSD NVMe M.2 512GB", unit: "UN", category: "Componentes", notes: "Alta performance" },
 ];
 
+let cachedCatalogItems: any[] | null = null;
+let catalogCacheTime = 0;
+const CACHE_TTL_MS = 60 * 1000;
+
+export function invalidateCatalogCache() {
+  cachedCatalogItems = null;
+  catalogCacheTime = 0;
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    const now = Date.now();
+    if (cachedCatalogItems && now - catalogCacheTime < CACHE_TTL_MS) {
+      return NextResponse.json(cachedCatalogItems, {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      });
     }
 
     let items = await prisma.itemCatalog.findMany({
@@ -40,7 +58,14 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(items);
+    cachedCatalogItems = items;
+    catalogCacheTime = now;
+
+    return NextResponse.json(items, {
+      headers: {
+        "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+      },
+    });
   } catch (error: any) {
     console.error("GET /api/item-catalog error:", error);
     return NextResponse.json({ error: "Erro ao listar itens do catálogo" }, { status: 500 });
@@ -53,6 +78,8 @@ export async function POST(req: Request) {
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
+
+    invalidateCatalogCache();
 
     const currentUser = await resolveCurrentUser(session);
     const body = await req.json();

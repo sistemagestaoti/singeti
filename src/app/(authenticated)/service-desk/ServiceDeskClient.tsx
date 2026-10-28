@@ -11,7 +11,10 @@ import {
   BarChart3, FileSpreadsheet, FileText, PieChart, TrendingUp, SlidersHorizontal,
   CalendarDays, CalendarRange, RotateCcw, X, ChevronDown, ChevronUp
 } from "lucide-react";
-import ServiceDeskExportModal from "@/components/ServiceDeskExportModal";
+import dynamic from "next/dynamic";
+const ServiceDeskExportModal = dynamic(() => import("@/components/ServiceDeskExportModal"), {
+  ssr: false,
+});
 import { 
   exportTicketsToPDF, 
   exportTicketsToExcel, 

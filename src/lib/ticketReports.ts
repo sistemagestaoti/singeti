@@ -1,6 +1,6 @@
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+// As bibliotecas pesadas de exportação (xlsx ~1.2MB e jspdf ~400KB) são carregadas
+// sob demanda via import() dinâmico dentro das funções de exportação, evitando
+// sobrecarregar a thread principal e o bundle inicial da aplicação.
 
 export interface TicketReportItem {
   id: string;
@@ -162,7 +162,8 @@ export function calculateDuration(
 /**
  * Exporta chamados para planilha Microsoft Excel (.xlsx) com múltiplas abas e formatação profissional
  */
-export function exportTicketsToExcel(tickets: TicketReportItem[], options: ReportOptions = {}) {
+export async function exportTicketsToExcel(tickets: TicketReportItem[], options: ReportOptions = {}) {
+  const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
 
   // 1. Dados detalhados de cada chamado
@@ -261,7 +262,11 @@ export function exportTicketsToExcel(tickets: TicketReportItem[], options: Repor
 /**
  * Exporta chamados para relatório executivo em PDF (.pdf) profissional com cabeçalho, KPIs, tabela estilizada e paginação
  */
-export function exportTicketsToPDF(tickets: TicketReportItem[], options: ReportOptions = {}) {
+export async function exportTicketsToPDF(tickets: TicketReportItem[], options: ReportOptions = {}) {
+  const { jsPDF } = await import("jspdf");
+  const autoTableModule = await import("jspdf-autotable");
+  const autoTable = (autoTableModule as any).default || autoTableModule;
+
   // Orientação paisagem A4 para maximizar legibilidade das colunas
   const doc = new jsPDF({
     orientation: "landscape",

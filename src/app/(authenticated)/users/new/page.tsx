@@ -8,28 +8,24 @@ export default async function NewUserPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const roles = await prisma.role.findMany({ orderBy: { name: 'asc' } });
-  const departments = await prisma.department.findMany({ orderBy: { name: 'asc' } });
-  
-  const distinctJobs = await prisma.user.findMany({
-    where: { job_title: { not: null } },
-    select: { job_title: true },
-    distinct: ['job_title'],
-    orderBy: { job_title: 'asc' }
-  });
+  const [roles, departments, distinctJobs, currentUser, defaultCompany] = await Promise.all([
+    prisma.role.findMany({ orderBy: { name: 'asc' } }),
+    prisma.department.findMany({ orderBy: { name: 'asc' } }),
+    prisma.user.findMany({
+      where: { job_title: { not: null } },
+      select: { job_title: true },
+      distinct: ['job_title'],
+      orderBy: { job_title: 'asc' }
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { company_id: true }
+    }),
+    prisma.company.findFirst(),
+  ]);
+
   const jobTitles = distinctJobs.map(j => j.job_title).filter(Boolean) as string[];
-
-  // We fetch the current user's company to pre-fill or enforce tenant isolation
-  const currentUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { company_id: true }
-  });
-
-  let companyId = currentUser?.company_id;
-  if (!companyId) {
-    const defaultCompany = await prisma.company.findFirst();
-    companyId = defaultCompany?.id || "";
-  }
+  const companyId = currentUser?.company_id || defaultCompany?.id || "";
 
   return (
     <div className="flex flex-col gap-6">

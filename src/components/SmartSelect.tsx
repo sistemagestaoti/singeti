@@ -79,6 +79,11 @@ export default function SmartSelect({
     );
   });
 
+  // Janelamento de desempenho: renderiza no máximo 45 itens no DOM para abertura instantânea do dropdown
+  const MAX_VISIBLE_OPTIONS = 45;
+  const visibleOptions = filteredOptions.slice(0, MAX_VISIBLE_OPTIONS);
+  const remainingCount = filteredOptions.length - visibleOptions.length;
+
   // Verifica se o texto digitado já existe exatamente em alguma opção
   const exactMatch = options.find((opt) => areStringsEquivalent(opt.label, searchTerm.trim()));
   const showCreateOption =
@@ -314,44 +319,52 @@ export default function SmartSelect({
               </button>
             )}
 
-            {/* Opções Filtradas */}
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((opt, idx) => {
-                const optVal = getOptionValue(opt);
-                const isSelected = optVal === value;
-                const isHighlighted = idx === highlightedIndex;
+            {/* Opções Filtradas com janela de renderização ultrarrápida */}
+            {visibleOptions.length > 0 ? (
+              <>
+                {visibleOptions.map((opt, idx) => {
+                  const optVal = getOptionValue(opt);
+                  const isSelected = optVal === value;
+                  const isHighlighted = idx === highlightedIndex;
 
-                return (
-                  <button
-                    key={`${optVal}-${idx}`}
-                    type="button"
-                    onClick={() => handleSelect(opt)}
-                    onMouseEnter={() => setHighlightedIndex(idx)}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left text-xs transition-colors ${
-                      isSelected
-                        ? "bg-primary/15 text-primary font-bold"
-                        : isHighlighted
-                        ? "bg-surface-elevated text-foreground font-semibold"
-                        : "text-foreground hover:bg-surface-elevated/70"
-                    }`}
-                  >
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">{opt.label}</span>
-                        {opt.badge && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-surface-elevated text-muted-foreground border border-border">
-                            {opt.badge}
-                          </span>
+                  return (
+                    <button
+                      key={`${optVal}-${idx}`}
+                      type="button"
+                      onClick={() => handleSelect(opt)}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left text-xs transition-colors ${
+                        isSelected
+                          ? "bg-primary/15 text-primary font-bold"
+                          : isHighlighted
+                          ? "bg-surface-elevated text-foreground font-semibold"
+                          : "text-foreground hover:bg-surface-elevated/70"
+                      }`}
+                    >
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{opt.label}</span>
+                          {opt.badge && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-surface-elevated text-muted-foreground border border-border">
+                              {opt.badge}
+                            </span>
+                          )}
+                        </div>
+                        {opt.sublabel && (
+                          <span className="text-[10px] text-muted-foreground truncate">{opt.sublabel}</span>
                         )}
                       </div>
-                      {opt.sublabel && (
-                        <span className="text-[10px] text-muted-foreground truncate">{opt.sublabel}</span>
-                      )}
-                    </div>
-                    {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
-                  </button>
-                );
-              })
+                      {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
+                    </button>
+                  );
+                })}
+
+                {remainingCount > 0 && (
+                  <div className="py-2 px-3 text-center text-[10px] text-muted-foreground bg-surface-elevated/40 border-t border-border/40 rounded-b-xl select-none">
+                    +{remainingCount} opções adicionais disponíveis. Digite para filtrar.
+                  </div>
+                )}
+              </>
             ) : !showCreateOption ? (
               <div className="p-4 text-center text-xs text-muted-foreground">
                 {emptyMessage}

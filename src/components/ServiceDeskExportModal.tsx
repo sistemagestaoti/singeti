@@ -199,9 +199,9 @@ export default function ServiceDeskExportModal({
       };
 
       if (format === "PDF") {
-        exportTicketsToPDF(ticketsToExport, reportOptions);
+        await exportTicketsToPDF(ticketsToExport, reportOptions);
       } else if (format === "XLSX") {
-        exportTicketsToExcel(ticketsToExport, reportOptions);
+        await exportTicketsToExcel(ticketsToExport, reportOptions);
       } else {
         exportTicketsToCSV(ticketsToExport);
       }

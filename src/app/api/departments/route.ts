@@ -5,11 +5,29 @@ import { NextResponse } from "next/server";
 import { resolveCurrentUser } from "@/lib/currentUser";
 import { areStringsEquivalent } from "@/lib/normalize";
 
+let cachedDepartments: any[] | null = null;
+let departmentsCacheTime = 0;
+const CACHE_TTL_MS = 60 * 1000;
+
+export function invalidateDepartmentsCache() {
+  cachedDepartments = null;
+  departmentsCacheTime = 0;
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    const now = Date.now();
+    if (cachedDepartments && now - departmentsCacheTime < CACHE_TTL_MS) {
+      return NextResponse.json(cachedDepartments, {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      });
     }
 
     const departments = await prisma.department.findMany({
@@ -19,7 +37,14 @@ export async function GET() {
       orderBy: { name: "asc" }
     });
 
-    return NextResponse.json(departments);
+    cachedDepartments = departments;
+    departmentsCacheTime = now;
+
+    return NextResponse.json(departments, {
+      headers: {
+        "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+      },
+    });
   } catch (error: any) {
     console.error("GET /api/departments error:", error);
     return NextResponse.json({ error: "Erro ao listar departamentos" }, { status: 500 });
@@ -32,6 +57,8 @@ export async function POST(req: Request) {
     if (!session) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
+
+    invalidateDepartmentsCache();
 
     const user = await resolveCurrentUser(session);
     const body = await req.json();

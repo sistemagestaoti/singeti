@@ -10,23 +10,24 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
   const resolvedParams = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { id: resolvedParams.id }
-  });
+  const [user, roles, departments, distinctJobs] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: resolvedParams.id },
+    }),
+    prisma.role.findMany({ orderBy: { name: 'asc' } }),
+    prisma.department.findMany({ orderBy: { name: 'asc' } }),
+    prisma.user.findMany({
+      where: { job_title: { not: null } },
+      select: { job_title: true },
+      distinct: ['job_title'],
+      orderBy: { job_title: 'asc' },
+    }),
+  ]);
 
   if (!user) {
     redirect("/users");
   }
 
-  const roles = await prisma.role.findMany({ orderBy: { name: 'asc' } });
-  const departments = await prisma.department.findMany({ orderBy: { name: 'asc' } });
-  
-  const distinctJobs = await prisma.user.findMany({
-    where: { job_title: { not: null } },
-    select: { job_title: true },
-    distinct: ['job_title'],
-    orderBy: { job_title: 'asc' }
-  });
   const jobTitles = distinctJobs.map(j => j.job_title).filter(Boolean) as string[];
 
   return (
