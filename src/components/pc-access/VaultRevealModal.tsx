@@ -6,15 +6,17 @@ import { Shield, Eye, EyeOff, Copy, Check, AlertTriangle, Clock, X, Lock } from 
 interface VaultRevealModalProps {
   isOpen: boolean;
   onClose: () => void;
-  accountId: string;
+  accountId?: string;
+  emailId?: string;
   accountUsername: string;
-  computerName: string;
+  computerName?: string;
 }
 
 export function VaultRevealModal({
   isOpen,
   onClose,
   accountId,
+  emailId,
   accountUsername,
   computerName,
 }: VaultRevealModalProps) {
@@ -67,7 +69,8 @@ export function VaultRevealModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          account_id: accountId,
+          account_id: accountId || undefined,
+          email_id: emailId || undefined,
           confirm_password: operatorPassword,
           justification: justification.trim() || "Consulta técnica operacional",
         }),

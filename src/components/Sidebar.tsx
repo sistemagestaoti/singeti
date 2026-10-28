@@ -106,6 +106,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       subItems: [
         { name: "Service Desk (Chamados)", href: "/service-desk" },
         { name: "Gestão de Acessos a PCs", href: "/pc-access" },
+        { name: "Contas de E-mail dos Domínios", href: "/pc-access?tab=emails" },
       ]
     },
     { 

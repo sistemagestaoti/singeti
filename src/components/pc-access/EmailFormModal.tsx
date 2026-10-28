@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Mail, ShieldCheck, User, Check } from "lucide-react";
+import { X, Mail, Shield, User, Lock, Check, Monitor } from "lucide-react";
 
 interface EmailFormModalProps {
   isOpen: boolean;
@@ -25,13 +25,16 @@ export function EmailFormModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [computers, setComputers] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     email_address: "",
     account_name: "",
+    password: "",
     provider: "M365",
     account_type: "INDIVIDUAL",
     collaborator_id: "",
+    computer_id: computerId || "",
     status: "ACTIVE",
     auth_method: "SSO_SAML",
     mfa_enabled: "YES",
@@ -40,18 +43,23 @@ export function EmailFormModal({
 
   useEffect(() => {
     if (isOpen) {
-      fetch("/api/pc-access/collaborators")
-        .then((r) => r.json())
-        .then((res) => setCollaborators(res.items || []))
-        .catch(() => {});
+      Promise.all([
+        fetch("/api/pc-access/collaborators").then((r) => r.json()).catch(() => ({ items: [] })),
+        fetch("/api/pc-access/computers?limit=100").then((r) => r.json()).catch(() => ({ items: [] })),
+      ]).then(([collabRes, compRes]) => {
+        setCollaborators(collabRes.items || []);
+        setComputers(compRes.items || []);
+      });
 
       if (initialData) {
         setFormData({
           email_address: initialData.email_address || "",
           account_name: initialData.account_name || "",
+          password: "",
           provider: initialData.provider || "M365",
           account_type: initialData.account_type || "INDIVIDUAL",
           collaborator_id: initialData.collaborator?.id || initialData.collaborator_id || "",
+          computer_id: initialData.computer?.id || initialData.computer_id || computerId || "",
           status: initialData.status || "ACTIVE",
           auth_method: initialData.auth_method || "SSO_SAML",
           mfa_enabled: initialData.mfa_enabled || "YES",
@@ -61,9 +69,11 @@ export function EmailFormModal({
         setFormData({
           email_address: "",
           account_name: "",
+          password: "",
           provider: "M365",
           account_type: "INDIVIDUAL",
           collaborator_id: "",
+          computer_id: computerId || "",
           status: "ACTIVE",
           auth_method: "SSO_SAML",
           mfa_enabled: "YES",
@@ -72,7 +82,7 @@ export function EmailFormModal({
       }
       setError(null);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, computerId]);
 
   if (!isOpen) return null;
 
@@ -86,7 +96,7 @@ export function EmailFormModal({
       const method = isEditing ? "PUT" : "POST";
       const payload = isEditing
         ? { ...formData, id: initialData.id }
-        : { ...formData, computer_id: computerId || null };
+        : { ...formData };
 
       const res = await fetch(url, {
         method,
@@ -96,13 +106,13 @@ export function EmailFormModal({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Falha ao salvar e-mail");
+        throw new Error(data.error || "Falha ao salvar conta de e-mail");
       }
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || "Erro ao salvar");
+      setError(err.message || "Erro ao salvar e-mail");
     } finally {
       setLoading(false);
     }
@@ -110,19 +120,19 @@ export function EmailFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden">
+      <div className="bg-surface border border-border rounded-2xl w-full max-w-lg max-h-[92vh] shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface-hover/50">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface-hover/50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
               <Mail className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-foreground">
-                {isEditing ? "Editar E-mail Corporativo" : "Vincular E-mail Corporativo"}
+                {isEditing ? "Editar Conta de E-mail" : "Cadastrar Conta de E-mail"}
               </h3>
               <p className="text-xs text-muted-foreground">
-                {computerName ? `Equipamento: ${computerName}` : "Controle de e-mails da organização"}
+                Controle de e-mails corporativos, domínios, usuário responsável e senhas
               </p>
             </div>
           </div>
@@ -134,8 +144,8 @@ export function EmailFormModal({
           </button>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Body com Scroll */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
           {error && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500 font-medium">
               {error}
@@ -144,14 +154,14 @@ export function EmailFormModal({
 
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1">
-              Endereço de E-mail *
+              Endereço de E-mail Corporativo *
             </label>
             <input
               type="email"
               required
               value={formData.email_address}
               onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
-              placeholder="Ex: maria.silva@empresa.com.br"
+              placeholder="Ex: maria.silva@dlamb.ind.br ou compras@empresa.com.br"
               className="w-full bg-surface border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary font-mono"
             />
           </div>
@@ -167,6 +177,67 @@ export function EmailFormModal({
               placeholder="Ex: Maria Silva Pereira ou Caixa Financeiro"
               className="w-full bg-surface border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
+          </div>
+
+          {/* Campo de Senha com Cofre Seguro */}
+          <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-500">
+              <Shield className="w-4 h-4" />
+              <span>Senha do E-mail (Cofre Seguro AES-256)</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {isEditing
+                ? "Preencha somente se desejar alterar ou atualizar a senha protegida deste e-mail. Se deixar vazio, a senha atual será mantida."
+                : "A senha será criptografada no banco e protegida por cofre de segurança, visível somente por técnicos autorizados com auditoria."}
+            </p>
+            <div className="relative">
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder={isEditing ? "Nova senha do e-mail (deixe vazio para manter)..." : "Digite a senha do e-mail..."}
+                className="w-full bg-surface border border-border rounded-xl pl-9 pr-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 font-mono"
+              />
+              <Lock className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                Colaborador / Usuário
+              </label>
+              <select
+                value={formData.collaborator_id}
+                onChange={(e) => setFormData({ ...formData, collaborator_id: e.target.value })}
+                className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+              >
+                <option value="">Selecione o Colaborador...</option>
+                {collaborators.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.job_title ? `— ${c.job_title}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                Computador Vinculado (Opcional)
+              </label>
+              <select
+                value={formData.computer_id}
+                onChange={(e) => setFormData({ ...formData, computer_id: e.target.value })}
+                className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+              >
+                <option value="">Nenhum computador específico</option>
+                {computers.map((comp) => (
+                  <option key={comp.id} value={comp.computer_id || comp.id}>
+                    {comp.name} {comp.hostname ? `(${comp.hostname})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -207,24 +278,6 @@ export function EmailFormModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
-                Colaborador Responsável
-              </label>
-              <select
-                value={formData.collaborator_id}
-                onChange={(e) => setFormData({ ...formData, collaborator_id: e.target.value })}
-                className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
-              >
-                <option value="">Nenhum / Não atribuído</option>
-                {collaborators.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
                 Situação da Conta
               </label>
               <select
@@ -236,24 +289,6 @@ export function EmailFormModal({
                 <option value="SUSPENDED">Suspenso / Bloqueado</option>
                 <option value="DELETED">Desativado</option>
                 <option value="REVIEW_PENDING">Revisão Pendente</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Método de Autenticação
-              </label>
-              <select
-                value={formData.auth_method}
-                onChange={(e) => setFormData({ ...formData, auth_method: e.target.value })}
-                className="w-full bg-surface border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
-              >
-                <option value="SSO_SAML">SSO / SAML / OAuth 2.0</option>
-                <option value="OAUTH2">OAuth 2.0 Modern Auth</option>
-                <option value="BASIC_AUTH">Senha / Autenticação Básica</option>
-                <option value="APPPASSWORD">Senha de Aplicativo (App Password)</option>
               </select>
             </div>
 
@@ -281,7 +316,7 @@ export function EmailFormModal({
               rows={2}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Instruções sobre encaminhamentos, licença atribuída..."
+              placeholder="Instruções sobre encaminhamentos, licença atribuída ou dados de recuperação..."
               className="w-full bg-surface border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary resize-none"
             />
           </div>
@@ -299,7 +334,7 @@ export function EmailFormModal({
               disabled={loading}
               className="px-5 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
             >
-              {loading ? "Salvando..." : isEditing ? "Salvar Alterações" : "Salvar E-mail"}
+              {loading ? "Salvando..." : isEditing ? "Salvar Alterações" : "Cadastrar E-mail"}
             </button>
           </div>
         </form>

@@ -58,10 +58,10 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { account_id, confirm_password, justification } = body;
+    const { account_id, email_id, confirm_password, justification } = body;
 
-    if (!account_id) {
-      return NextResponse.json({ error: "ID da conta não informado" }, { status: 400 });
+    if (!account_id && !email_id) {
+      return NextResponse.json({ error: "ID da conta ou do e-mail não informado" }, { status: 400 });
     }
 
     // Rate Limiting para evitar extração em massa
@@ -79,17 +79,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // Busca a conta e o segredo associado
-    const account = await prisma.pcAccount.findUnique({
-      where: { id: account_id },
-      include: {
-        vault_secret: true,
-        computer: { include: { asset: true } },
-      },
-    });
+    let secret = null;
+    let targetName = "";
+    let entityId = "";
 
-    if (!account || !account.vault_secret) {
-      return NextResponse.json({ error: "Credencial não encontrada para esta conta" }, { status: 404 });
+    if (email_id) {
+      const emailAcc = await prisma.pcEmailAccount.findUnique({
+        where: { id: email_id },
+        include: { vault_secret: true },
+      });
+      if (!emailAcc || !emailAcc.vault_secret) {
+        return NextResponse.json({ error: "Credencial não encontrada para este e-mail" }, { status: 404 });
+      }
+      secret = emailAcc.vault_secret;
+      targetName = emailAcc.email_address;
+      entityId = emailAcc.id;
+    } else {
+      const account = await prisma.pcAccount.findUnique({
+        where: { id: account_id },
+        include: {
+          vault_secret: true,
+          computer: { include: { asset: true } },
+        },
+      });
+      if (!account || !account.vault_secret) {
+        return NextResponse.json({ error: "Credencial não encontrada para esta conta" }, { status: 404 });
+      }
+      secret = account.vault_secret;
+      targetName = `${account.username} @ ${account.computer.hostname || account.computer.asset.name}`;
+      entityId = account.id;
     }
 
     // Autenticação reforçada (opcional/verificação de senha do operador caso fornecida)
@@ -108,8 +126,8 @@ export async function POST(req: Request) {
         await logPcAccessAudit({
           action: "VIEW_SECRET_FAILED_AUTH",
           entityType: "SECRET",
-          entityId: account.id,
-          entityName: `${account.username} @ ${account.computer.hostname}`,
+          entityId,
+          entityName: targetName,
           user: currentUser,
           status: "FAILED",
           details: "Falha na confirmação de senha do operador para revelação do segredo.",
@@ -122,7 +140,6 @@ export async function POST(req: Request) {
     }
 
     // Descriptografa via AES-256-GCM
-    const secret = account.vault_secret;
     const plaintextPassword = decryptVaultSecret({
       ciphertext: secret.encrypted_data,
       iv: secret.iv,
@@ -134,11 +151,11 @@ export async function POST(req: Request) {
     await logPcAccessAudit({
       action: "VIEW_SECRET",
       entityType: "SECRET",
-      entityId: account.id,
-      entityName: `${account.username} @ ${account.computer.hostname}`,
+      entityId,
+      entityName: targetName,
       user: currentUser,
       status: "SUCCESS",
-      details: `Credencial visualizada no cofre. Justificativa: ${justification?.trim() || 'Acesso técnico operacional'}`,
+      details: `Credencial visualizada no cofre. Alvo: ${targetName}. Justificativa: ${justification?.trim() || 'Acesso técnico operacional'}`,
     });
 
     return NextResponse.json({
