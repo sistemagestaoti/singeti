@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Server, HeadphonesIcon, 
   AlertTriangle, ArrowRightLeft, CalendarClock, 
   Briefcase, MessageSquare, BookOpen, Settings, 
-  Users, ChevronDown, ChevronRight, FileText, Database, Shield, X
+  Users, ChevronDown, ChevronRight, FileText, Database, Shield, X, Monitor
 } from "lucide-react";
 import { useMobileMenu } from "./AuthenticatedShell";
 
@@ -20,7 +20,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-    'Atendimento': true,
+    'Gestão de Acessos': true,
     'Cadastros': true,
     'Configurações': true,
   });
@@ -100,13 +100,20 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       icon: Server 
     },
     { 
-      name: "Atendimento", 
-      subtitle: "Service Desk e Acessos",
-      icon: HeadphonesIcon,
+      name: "Service Desk", 
+      subtitle: "Chamados e suporte",
+      href: "/service-desk", 
+      icon: HeadphonesIcon 
+    },
+    { 
+      name: "Gestão de Acessos", 
+      subtitle: "E-mails, PCs e senhas",
+      icon: Shield,
       subItems: [
-        { name: "Service Desk (Chamados)", href: "/service-desk" },
-        { name: "Gestão de Acessos a PCs", href: "/pc-access" },
         { name: "Contas de E-mail dos Domínios", href: "/pc-access?tab=emails" },
+        { name: "Computadores (PCs)", href: "/pc-access" },
+        { name: "Colaboradores & Usuários", href: "/pc-access?tab=collaborators" },
+        { name: "Trilha de Auditoria & Cofre", href: "/pc-access?tab=audit" },
       ]
     },
     { 
@@ -126,6 +133,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       subtitle: "Base operacional",
       icon: Database,
       subItems: [
+        { name: "Contas de E-mail dos Domínios", href: "/pc-access?tab=emails" },
         { name: "Usuários do Sistema", href: "/users" },
         { name: "Departamentos", href: "/settings/departments" },
         { name: "Perfis e Acessos", href: "/settings/roles" },

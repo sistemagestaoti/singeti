@@ -55,12 +55,20 @@ export default async function CMDBPage({
           <h2 className="text-2xl font-bold text-foreground">Inventário Corporativo (CMDB)</h2>
           <p className="text-sm text-muted-foreground mt-1">Gerencie todos os hardwares, dispositivos e ativos da organização.</p>
         </div>
-        <Link 
-          href="/cmdb/new" 
-          className="bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-primary-hover transition-colors shadow-sm"
-        >
-          + Cadastrar Ativo
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/pc-access?tab=emails"
+            className="hidden sm:inline-flex items-center gap-2 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+          >
+            ✉️ Gestão de E-mails & PCs
+          </Link>
+          <Link 
+            href="/cmdb/new" 
+            className="bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-primary-hover transition-colors shadow-sm"
+          >
+            + Cadastrar Ativo
+          </Link>
+        </div>
       </div>
 
       <CMDBFilters />
