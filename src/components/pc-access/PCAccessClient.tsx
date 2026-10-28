@@ -346,7 +346,7 @@ export function PCAccessClient() {
               {activeMainTab === "emails"
                 ? "Contas de E-mail dos Domínios"
                 : activeMainTab === "collaborators"
-                ? "Colaboradores & Usuários"
+                ? "Colaboradores & Vínculos"
                 : activeMainTab === "audit"
                 ? "Trilha de Auditoria & Cofre"
                 : "Gestão de Acessos a PCs"}
@@ -473,7 +473,7 @@ export function PCAccessClient() {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Colaboradores & Usuários</span>
+          <span>Colaboradores & Vínculos</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
             activeMainTab === "collaborators" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
           }`}>

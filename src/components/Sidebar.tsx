@@ -31,8 +31,8 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     'Gestão de Acessos': true,
-    'Cadastros': true,
-    'Configurações': true,
+    'Cadastros': false,
+    'Configurações': false,
   });
   if (initialBranding && !brandingMemoryCache) {
     brandingMemoryCache = initialBranding;
@@ -120,9 +120,9 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       subtitle: "E-mails, PCs e senhas",
       icon: Shield,
       subItems: [
-        { name: "Contas de E-mail dos Domínios", href: "/pc-access?tab=emails" },
         { name: "Computadores (PCs)", href: "/pc-access" },
-        { name: "Colaboradores & Usuários", href: "/pc-access?tab=collaborators" },
+        { name: "Contas de E-mail dos Domínios", href: "/pc-access?tab=emails" },
+        { name: "Colaboradores & Vínculos", href: "/pc-access?tab=collaborators" },
         { name: "Trilha de Auditoria & Cofre", href: "/pc-access?tab=audit" },
       ]
     },
@@ -143,10 +143,9 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       subtitle: "Base operacional",
       icon: Database,
       subItems: [
-        { name: "Contas de E-mail dos Domínios", href: "/pc-access?tab=emails" },
         { name: "Usuários do Sistema", href: "/users" },
         { name: "Departamentos", href: "/settings/departments" },
-        { name: "Perfis e Acessos", href: "/settings/roles" },
+        { name: "Perfis e Permissões", href: "/settings/roles" },
         { name: "Recuperação de Senha", href: "/settings/password-resets" },
       ]
     },
