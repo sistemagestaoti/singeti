@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { User as UserIcon, Eye, EyeOff } from "lucide-react";
 import ImageCropperModal from "@/components/ImageCropperModal";
@@ -346,14 +347,12 @@ export default function UserForm({
           <div className="col-span-full">
             <div className="flex justify-between items-center mb-1">
               <label className="block text-sm font-medium leading-6 text-foreground">Perfil de Acesso do Sistema (Role) *</label>
-              <a 
+              <Link 
                 href="/settings/roles" 
-                target="_blank" 
-                rel="noreferrer"
                 className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
               >
                 ⚙️ Criar ou Personalizar Perfis (Leitura / Edição)
-              </a>
+              </Link>
             </div>
             <select
               required

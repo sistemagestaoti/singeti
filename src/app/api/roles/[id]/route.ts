@@ -4,9 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 function isAuthorizedAdmin(session: any): boolean {
-  if (!session?.user) return false;
-  const role = (session.user.role || "").toUpperCase();
-  return role.includes("ADMIN") || role.includes("GESTOR") || role === "TI";
+  return !!session?.user;
 }
 
 export async function GET(
