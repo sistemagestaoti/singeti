@@ -93,8 +93,8 @@ export function CreateGroupModal({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data?.error || "Erro ao criar grupo");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.details || data?.error || `Erro ao criar grupo (${res.status})`);
       }
 
       const created = await res.json();

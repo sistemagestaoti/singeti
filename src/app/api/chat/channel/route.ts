@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
     }
 
-    const { targetUserId, isGroup, name, description, memberIds, departmentId } = body || {};
+    const { targetUserId, isGroup, name, description, image, memberIds } = body || {};
 
     // ====================================================================
     // MODO 1: CRIAÇÃO DE GRUPO OU CANAL CORPORATIVO
@@ -42,13 +42,18 @@ export async function POST(request: Request) {
         select: { id: true },
       });
 
+      // Garante que pelo menos o usuário criador esteja nos membros
+      if (!validMembers.some((m) => m.id === currentUserId)) {
+        validMembers.push({ id: currentUserId });
+      }
+
       const groupChannel = await prisma.chatChannel.create({
         data: {
           name: String(name).trim(),
           description: description ? String(description).trim() : null,
+          image: image ? String(image).trim() : null,
           is_group: true,
-          department_id: departmentId || null,
-          created_by_id: currentUserId,
+          admin_id: currentUserId,
           members: {
             connect: validMembers.map((m) => ({ id: m.id })),
           },
