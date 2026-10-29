@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { resolveChatUser } from "@/lib/chatUtils";
 
 export async function POST(request: Request) {
   try {
@@ -26,18 +27,11 @@ export async function POST(request: Request) {
     }
 
     // Resolução resiliente do usuário autenticado
-    let userId = session.user.id;
-    const userExists = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-    if (!userExists && session.user.email) {
-      const userByEmail = await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: { id: true },
-      });
-      if (userByEmail) userId = userByEmail.id;
+    const resolvedUser = await resolveChatUser(session.user);
+    if (!resolvedUser) {
+      return new NextResponse("Usuário não encontrado", { status: 422 });
     }
+    const userId = resolvedUser.id;
 
     // Valida se a mensagem existe e se o usuário tem permissão para acessar o canal da mensagem
     const message = await prisma.chatMessage.findUnique({

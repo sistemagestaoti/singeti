@@ -2,170 +2,126 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { resolveChatUser } from "@/lib/chatUtils";
 
+// POST: Create or find a Direct Message channel OR Create a Group Channel
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return new NextResponse("Unauthorized", { status: 401 });
-
-    const body = await request.json();
-    const { targetUserId, isGroup, name, description, image, memberIds } = body;
-
-    // Resolve current user ID
-    let currentUserId = session.user.id;
-    const userExists = await prisma.user.findUnique({ where: { id: currentUserId } });
-    if (!userExists && session.user.email) {
-      const userByEmail = await prisma.user.findUnique({ where: { email: session.user.email } });
-      if (userByEmail) currentUserId = userByEmail.id;
+    if (!session?.user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    // 1. Criação de Grupo Corporativo / Canal
+    const resolvedUser = await resolveChatUser(session.user);
+    if (!resolvedUser) {
+      return NextResponse.json({ error: "Usuário autenticado não encontrado no banco" }, { status: 422 });
+    }
+    const currentUserId = resolvedUser.id;
+
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+    }
+
+    const { targetUserId, isGroup, name, description, memberIds, departmentId } = body || {};
+
+    // ====================================================================
+    // MODO 1: CRIAÇÃO DE GRUPO OU CANAL CORPORATIVO
+    // ====================================================================
     if (isGroup) {
-      if (!name || !name.trim()) {
-        return NextResponse.json({ error: "O nome do grupo ou canal é obrigatório" }, { status: 400 });
+      if (!name || !String(name).trim()) {
+        return NextResponse.json({ error: "Nome do grupo é obrigatório" }, { status: 400 });
       }
 
-      // Garante que o criador está na lista de membros
-      const allMemberIds = Array.from(new Set([currentUserId, ...(Array.isArray(memberIds) ? memberIds : [])]));
+      // Garante que o criador está na lista de membros e que todos os IDs existem no banco
+      const requestedSet = new Set<string>([currentUserId, ...(Array.isArray(memberIds) ? memberIds : [])]);
+      const validMembers = await prisma.user.findMany({
+        where: { id: { in: Array.from(requestedSet) } },
+        select: { id: true },
+      });
 
-      const newGroup = await prisma.chatChannel.create({
+      const groupChannel = await prisma.chatChannel.create({
         data: {
-          name: name.trim(),
-          description: description?.trim() || null,
-          image: image || null,
+          name: String(name).trim(),
+          description: description ? String(description).trim() : null,
           is_group: true,
-          admin_id: currentUserId,
+          department_id: departmentId || null,
+          created_by_id: currentUserId,
           members: {
-            connect: allMemberIds.map(id => ({ id }))
-          }
+            connect: validMembers.map((m) => ({ id: m.id })),
+          },
         },
         include: {
           members: {
-            select: { id: true, name: true, avatar: true, email: true, job_title: true }
-          }
-        }
+            select: { id: true, name: true, avatar: true, email: true, job_title: true },
+          },
+        },
       });
 
-      return NextResponse.json(newGroup);
+      return NextResponse.json(groupChannel);
     }
 
-    // 2. Criação / Abertura de Mensagem Direta (DM) entre 2 usuários
+    // ====================================================================
+    // MODO 2: CRIAÇÃO / ABERTURA DE MENSAGEM DIRETA (1 PARA 1)
+    // ====================================================================
     if (!targetUserId) {
-      return NextResponse.json({ error: "targetUserId é obrigatório para chat direto" }, { status: 400 });
+      return NextResponse.json({ error: "Target user ID required" }, { status: 400 });
     }
 
-    if (currentUserId === targetUserId) {
-      return NextResponse.json({ error: "Cannot create a direct channel with yourself" }, { status: 400 });
-    }
-
-    // Verify target user exists
     const targetUser = await prisma.user.findUnique({
       where: { id: targetUserId },
-      select: { id: true, name: true, avatar: true, email: true }
+      select: { id: true },
     });
 
     if (!targetUser) {
-      return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+      return NextResponse.json({ error: "Destinatário não encontrado" }, { status: 404 });
     }
 
-    // Check if a direct message channel already exists between these 2 users
+    // Check if a 1-on-1 channel already exists between these two users
     const existingChannels = await prisma.chatChannel.findMany({
       where: {
         is_group: false,
         AND: [
           { members: { some: { id: currentUserId } } },
-          { members: { some: { id: targetUserId } } }
-        ]
+          { members: { some: { id: targetUserId } } },
+        ],
       },
       include: {
         members: {
-          select: { id: true, name: true, avatar: true, email: true, job_title: true }
-        }
-      }
+          select: { id: true, name: true, avatar: true, email: true, job_title: true },
+        },
+      },
     });
 
-    if (existingChannels.length > 0) {
-      return NextResponse.json(existingChannels[0]);
+    const exactChannel = existingChannels.find((c) => c.members.length === 2);
+
+    if (exactChannel) {
+      return NextResponse.json(exactChannel);
     }
 
-    // Create new direct message channel
+    // Create a new 1-on-1 channel
     const newChannel = await prisma.chatChannel.create({
       data: {
         is_group: false,
-        name: null,
         members: {
-          connect: [
-            { id: currentUserId },
-            { id: targetUserId }
-          ]
-        }
+          connect: [{ id: currentUserId }, { id: targetUserId }],
+        },
       },
       include: {
         members: {
-          select: { id: true, name: true, avatar: true, email: true, job_title: true }
-        }
-      }
+          select: { id: true, name: true, avatar: true, email: true, job_title: true },
+        },
+      },
     });
 
     return NextResponse.json(newChannel);
   } catch (error: any) {
     console.error("POST /api/chat/channel error:", error);
-    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) return new NextResponse("Unauthorized", { status: 401 });
-
-    const body = await request.json();
-    const { channelId, name, description, image, addMemberIds, removeMemberIds } = body;
-
-    if (!channelId) {
-      return NextResponse.json({ error: "channelId is required" }, { status: 400 });
-    }
-
-    const channel = await prisma.chatChannel.findUnique({
-      where: { id: channelId },
-      include: { members: { select: { id: true } } }
-    });
-
-    if (!channel) {
-      return NextResponse.json({ error: "Canal não encontrado" }, { status: 404 });
-    }
-
-    const updateData: any = {};
-    if (name) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description?.trim() || null;
-    if (image !== undefined) updateData.image = image;
-
-    if (Array.isArray(addMemberIds) && addMemberIds.length > 0) {
-      updateData.members = {
-        connect: addMemberIds.map((id: string) => ({ id }))
-      };
-    }
-
-    if (Array.isArray(removeMemberIds) && removeMemberIds.length > 0) {
-      updateData.members = {
-        ...updateData.members,
-        disconnect: removeMemberIds.map((id: string) => ({ id }))
-      };
-    }
-
-    const updatedChannel = await prisma.chatChannel.update({
-      where: { id: channelId },
-      data: updateData,
-      include: {
-        members: {
-          select: { id: true, name: true, avatar: true, email: true, job_title: true }
-        }
-      }
-    });
-
-    return NextResponse.json(updatedChannel);
-  } catch (error: any) {
-    console.error("PUT /api/chat/channel error:", error);
-    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro ao criar ou abrir canal", details: error?.message },
+      { status: 500 }
+    );
   }
 }

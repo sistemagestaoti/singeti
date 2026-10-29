@@ -76,6 +76,10 @@ export function AuthenticatedShell({
 
     const checkChatSync = async () => {
       if (disposed) return;
+      // Quando o usuário já está no Connect Chat visível, o próprio ChatInterface gerencia o sync da tela ativa (evita requisições duplicadas)
+      if (pathnameRef.current?.startsWith("/connect") && typeof document !== "undefined" && !document.hidden) {
+        return;
+      }
       try {
         const res = await fetch("/api/chat/sync", { cache: "no-store" });
         if (!res.ok) return;
@@ -123,15 +127,21 @@ export function AuthenticatedShell({
         if (soundOn) soundManager.playMessageReceived();
 
         const previewText =
-          latest.type === "image"
-            ? "📷 Imagem compartilhada"
-            : latest.type === "audio"
-              ? "🎤 Mensagem de voz"
-              : latest.type === "file"
-                ? "📄 Arquivo anexado"
-                : latest.type === "ticket"
-                  ? "🎫 Chamado compartilhado"
-                  : String(latest.content || "").slice(0, 120);
+          latest.type === "sticker"
+            ? "✨ Figurinha"
+            : latest.type === "gif"
+              ? "🎬 GIF"
+              : latest.type === "image"
+                ? "📷 Imagem compartilhada"
+                : latest.type === "video"
+                  ? "🎥 Vídeo"
+                  : latest.type === "audio"
+                    ? "🎤 Mensagem de voz"
+                    : latest.type === "file"
+                      ? "📄 Arquivo anexado"
+                      : latest.type === "ticket"
+                        ? "🎫 Chamado compartilhado"
+                        : String(latest.content || "").slice(0, 120);
 
         if (!onConnectPage) {
           setChatToast({

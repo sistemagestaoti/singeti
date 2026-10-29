@@ -247,6 +247,7 @@ export default function ChatInterface({
   // Feedback e Interação
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [brokenMediaIds, setBrokenMediaIds] = useState<Record<string, boolean>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -607,8 +608,23 @@ export default function ChatInterface({
       if (soundOn) soundManager.playMessageReceived();
 
       if (desktopOn && document.hidden && "Notification" in window && Notification.permission === "granted") {
+        const previewBody =
+          latest.type === "sticker"
+            ? "✨ Figurinha"
+            : latest.type === "gif"
+              ? "🎬 GIF"
+              : latest.type === "image"
+                ? "📷 Imagem compartilhada"
+                : latest.type === "video"
+                  ? "🎥 Vídeo"
+                  : latest.type === "audio"
+                    ? "🎤 Mensagem de voz"
+                    : latest.type === "file"
+                      ? "📄 Arquivo anexado"
+                      : String(latest.content || "").slice(0, 140);
+
         const n = new Notification(privacy ? "CONNECT CHAT" : `Nova mensagem de ${latest.sender?.name || "colega"}`, {
-          body: privacy ? "Nova mensagem no CONNECT CHAT" : String(latest.content || "").slice(0, 140),
+          body: privacy ? "Nova mensagem no CONNECT CHAT" : previewBody,
           tag: `connect-${latest.channel_id}`,
           icon: "/favicon.ico",
         });
@@ -765,7 +781,11 @@ export default function ChatInterface({
       setMessages((prev) => prev.map((m) => (m.client_id === clientId ? { ...m, status: "SENDING" } : m)));
     }
 
-    const maxAttempts = 4;
+    const maxAttempts = 3;
+    let lastErrorText = payload.type === "sticker"
+      ? "Não foi possível enviar a figurinha. Tentar novamente."
+      : "Falha ao enviar. Toque em 'Tentar novamente'.";
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const res = await fetch("/api/chat", {
@@ -773,10 +793,32 @@ export default function ChatInterface({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, channelId, clientId }),
         });
-        if (res.status === 401 || res.status === 403 || res.status === 400 || res.status === 404) {
-          break; // falha permanente: não adianta repetir
+
+        // Falhas permanentes de validação/autorização: não repetir automaticamente
+        if (
+          res.status === 400 ||
+          res.status === 401 ||
+          res.status === 403 ||
+          res.status === 404 ||
+          res.status === 413 ||
+          res.status === 415 ||
+          res.status === 422
+        ) {
+          const errBody = await res.json().catch(() => ({}));
+          if (errBody?.error) {
+            lastErrorText = errBody.error;
+          }
+          break;
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          if (errBody?.error) {
+            lastErrorText = errBody.error;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         const saved: Message = await res.json();
         setMessages((prev) => {
           const without = prev.filter((m) => m.client_id !== clientId && m.id !== saved.id);
@@ -786,12 +828,14 @@ export default function ChatInterface({
         return saved;
       } catch {
         if (!navigator.onLine) break;
-        await sleep(Math.min(8000, 600 * Math.pow(2, attempt)) + Math.random() * 300);
+        if (attempt < maxAttempts - 1) {
+          await sleep(Math.min(6000, 700 * Math.pow(2, attempt)) + Math.random() * 250);
+        }
       }
     }
 
     setMessages((prev) => prev.map((m) => (m.client_id === clientId ? { ...m, status: "FAILED" } : m)));
-    showToast(navigator.onLine ? "Falha ao enviar. Toque em 'Tentar novamente'." : "Sem conexão. A mensagem ficou pendente.");
+    showToast(navigator.onLine ? lastErrorText : "Sem conexão. A mensagem ficou pendente.");
   };
 
   const retryFailedMessage = (msg: Message) => {
@@ -1186,21 +1230,56 @@ export default function ChatInterface({
     }
   };
 
-  // Salvar figurinha favorita
+  // Salvar figurinha favorita (com compactação automática caso seja imagem grande em Base64)
   const handleSaveSticker = async (url: string, name?: string) => {
     try {
+      let stickerPayloadUrl = url;
+
+      if (url.startsWith("data:image/") && url.length > 90_000) {
+        try {
+          const img = new window.Image();
+          img.src = url;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          const canvas = document.createElement("canvas");
+          const size = 256;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.clearRect(0, 0, size, size);
+            const scale = Math.min(size / img.width, size / img.height);
+            const drawW = img.width * scale;
+            const drawH = img.height * scale;
+            const drawX = (size - drawW) / 2;
+            const drawY = (size - drawH) / 2;
+            ctx.drawImage(img, drawX, drawY, drawW, drawH);
+            const webpUri = canvas.toDataURL("image/webp", 0.82);
+            stickerPayloadUrl = webpUri.startsWith("data:image/webp")
+              ? webpUri
+              : canvas.toDataURL("image/png");
+          }
+        } catch {}
+      }
+
       const res = await fetch("/api/chat/stickers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, name: name || "Figurinha Favorita" })
+        body: JSON.stringify({ url: stickerPayloadUrl, name: name || "Figurinha Favorita" }),
       });
       if (res.ok) {
         const newSticker = await res.json();
-        setSavedStickers(prev => [newSticker, ...prev]);
+        setSavedStickers((prev) => [newSticker, ...prev]);
         showToast("⭐ Figurinha salva nos seus favoritos!");
+      } else {
+        const errBody = await res.json().catch(() => ({}));
+        showToast(errBody?.error || "Não foi possível favoritar esta figurinha.");
       }
     } catch (e) {
       console.error(e);
+      showToast("Erro ao favoritar figurinha.");
     }
   };
 
@@ -1785,8 +1864,14 @@ export default function ChatInterface({
                         <span className="text-xs font-bold text-foreground">
                           {isMe ? 'Você' : msg.sender.name}
                         </span>
-                        <span className="text-[10px] text-muted-foreground font-medium">
-                          {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' })}
+                        <span className="text-[10px] text-muted-foreground font-medium" suppressHydrationWarning>
+                          {(() => {
+                            try {
+                              return new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
+                            } catch {
+                              return "";
+                            }
+                          })()}
                         </span>
                         {msg.is_pinned && (
                           <span className="text-[9px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-0.5">
@@ -1807,7 +1892,19 @@ export default function ChatInterface({
                           {repliedMessage.sender_id === currentUser.id ? "Você" : repliedMessage.sender.name}
                         </span>
                         <span className="truncate block">
-                          {repliedMessage.type === "image" ? "📷 Imagem" : repliedMessage.type === "file" ? `📄 ${repliedMessage.file_name || "Arquivo"}` : repliedMessage.content}
+                          {repliedMessage.type === "sticker"
+                            ? "✨ Figurinha"
+                            : repliedMessage.type === "gif"
+                              ? "🎬 GIF"
+                              : repliedMessage.type === "image"
+                                ? "📷 Imagem"
+                                : repliedMessage.type === "video"
+                                  ? "🎥 Vídeo"
+                                  : repliedMessage.type === "audio"
+                                    ? "🎤 Mensagem de voz"
+                                    : repliedMessage.type === "file"
+                                      ? `📄 ${repliedMessage.file_name || "Arquivo"}`
+                                      : repliedMessage.content}
                         </span>
                       </div>
                     )}
@@ -1847,24 +1944,34 @@ export default function ChatInterface({
                           {/* 1. Imagem */}
                           {msg.type === "image" && (
                             <div className="relative group/media overflow-hidden rounded-2xl border border-border/60 bg-surface/80 p-1 shadow-xs">
-                              <img 
-                                src={msg.content} 
-                                alt="Imagem"
-                                onClick={() => {
-                                  setLightboxUrl(msg.content);
-                                  setLightboxTitle(msg.file_name || "Imagem Compartilhada");
-                                }}
-                                className="rounded-xl object-contain max-w-full max-h-64 sm:max-h-80 cursor-pointer hover:opacity-95 transition-opacity"
-                                loading="lazy"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleSaveSticker(msg.content)}
-                                className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/80 hover:bg-black text-amber-300 text-[10px] font-bold opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1 shadow-md border border-amber-400/30"
-                              >
-                                <Star className="w-3 h-3 fill-amber-300" />
-                                <span>Favoritar</span>
-                              </button>
+                              {brokenMediaIds[msg.id] ? (
+                                <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground bg-surface rounded-xl">
+                                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                                  <span>Mídia indisponível</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <img 
+                                    src={msg.content} 
+                                    alt="Imagem"
+                                    onError={() => setBrokenMediaIds((prev) => ({ ...prev, [msg.id]: true }))}
+                                    onClick={() => {
+                                      setLightboxUrl(msg.content);
+                                      setLightboxTitle(msg.file_name || "Imagem Compartilhada");
+                                    }}
+                                    className="rounded-xl object-contain max-w-full max-h-64 sm:max-h-80 cursor-pointer hover:opacity-95 transition-opacity"
+                                    loading="lazy"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSticker(msg.content)}
+                                    className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/80 hover:bg-black text-amber-300 text-[10px] font-bold opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1 shadow-md border border-amber-400/30"
+                                  >
+                                    <Star className="w-3 h-3 fill-amber-300" />
+                                    <span>Favoritar</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
 
@@ -1919,22 +2026,32 @@ export default function ChatInterface({
                           {/* 5. Figurinha ou GIF */}
                           {(msg.type === "sticker" || msg.type === "gif") && (
                             <div className="relative group/media overflow-hidden rounded-2xl border border-border/60 bg-surface/80 p-1 shadow-xs">
-                              <img 
-                                src={msg.content} 
-                                alt="Figurinha ou GIF"
-                                className={`rounded-xl object-contain max-w-full ${
-                                  msg.type === "sticker" ? "max-h-36 sm:max-h-44 bg-transparent" : "max-h-52 sm:max-h-60"
-                                }`}
-                                loading="lazy"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleSaveSticker(msg.content)}
-                                className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/80 hover:bg-black text-amber-300 text-[10px] font-bold opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1 shadow-md border border-amber-400/30"
-                              >
-                                <Star className="w-3 h-3 fill-amber-300" />
-                                <span>Favoritar</span>
-                              </button>
+                              {brokenMediaIds[msg.id] ? (
+                                <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground bg-surface rounded-xl">
+                                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                                  <span>{msg.type === "sticker" ? "Figurinha indisponível" : "Mídia indisponível"}</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <img 
+                                    src={msg.content} 
+                                    alt="Figurinha ou GIF"
+                                    onError={() => setBrokenMediaIds((prev) => ({ ...prev, [msg.id]: true }))}
+                                    className={`rounded-xl object-contain max-w-full ${
+                                      msg.type === "sticker" ? "max-h-36 sm:max-h-44 bg-transparent" : "max-h-52 sm:max-h-60"
+                                    }`}
+                                    loading="lazy"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSticker(msg.content)}
+                                    className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/80 hover:bg-black text-amber-300 text-[10px] font-bold opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center gap-1 shadow-md border border-amber-400/30"
+                                  >
+                                    <Star className="w-3 h-3 fill-amber-300" />
+                                    <span>Favoritar</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
 
@@ -2096,7 +2213,11 @@ export default function ChatInterface({
                           {dState === "FAILED" && (
                             <div className="flex items-center gap-1.5 text-red-500 font-bold">
                               <AlertCircle className="w-3.5 h-3.5" />
-                              <span>Falha no envio</span>
+                              <span>
+                                {msg.type === "sticker"
+                                  ? "Não foi possível enviar a figurinha."
+                                  : "Falha no envio."}
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => retryFailedMessage(msg)}
@@ -2162,7 +2283,19 @@ export default function ChatInterface({
                   Respondendo a {replyingTo.sender_id === currentUser.id ? "Você" : replyingTo.sender.name}:
                 </span>{" "}
                 <span className="text-muted-foreground truncate">
-                  {replyingTo.content.slice(0, 60)}
+                  {replyingTo.type === "sticker"
+                    ? "✨ Figurinha"
+                    : replyingTo.type === "gif"
+                      ? "🎬 GIF"
+                      : replyingTo.type === "image"
+                        ? "📷 Imagem"
+                        : replyingTo.type === "video"
+                          ? "🎥 Vídeo"
+                          : replyingTo.type === "audio"
+                            ? "🎤 Mensagem de voz"
+                            : replyingTo.type === "file"
+                              ? `📄 ${replyingTo.file_name || "Arquivo"}`
+                              : replyingTo.content.slice(0, 60)}
                 </span>
               </div>
             </div>

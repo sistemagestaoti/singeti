@@ -2,24 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { resolveChatUser } from "@/lib/chatUtils";
 
 export const dynamic = "force-dynamic";
 
 async function resolveUserId(session: any): Promise<string | null> {
   if (!session?.user) return null;
-  let userId = session.user.id;
-  const userExists = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true },
-  });
-  if (!userExists && session.user.email) {
-    const userByEmail = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
-    });
-    if (userByEmail) userId = userByEmail.id;
-  }
-  return userId;
+  const resolved = await resolveChatUser(session.user);
+  return resolved?.id || null;
 }
 
 export async function GET() {

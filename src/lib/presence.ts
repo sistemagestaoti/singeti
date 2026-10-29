@@ -10,10 +10,13 @@ export interface UserPresence {
 declare global {
   // eslint-disable-next-line no-var
   var __presenceMap: Map<string, UserPresence> | undefined;
+  // eslint-disable-next-line no-var
+  var __presenceDbWriteMap: Map<string, number> | undefined;
 }
 
 // 45 segundos: garante detecção estável sem falsos negativos durante navegação normal
 const TIMEOUT_MS = 45 * 1000;
+const DB_WRITE_THROTTLE_MS = 15 * 1000; // Grava no PostgreSQL no máximo a cada 15s por usuário
 
 function getMap(): Map<string, UserPresence> {
   if (!globalThis.__presenceMap) {
@@ -22,9 +25,17 @@ function getMap(): Map<string, UserPresence> {
   return globalThis.__presenceMap;
 }
 
+function getDbWriteMap(): Map<string, number> {
+  if (!globalThis.__presenceDbWriteMap) {
+    globalThis.__presenceDbWriteMap = new Map();
+  }
+  return globalThis.__presenceDbWriteMap;
+}
+
 export function recordUserPresence(userId: string, name?: string, email?: string) {
   if (!userId) return;
   const map = getMap();
+  const dbWriteMap = getDbWriteMap();
   const now = Date.now();
 
   const record: UserPresence = {
@@ -39,7 +50,13 @@ export function recordUserPresence(userId: string, name?: string, email?: string
     map.set(`email:${email.toLowerCase()}`, record);
   }
 
-  // Persistência assíncrona no PostgreSQL (compartilhada entre todas as lambdas da Vercel)
+  // Throttle de gravação no PostgreSQL (evita saturar o pool de conexões em heartbeats frequentes)
+  const lastDbWrite = dbWriteMap.get(userId) || 0;
+  if (now - lastDbWrite < DB_WRITE_THROTTLE_MS) {
+    return;
+  }
+  dbWriteMap.set(userId, now);
+
   prisma.user.updateMany({
     where: {
       OR: [

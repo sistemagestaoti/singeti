@@ -31,8 +31,14 @@ export function StickerCreatorModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setError("Por favor, selecione um arquivo de imagem válido.");
+    const allowedMimes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+    if (!allowedMimes.includes(file.type.toLowerCase())) {
+      setError("Formato não suportado. Use PNG, WebP, JPG ou GIF.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("A imagem original não pode exceder 5 MB.");
       return;
     }
 
@@ -40,6 +46,9 @@ export function StickerCreatorModal({
     const reader = new FileReader();
     reader.onload = () => {
       setImageSrc(reader.result as string);
+    };
+    reader.onerror = () => {
+      setError("Falha ao ler o arquivo selecionado.");
     };
     reader.readAsDataURL(file);
   };
@@ -65,7 +74,7 @@ export function StickerCreatorModal({
       });
 
       const canvas = document.createElement("canvas");
-      const size = 300;
+      const size = 256;
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext("2d");
@@ -140,8 +149,11 @@ export function StickerCreatorModal({
         renderText(bottomText, size - 20);
       }
 
-      // Converte para PNG Data URI
-      const stickerDataUri = canvas.toDataURL("image/png");
+      // Converte preferencialmente para WebP otimizado (~85% menor que PNG) mantendo canal alfa/transparência
+      let stickerDataUri = canvas.toDataURL("image/webp", 0.82);
+      if (!stickerDataUri.startsWith("data:image/webp")) {
+        stickerDataUri = canvas.toDataURL("image/png");
+      }
 
       // Salva no banco de dados via API de Stickers
       const res = await fetch("/api/chat/stickers", {
@@ -154,7 +166,8 @@ export function StickerCreatorModal({
       });
 
       if (!res.ok) {
-        throw new Error("Erro ao salvar figurinha no banco de dados");
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || "Erro ao salvar figurinha no banco de dados");
       }
 
       const saved = await res.json();

@@ -7,10 +7,24 @@ const rawUrl =
   "postgresql://postgres.piagucmxxsimuububnyl:x6RO3ISFMqwDd6We@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
 
 // Configuração otimizada de conexão para Supabase PgBouncer (Transaction Mode)
-// connection_limit=10 permite que consultas paralelas (Promise.all) rodem simultaneamente sem fila
-const dbUrl = rawUrl.includes("connection_limit")
-  ? rawUrl
-  : `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}connection_limit=10&pool_timeout=10`;
+// connection_limit=20 e pool_timeout=20 evitam exaustão de pool (P2024) em picos concorrentes de chat e sincronização
+function buildResilientDbUrl(url: string): string {
+  let finalUrl = url;
+  const appendParam = (key: string, value: string) => {
+    if (!finalUrl.includes(`${key}=`)) {
+      finalUrl += `${finalUrl.includes("?") ? "&" : "?"}${key}=${value}`;
+    }
+  };
+  if (finalUrl.includes("pooler.supabase.com:6543")) {
+    appendParam("pgbouncer", "true");
+  }
+  appendParam("connection_limit", "20");
+  appendParam("pool_timeout", "20");
+  appendParam("connect_timeout", "15");
+  return finalUrl;
+}
+
+const dbUrl = buildResilientDbUrl(rawUrl);
 
 export const prisma =
   globalForPrisma.prisma ||

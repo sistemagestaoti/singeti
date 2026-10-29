@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { resolveChatUser } from "@/lib/chatUtils";
 
 export async function POST(request: Request) {
   try {
@@ -10,28 +11,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let currentUserId = session.user.id;
-    const userExists = await prisma.user.findUnique({ where: { id: currentUserId } });
-    if (!userExists && session.user.email) {
-      const userByEmail = await prisma.user.findUnique({ where: { email: session.user.email } });
-      if (userByEmail) currentUserId = userByEmail.id;
+    const resolvedUser = await resolveChatUser(session.user);
+    if (!resolvedUser) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 422 });
     }
+    const currentUserId = resolvedUser.id;
 
     const body = await request.json();
-    const { messageIds, channelId, status } = body; // status: "DELIVERED" | "READ"
+    const { messageIds, channelId, status } = body || {}; // status: "DELIVERED" | "READ"
 
     if (!status || (status !== "DELIVERED" && status !== "READ")) {
       return NextResponse.json({ error: "Status inválido (use DELIVERED ou READ)" }, { status: 400 });
     }
 
-    let targetMessageIds: string[] = Array.isArray(messageIds) ? messageIds : [];
+    let targetMessageIds: string[] = Array.isArray(messageIds) ? messageIds.slice(0, 100) : [];
 
-    // Se passou channelId, busca todas as mensagens não enviadas por mim nesse canal
+    // Se passou channelId, busca todas as mensagens não enviadas por mim nesse canal que ainda não tenham esse status
     if (channelId && targetMessageIds.length === 0) {
       const msgs = await prisma.chatMessage.findMany({
         where: {
           channel_id: channelId,
           sender_id: { not: currentUserId },
+          receipts: {
+            none: {
+              user_id: currentUserId,
+              status,
+            },
+          },
         },
         select: { id: true },
         take: 100,
@@ -40,11 +46,10 @@ export async function POST(request: Request) {
       targetMessageIds = msgs.map((m) => m.id);
 
       // Se for READ, atualiza também a flag is_read do canal para compatibilidade
-      if (status === "READ") {
+      if (status === "READ" && targetMessageIds.length > 0) {
         await prisma.chatMessage.updateMany({
           where: {
-            channel_id: channelId,
-            sender_id: { not: currentUserId },
+            id: { in: targetMessageIds },
             is_read: false,
           },
           data: { is_read: true },
@@ -56,27 +61,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, count: 0 });
     }
 
-    // Registra / Atualiza os recibos de entrega ou leitura
-    const upsertPromises = targetMessageIds.map((msgId) =>
-      prisma.chatMessageReceipt.upsert({
-        where: {
-          message_id_user_id: {
-            message_id: msgId,
-            user_id: currentUserId,
-          },
-        },
-        create: {
-          message_id: msgId,
-          user_id: currentUserId,
-          status,
-        },
-        update: {
-          status,
-        },
-      })
-    );
+    // Registra / Atualiza os recibos em lote (2 queries em vez de N upserts concorrentes)
+    await prisma.chatMessageReceipt.createMany({
+      data: targetMessageIds.map((msgId) => ({
+        message_id: msgId,
+        user_id: currentUserId,
+        status,
+      })),
+      skipDuplicates: true,
+    });
 
-    await Promise.all(upsertPromises);
+    if (status === "READ") {
+      // Promove recibos DELIVERED para READ em lote
+      await prisma.chatMessageReceipt.updateMany({
+        where: {
+          message_id: { in: targetMessageIds },
+          user_id: currentUserId,
+          status: { not: "READ" },
+        },
+        data: { status: "READ" },
+      });
+    }
 
     return NextResponse.json({
       success: true,

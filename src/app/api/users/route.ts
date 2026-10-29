@@ -21,14 +21,18 @@ export async function GET() {
 
     const safeUsers = users.map(({ password_hash, ...u }) => u);
 
-    // Mesclar usuários do Supabase caso não estejam no SQLite
+    // Mesclar usuários do Supabase com timeout curto (2.5s) para nunca travar a rota
     try {
       const SUPABASE_URL = 'https://piagucmxxsimuububnyl.supabase.co';
       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpYWd1Y214eHNpbXV1YnVibnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMzkzMTMsImV4cCI6MjEwNjkxNTMxM30.1lhfafp1xa_JKw6EHK6kilg5fZTMs1_d-hNA0ZKljWE';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
       const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (supaRes.ok) {
         const supaUsers: any[] = await supaRes.json();
         for (const su of supaUsers) {
