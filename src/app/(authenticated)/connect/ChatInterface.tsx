@@ -17,6 +17,8 @@ import { MediaLightbox } from "@/components/chat/MediaLightbox";
 import { TicketShareModal } from "@/components/chat/TicketShareModal";
 import { TicketShareCard } from "@/components/chat/TicketShareCard";
 import { ChatSettingsModal } from "@/components/chat/ChatSettingsModal";
+import { EmojiPickerPanel } from "@/components/chat/EmojiPickerPanel";
+import { QUICK_REACTION_EMOJIS } from "@/lib/emojiCatalog";
 import { soundManager } from "@/lib/sound";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -123,30 +125,6 @@ type GifItem = {
   tags: string[];
 };
 
-// Emojis pré-categorizados
-const EMOJI_CATEGORIES = [
-  {
-    name: "Populares",
-    emojis: ["👍", "❤️", "😂", "🔥", "🎉", "👏", "🙌", "😊", "🚀", "✨", "💯", "✅"]
-  },
-  {
-    name: "Rostos & Emoções",
-    emojis: ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😎", "🤓", "🧐", "🤔", "🤨", "😐", "😑", "😶", "🙄", "😏", "😴", "🤯", "🥳", "🥺", "😢", "😭", "😤", "😡", "😷", "🤒"]
-  },
-  {
-    name: "Gestos & Mãos",
-    emojis: ["👍", "👎", "👌", "🤌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", "🖐️", "🖖", "👋", "🤝", "🙏", "✍️", "💪", "👊", "✊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🫡"]
-  },
-  {
-    name: "Trabalho & TI",
-    emojis: ["💻", "🖥️", "⌨️", "🖱️", "📱", "💾", "💿", "⚙️", "🔧", "🔨", "🔒", "🔑", "🛡️", "📡", "🌐", "🔋", "🔌", "💡", "☕", "📂", "📁", "📊", "📈", "📉", "📋", "📌", "📍", "✉️", "📧", "📞", "⏰", "⏱️", "⏳"]
-  },
-  {
-    name: "Celebração & Status",
-    emojis: ["🎉", "🎊", "🏆", "🥇", "🥈", "🥉", "🏅", "🎖️", "⭐", "🌟", "✨", "🔥", "💥", "🎯", "🚀", "🛸", "🟢", "🟡", "🔴", "⚪", "⚫", "⚠️", "⛔", "🚫", "❌", "❓", "❗", "✔️", "✅"]
-  }
-];
-
 // Figurinhas padrão corporativas do sistema
 const DEFAULT_SYSTEM_STICKERS = [
   {
@@ -180,8 +158,6 @@ const DEFAULT_SYSTEM_STICKERS = [
     badge: "OBRIGADO! 🙏"
   }
 ];
-
-const QUICK_REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🎉"];
 
 function UserAvatar({ name, url, className = "w-8 h-8" }: { name: string; url?: string | null; className?: string }) {
   if (url) {
@@ -251,7 +227,12 @@ export default function ChatInterface({
   // Estados para Mídia: Emojis, Figurinhas e GIFs
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [mediaTab, setMediaTab] = useState<'emojis' | 'stickers' | 'gifs'>('emojis');
-  const [activeEmojiCategory, setActiveEmojiCategory] = useState("Populares");
+  const [reactionTargetMessageId, setReactionTargetMessageId] = useState<string | null>(null);
+  const [recentEmojis, setRecentEmojis] = useState<string[]>(["😀", "👍", "❤️", "🚀", "✅", "🎉", "🙏", "☕"]);
+  const [favoriteEmojis, setFavoriteEmojis] = useState<string[]>(["👍", "❤️", "✅", "🚀"]);
+  const [emojiSkinTone, setEmojiSkinTone] = useState<string>("");
+  const prefsSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cursorSelectionRef = useRef<{ start: number; end: number } | null>(null);
   
   // Figurinhas
   const [savedStickers, setSavedStickers] = useState<UserSticker[]>([]);
@@ -311,17 +292,112 @@ export default function ChatInterface({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Fecha o picker ao clicar fora
+  // Carrega preferências de emojis do usuário (cache local + sincronização com Supabase)
+  useEffect(() => {
+    try {
+      const localRecents = localStorage.getItem(`connect_emoji_recents_${currentUser.id}`);
+      const localFavs = localStorage.getItem(`connect_emoji_favs_${currentUser.id}`);
+      const localTone = localStorage.getItem(`connect_emoji_tone_${currentUser.id}`);
+      if (localRecents) setRecentEmojis(JSON.parse(localRecents));
+      if (localFavs) setFavoriteEmojis(JSON.parse(localFavs));
+      if (localTone !== null) setEmojiSkinTone(localTone);
+    } catch {}
+
+    fetch("/api/chat/emoji-prefs")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        if (Array.isArray(data.recentEmojis) && data.recentEmojis.length > 0) {
+          setRecentEmojis(data.recentEmojis);
+          try {
+            localStorage.setItem(`connect_emoji_recents_${currentUser.id}`, JSON.stringify(data.recentEmojis));
+          } catch {}
+        }
+        if (Array.isArray(data.favoriteEmojis) && data.favoriteEmojis.length > 0) {
+          setFavoriteEmojis(data.favoriteEmojis);
+          try {
+            localStorage.setItem(`connect_emoji_favs_${currentUser.id}`, JSON.stringify(data.favoriteEmojis));
+          } catch {}
+        }
+        if (typeof data.skinTone === "string") {
+          setEmojiSkinTone(data.skinTone);
+          try {
+            localStorage.setItem(`connect_emoji_tone_${currentUser.id}`, data.skinTone);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, [currentUser.id]);
+
+  // Persiste preferências de emoji no Supabase com debounce para não gerar requisições a cada clique
+  const scheduleEmojiPrefsSave = (nextRecents: string[], nextFavs: string[], nextTone: string) => {
+    if (prefsSyncTimerRef.current) clearTimeout(prefsSyncTimerRef.current);
+    prefsSyncTimerRef.current = setTimeout(() => {
+      fetch("/api/chat/emoji-prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recentEmojis: nextRecents,
+          favoriteEmojis: nextFavs,
+          skinTone: nextTone,
+        }),
+      }).catch(() => {});
+    }, 1200);
+  };
+
+  const recordRecentEmoji = (emoji: string) => {
+    setRecentEmojis((prev) => {
+      const next = [emoji, ...prev.filter((e) => e !== emoji)].slice(0, 28);
+      try {
+        localStorage.setItem(`connect_emoji_recents_${currentUser.id}`, JSON.stringify(next));
+      } catch {}
+      scheduleEmojiPrefsSave(next, favoriteEmojis, emojiSkinTone);
+      return next;
+    });
+  };
+
+  const handleToggleFavoriteEmoji = (emoji: string) => {
+    setFavoriteEmojis((prev) => {
+      const exists = prev.includes(emoji);
+      const next = exists ? prev.filter((e) => e !== emoji) : [emoji, ...prev].slice(0, 48);
+      try {
+        localStorage.setItem(`connect_emoji_favs_${currentUser.id}`, JSON.stringify(next));
+      } catch {}
+      scheduleEmojiPrefsSave(recentEmojis, next, emojiSkinTone);
+      return next;
+    });
+  };
+
+  const handleChangeSkinTone = (tone: string) => {
+    setEmojiSkinTone(tone);
+    try {
+      localStorage.setItem(`connect_emoji_tone_${currentUser.id}`, tone);
+    } catch {}
+    scheduleEmojiPrefsSave(recentEmojis, favoriteEmojis, tone);
+  };
+
+  // Fecha o picker ao clicar fora ou pressionar ESC
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowMediaPicker(false);
+        setReactionTargetMessageId(null);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowMediaPicker(false);
+        setReactionTargetMessageId(null);
       }
     }
     if (showMediaPicker) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [showMediaPicker]);
 
   useEffect(() => {
@@ -568,6 +644,9 @@ export default function ChatInterface({
       ch.on("broadcast", { event: "receipt" }, ({ payload }: any) => {
         if (payload?.channelId === activeChannelIdRef.current) fetchMessages(true);
       });
+      ch.on("broadcast", { event: "reaction" }, ({ payload }: any) => {
+        if (payload?.channelId === activeChannelIdRef.current) fetchMessages(true);
+      });
       ch.subscribe((status: string) => {
         if (disposed) return;
         if (status === "SUBSCRIBED") {
@@ -608,8 +687,8 @@ export default function ChatInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Publica "ping" de nova mensagem (sem conteúdo). O destinatário busca pela API autenticada.
-  const broadcastPing = (event: "message" | "receipt", channelId: string, messageId?: string) => {
+  // Publica "ping" de nova mensagem, recibo ou reação (sem conteúdo). O destinatário busca pela API autenticada.
+  const broadcastPing = (event: "message" | "receipt" | "reaction", channelId: string, messageId?: string) => {
     try {
       realtimeChannelRef.current?.send({
         type: "broadcast",
@@ -977,8 +1056,9 @@ export default function ChatInterface({
     }
   };
 
-  // Reações
+  // Reações com persistência no Supabase + sincronização em tempo real
   const handleToggleReaction = async (messageId: string, emoji: string) => {
+    recordRecentEmoji(emoji);
     setMessages(prev => prev.map(msg => {
       if (msg.id !== messageId) return msg;
       const currentReactions = msg.reactions || [];
@@ -1014,10 +1094,13 @@ export default function ChatInterface({
             msg.id === messageId ? { ...msg, reactions: data.reactions } : msg
           ));
         }
+        broadcastPing("reaction", activeChannelIdRef.current, messageId);
+      } else {
+        fetchMessages(true);
       }
     } catch (e) {
       console.error("Erro ao atualizar reação:", e);
-      fetchMessages();
+      fetchMessages(true);
     }
   };
 
@@ -1130,8 +1213,33 @@ export default function ChatInterface({
   };
 
   const insertEmoji = (emoji: string) => {
-    setInput(prev => prev + emoji);
-    inputRef.current?.focus();
+    recordRecentEmoji(emoji);
+    if (reactionTargetMessageId) {
+      const targetId = reactionTargetMessageId;
+      setReactionTargetMessageId(null);
+      setShowMediaPicker(false);
+      handleToggleReaction(targetId, emoji);
+      return;
+    }
+
+    const inputEl = inputRef.current;
+    const savedSel = cursorSelectionRef.current;
+    const start = inputEl?.selectionStart ?? savedSel?.start ?? input.length;
+    const end = inputEl?.selectionEnd ?? savedSel?.end ?? input.length;
+
+    const nextText = input.slice(0, start) + emoji + input.slice(end);
+    const nextPos = start + emoji.length;
+    setInput(nextText);
+    cursorSelectionRef.current = { start: nextPos, end: nextPos };
+
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        try {
+          inputRef.current.setSelectionRange(nextPos, nextPos);
+        } catch {}
+      }
+    });
   };
 
   const getGroupedReactions = (reactions: Reaction[] = []) => {
@@ -1856,21 +1964,36 @@ export default function ChatInterface({
                         </>
                       )}
 
-                      {/* Barra Flutuante de Ações e Reações (Hover) */}
+                      {/* Barra Flutuante de Ações e Reações (Hover - Estilo Teams / WhatsApp) */}
                       <div 
-                        className={`absolute -top-3.5 ${isMe ? 'right-2' : 'left-2'} z-20 hidden group-hover/message:flex items-center gap-0.5 bg-surface border border-border shadow-md rounded-full px-2 py-0.5 animate-in fade-in duration-150`}
+                        className={`absolute -top-4 ${isMe ? 'right-2' : 'left-2'} z-20 hidden group-hover/message:flex items-center gap-0.5 bg-surface border border-border shadow-lg rounded-full px-2 py-0.5 animate-in fade-in duration-150`}
                       >
-                        {/* Emojis rápidos */}
-                        {QUICK_REACTION_EMOJIS.slice(0, 4).map(emoji => (
+                        {/* 8 Emojis de Reação Rápida (👍 ❤️ 😂 😮 😢 👏 ✅ 🎉) */}
+                        {QUICK_REACTION_EMOJIS.map(emoji => (
                           <button
                             key={emoji}
                             type="button"
                             onClick={() => handleToggleReaction(msg.id, emoji)}
                             className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-surface-hover hover:scale-125 transition-transform text-xs"
+                            title={`Reagir com ${emoji}`}
                           >
                             {emoji}
                           </button>
                         ))}
+
+                        {/* Botão "+" para abrir biblioteca completa de emojis para reagir */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReactionTargetMessageId(msg.id);
+                            setMediaTab("emojis");
+                            setShowMediaPicker(true);
+                          }}
+                          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
+                          title="Mais emojis para reagir"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
 
                         <span className="w-px h-3.5 bg-border mx-1" />
 
@@ -1987,25 +2110,37 @@ export default function ChatInterface({
                       );
                     })()}
 
-                    {/* Pílulas de Reações Abaixo da Mensagem */}
+                    {/* Pílulas de Reações Abaixo da Mensagem (com tooltip detalhado de participantes) */}
                     {groupedReactions.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1 px-1">
+                      <div className="flex flex-wrap items-center gap-1 mt-1 px-1">
                         {groupedReactions.map(r => (
                           <button
                             key={r.emoji}
                             type="button"
                             onClick={() => handleToggleReaction(msg.id, r.emoji)}
-                            title={`Reagido por: ${r.users.join(', ')}`}
+                            title={r.users.length > 0 ? `Reagido por: ${r.users.join(', ')}` : "Clique para alternar sua reação"}
                             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all ${
                               r.hasReacted 
                                 ? 'bg-primary/15 border-primary/40 text-primary shadow-xs' 
                                 : 'bg-surface border-border text-foreground/80 hover:bg-surface-hover'
                             }`}
                           >
-                            <span>{r.emoji}</span>
+                            <span className="text-xs leading-none">{r.emoji}</span>
                             <span>{r.count}</span>
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReactionTargetMessageId(msg.id);
+                            setMediaTab("emojis");
+                            setShowMediaPicker(true);
+                          }}
+                          title="Adicionar outra reação"
+                          className="w-6 h-5 rounded-full border border-dashed border-border hover:border-primary/50 text-muted-foreground hover:text-primary flex items-center justify-center transition-colors"
+                        >
+                          <Smile className="w-3 h-3" />
+                        </button>
                       </div>
                     )}
 
@@ -2041,11 +2176,11 @@ export default function ChatInterface({
           </div>
         )}
 
-        {/* Drawer de Mídia (Emojis, Figurinhas, GIFs) */}
+        {/* Drawer de Mídia (Emojis Profissionais, Figurinhas, GIFs) */}
         {showMediaPicker && (
           <div 
             ref={pickerRef}
-            className="absolute bottom-16 sm:bottom-20 left-2 right-2 sm:left-6 sm:right-auto sm:w-[400px] max-h-[420px] bg-surface border border-border rounded-2xl shadow-2xl z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2"
+            className="absolute bottom-16 sm:bottom-20 left-2 right-2 sm:left-6 sm:right-auto sm:w-[420px] max-h-[450px] bg-surface border border-border rounded-2xl shadow-2xl z-30 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2"
           >
             {/* Header com Abas */}
             <div className="flex items-center justify-between border-b border-border p-2 bg-surface-hover/50">
@@ -2058,68 +2193,56 @@ export default function ChatInterface({
                   }`}
                 >
                   <Smile className="w-3.5 h-3.5" />
-                  <span>Emojis</span>
+                  <span>{reactionTargetMessageId ? "Reagir com Emoji" : "Emojis"}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setMediaTab('stickers')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-                    mediaTab === 'stickers' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Star className="w-3.5 h-3.5" />
-                  <span>Figurinhas</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMediaTab('gifs')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-                    mediaTab === 'gifs' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>GIFs</span>
-                </button>
+                {!reactionTargetMessageId && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setMediaTab('stickers')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                        mediaTab === 'stickers' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                      <span>Figurinhas</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMediaTab('gifs')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                        mediaTab === 'gifs' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>GIFs</span>
+                    </button>
+                  </>
+                )}
               </div>
               <button
                 type="button"
-                onClick={() => setShowMediaPicker(false)}
+                onClick={() => {
+                  setShowMediaPicker(false);
+                  setReactionTargetMessageId(null);
+                }}
                 className="p-1 rounded-lg hover:bg-surface text-muted-foreground hover:text-foreground"
+                title="Fechar (ESC)"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Conteúdo Aba 1: EMOJIS */}
+            {/* Conteúdo Aba 1: BIBLIOTECA COMPLETA DE EMOJIS (10 Categorias, Busca, Recentes, Favoritos, Tons de Pele) */}
             {mediaTab === 'emojis' && (
-              <div className="flex flex-col flex-1 overflow-hidden p-2">
-                <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar pb-1.5 mb-1.5 border-b border-border/50 text-[10px]">
-                  {EMOJI_CATEGORIES.map(cat => (
-                    <button
-                      key={cat.name}
-                      type="button"
-                      onClick={() => setActiveEmojiCategory(cat.name)}
-                      className={`px-2 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
-                        activeEmojiCategory === cat.name ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 sm:grid-cols-8 gap-1.5 overflow-y-auto max-h-60 p-1 custom-scrollbar">
-                  {EMOJI_CATEGORIES.find(c => c.name === activeEmojiCategory)?.emojis.map((emoji, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => insertEmoji(emoji)}
-                      className="w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:bg-surface-hover hover:scale-125 transition-transform"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <EmojiPickerPanel
+                onSelectEmoji={insertEmoji}
+                recentEmojis={recentEmojis}
+                favoriteEmojis={favoriteEmojis}
+                onToggleFavorite={handleToggleFavoriteEmoji}
+                skinTone={emojiSkinTone}
+                onChangeSkinTone={handleChangeSkinTone}
+              />
             )}
 
             {/* Conteúdo Aba 2: FIGURINHAS COM BOTÃO "CRIAR FIGURINHA" */}
@@ -2277,6 +2400,7 @@ export default function ChatInterface({
               <button
                 type="button"
                 onClick={() => {
+                  setReactionTargetMessageId(null);
                   setShowMediaPicker(prev => !prev);
                   setMediaTab('emojis');
                 }}
@@ -2300,12 +2424,39 @@ export default function ChatInterface({
                 <Ticket className="w-5 h-5" />
               </button>
 
-              {/* Input de Mensagem */}
+              {/* Input de Mensagem com rastreamento de cursor para inserção exata de emojis */}
               <input
                 ref={inputRef}
                 type="text"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  cursorSelectionRef.current = {
+                    start: e.target.selectionStart ?? e.target.value.length,
+                    end: e.target.selectionEnd ?? e.target.value.length,
+                  };
+                }}
+                onSelect={(e) => {
+                  const t = e.currentTarget;
+                  cursorSelectionRef.current = {
+                    start: t.selectionStart ?? t.value.length,
+                    end: t.selectionEnd ?? t.value.length,
+                  };
+                }}
+                onKeyUp={(e) => {
+                  const t = e.currentTarget;
+                  cursorSelectionRef.current = {
+                    start: t.selectionStart ?? t.value.length,
+                    end: t.selectionEnd ?? t.value.length,
+                  };
+                }}
+                onClick={(e) => {
+                  const t = e.currentTarget;
+                  cursorSelectionRef.current = {
+                    start: t.selectionStart ?? t.value.length,
+                    end: t.selectionEnd ?? t.value.length,
+                  };
+                }}
                 placeholder={
                   activeChannel?.is_group 
                     ? `Mensagem #${activeChannel.name || "Geral"}...` 
