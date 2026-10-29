@@ -60,8 +60,8 @@ export default async function BookingsPage() {
                         <Link href={`/cmdb/${booking.asset.id}`}>{booking.asset.name}</Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{booking.user.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{new Date(booking.start_time).toLocaleString('pt-BR')}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{new Date(booking.end_time).toLocaleString('pt-BR')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{new Date(booking.start_time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{new Date(booking.end_time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           booking.status === 'APPROVED' || booking.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :

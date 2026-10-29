@@ -480,7 +480,7 @@ export default function TicketDetailClient({
                 {ticket.type === "INCIDENT" ? "Incidente" : "Requisição"}
               </span>
               <span className="text-xs text-muted-foreground">
-                • Aberto em {new Date(ticket.created_at).toLocaleString("pt-BR")}
+                • Aberto em {new Date(ticket.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground mt-1.5 tracking-tight">
@@ -590,7 +590,7 @@ export default function TicketDetailClient({
                 <span>Chamado Solucionado / Encerrado</span>
               </div>
               <p className="text-xs text-foreground/90">
-                Este atendimento foi concluído. {ticket.resolved_at ? `Data de resolução: ${new Date(ticket.resolved_at).toLocaleString('pt-BR')}` : ''}
+                Este atendimento foi concluído. {ticket.resolved_at ? `Data de resolução: ${new Date(ticket.resolved_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}
               </p>
             </div>
           )}
@@ -966,7 +966,7 @@ export default function TicketDetailClient({
                                 )}
                               </div>
                               <span className="text-[11px] text-muted-foreground font-medium">
-                                {new Date(comment.created_at).toLocaleString("pt-BR")}
+                                {new Date(comment.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                               </span>
                             </div>
 
@@ -1118,7 +1118,7 @@ export default function TicketDetailClient({
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Limite Máximo:</span>
-                <span className="font-semibold text-foreground">{slaDeadline.toLocaleDateString("pt-BR")} às {slaDeadline.toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="font-semibold text-foreground">{slaDeadline.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} às {slaDeadline.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             </div>
           </div>

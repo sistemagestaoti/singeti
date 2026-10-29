@@ -59,7 +59,7 @@ export async function GET(req: Request) {
           setor: a.department?.name || "N/A",
           unidade: a.location?.name || "N/A",
           situacao: a.status,
-          atualizado_em: a.updated_at.toLocaleDateString("pt-BR"),
+          atualizado_em: a.updated_at.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
         };
       });
     } else if (reportType === "COLLABORATORS") {
@@ -110,7 +110,7 @@ export async function GET(req: Request) {
         status: acc.status,
         protegido_cofre: acc.vault_secret_id ? "SIM (AES-256)" : "NÃO",
         ultima_alteracao_senha: acc.last_password_change
-          ? acc.last_password_change.toLocaleDateString("pt-BR")
+          ? acc.last_password_change.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
           : "Não registrada",
       }));
     } else if (reportType === "AUDIT") {
@@ -120,7 +120,7 @@ export async function GET(req: Request) {
       });
 
       data = logs.map((l) => ({
-        data_hora: l.created_at.toLocaleString("pt-BR"),
+        data_hora: l.created_at.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
         acao: l.action,
         entidade_tipo: l.entity_type,
         entidade: l.entity_name || l.entity_id || "N/A",

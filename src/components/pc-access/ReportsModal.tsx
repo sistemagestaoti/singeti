@@ -150,7 +150,7 @@ export function ReportsModal({ isOpen, onClose }: ReportsModalProps) {
         <div className="hidden print:block p-6 border-b border-gray-300">
           <h1 className="text-xl font-bold text-gray-900">SYNGETI — Relatório de Gestão de Acessos a PCs</h1>
           <p className="text-xs text-gray-600 mt-1">
-            Tipo: {reportType} | Gerado em: {new Date().toLocaleString("pt-BR")} | Total de registros: {data.length}
+            Tipo: {reportType} | Gerado em: {new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} | Total de registros: {data.length}
           </p>
         </div>
 

@@ -239,6 +239,7 @@ export default function PasswordResetManager({
                       <div className="font-mono text-xs font-bold text-primary">{req.protocol}</div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">
                         {new Date(req.created_at).toLocaleString("pt-BR", {
+                          timeZone: "America/Sao_Paulo",
                           day: "2-digit",
                           month: "2-digit",
                           year: "numeric",
@@ -493,7 +494,7 @@ export default function PasswordResetManager({
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-primary">{item.action}</span>
                       <span className="text-[10px] text-muted-foreground">
-                        {new Date(item.date).toLocaleString("pt-BR")}
+                        {new Date(item.date).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </span>
                     </div>
                     <div className="text-xs text-foreground font-medium">Por: {item.actor}</div>

@@ -80,7 +80,7 @@ export default function TicketTimeline({
                           {comment.is_internal && <span className="ml-2 inline-flex items-center rounded-md bg-warning/10 px-2 py-1 text-xs font-bold text-warning border border-warning/20">Nota Interna</span>}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground font-medium">
-                          {new Date(comment.created_at).toLocaleString('pt-BR')}
+                          {new Date(comment.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                         </p>
                       </div>
                       <div className="mt-2 text-sm text-foreground whitespace-pre-wrap">

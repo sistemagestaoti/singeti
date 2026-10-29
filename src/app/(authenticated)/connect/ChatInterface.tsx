@@ -1867,7 +1867,7 @@ export default function ChatInterface({
                         <span className="text-[10px] text-muted-foreground font-medium" suppressHydrationWarning>
                           {(() => {
                             try {
-                              return new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute:'2-digit' });
+                              return new Date(msg.created_at).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute:'2-digit' });
                             } catch {
                               return "";
                             }

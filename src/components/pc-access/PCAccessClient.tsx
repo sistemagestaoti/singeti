@@ -1417,7 +1417,7 @@ export function PCAccessClient() {
                   auditLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-surface-hover/60 transition-colors">
                       <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                        {new Date(log.created_at).toLocaleString("pt-BR")}
+                        {new Date(log.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                       </td>
                       <td className="px-4 py-2.5 font-bold text-foreground">
                         <span className="px-2 py-0.5 rounded-md bg-muted text-foreground text-[10px] font-mono border border-border">

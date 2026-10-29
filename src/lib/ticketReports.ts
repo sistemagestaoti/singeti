@@ -71,6 +71,7 @@ export function formatDate(dateVal?: string | Date | null): string {
     const d = new Date(dateVal);
     if (isNaN(d.getTime())) return "-";
     return d.toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -88,6 +89,7 @@ export function formatDateOnly(dateVal?: string | Date | null): string {
     const d = new Date(dateVal);
     if (isNaN(d.getTime())) return "-";
     return d.toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -103,6 +105,7 @@ export function formatTimeOnly(dateVal?: string | Date | null): string {
     const d = new Date(dateVal);
     if (isNaN(d.getTime())) return "-";
     return d.toLocaleTimeString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -236,7 +239,7 @@ export async function exportTicketsToExcel(tickets: TicketReportItem[], options:
   const summaryRows: any[] = [
     { "Indicador": "Sistema", "Valor": "SYNGETI - Gestão Integrada de TI" },
     { "Indicador": "Relatório", "Valor": options.title || "Relatório de Chamados (Service Desk)" },
-    { "Indicador": "Data de Extração", "Valor": new Date().toLocaleString("pt-BR") },
+    { "Indicador": "Data de Extração", "Valor": new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) },
     { "Indicador": "Gerado por", "Valor": options.authorName || "Administrador" },
     { "Indicador": "Filtros Aplicados", "Valor": options.filterSummary || "Todos os chamados" },
     { "Indicador": "Total de Chamados", "Valor": tickets.length },
@@ -310,7 +313,7 @@ export async function exportTicketsToPDF(tickets: TicketReportItem[], options: R
   // Metadados no topo direito
   doc.setFontSize(7.5);
   doc.setTextColor(241, 245, 249);
-  const nowStr = new Date().toLocaleString("pt-BR");
+  const nowStr = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   doc.text(`Emissão: ${nowStr}`, pageWidth - 14, 9, { align: "right" });
   doc.text(`Operador: ${options.authorName || "Administrador"}`, pageWidth - 14, 13.5, { align: "right" });
   doc.text(`Total: ${tickets.length} chamados`, pageWidth - 14, 18, { align: "right" });

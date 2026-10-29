@@ -282,7 +282,7 @@ export default function ServiceDeskClient({
   // Rótulo textual do período ativo
   const activePeriodLabel = useMemo(() => {
     if (filterDayRange === "TODAY") {
-      return `Hoje (${now.toLocaleDateString("pt-BR")})`;
+      return `Hoje (${now.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })})`;
     }
     if (filterDayRange === "YESTERDAY") {
       return "Ontem";
@@ -527,7 +527,7 @@ export default function ServiceDeskClient({
       `"${t.requester?.name || ''}"`,
       `"${t.assigned_to_name || t.assigned_to?.name || 'Não atribuído'}"`,
       `"${t.category?.name || 'Geral'}"`,
-      new Date(t.created_at).toLocaleString("pt-BR")
+      new Date(t.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
@@ -1357,7 +1357,7 @@ export default function ServiceDeskClient({
 
                         {/* Created At */}
                         <td className="px-3.5 py-2.5 sm:py-3 whitespace-nowrap text-xs text-muted-foreground">
-                          <div>{new Date(ticket.created_at).toLocaleDateString("pt-BR")}</div>
+                          <div>{new Date(ticket.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div>
                           <div className="text-[10px] text-muted-foreground">{formatTimeAgo(ticket.created_at)}</div>
                         </td>
 

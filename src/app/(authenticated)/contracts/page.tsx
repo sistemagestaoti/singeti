@@ -74,7 +74,7 @@ export default async function ContractsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`inline-flex items-center gap-1.5 ${isExpiring ? "text-danger font-bold" : "text-muted-foreground"}`}>
                           {isExpiring && <AlertTriangle className="w-3.5 h-3.5" />}
-                          {new Date(contract.end_date).toLocaleDateString('pt-BR')}
+                          {new Date(contract.end_date).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">

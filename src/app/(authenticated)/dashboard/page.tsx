@@ -2,24 +2,30 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { MessageSquare, Clock, CheckCircle2, Monitor, Cloud, CloudRain } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle2, Monitor } from "lucide-react";
 import DashboardCharts from "./DashboardCharts";
 import Link from "next/link";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { DashboardClock } from "@/components/DashboardClock";
+import {
+  formatLongDateBR,
+  formatTimeBR,
+  formatShortDateTimeBR,
+  getStartOfTodayBrazil,
+} from "@/lib/dateUtils";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
   const userName = session.user.name ? session.user.name.split(' ')[0] : 'Usuário';
-  const currentDate = format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
-  // Capitalize first letter
-  const formattedDate = currentDate.charAt(0).toUpperCase() + currentDate.slice(1);
+  const now = new Date();
+  const formattedDate = formatLongDateBR(now);
+  const formattedTime = formatTimeBR(now);
 
-  // Start of today
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  // Início de hoje no fuso de Brasília (America/Sao_Paulo, UTC-03:00)
+  const startOfToday = getStartOfTodayBrazil();
 
   // Execução de consultas simultâneas em paralelo (reduz latência em até 80%)
   const [
@@ -76,16 +82,7 @@ export default async function DashboardPage() {
           <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">Olá, {userName}!</h2>
           <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-0.5">Bem-vindo ao SYNGETI. Aqui está um resumo da sua operação de TI.</p>
         </div>
-        <div className="flex items-center justify-between sm:flex-col sm:items-end text-left sm:text-right gap-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-          <p className="text-xs sm:text-sm font-medium text-muted-foreground capitalize">{formattedDate}</p>
-          <div className="flex items-center gap-2">
-            <span className="text-xl sm:text-2xl font-bold text-foreground">{format(new Date(), "HH:mm")}</span>
-            <div className="flex items-center gap-1.5 text-info bg-info/10 px-2 py-0.5 rounded-full border border-info/20">
-              <CloudRain className="w-4 h-4" />
-              <span className="text-xs font-bold text-foreground">24ºC</span>
-            </div>
-          </div>
-        </div>
+        <DashboardClock initialDate={formattedDate} initialTime={formattedTime} />
       </div>
       
       {/* KPI Cards */}
@@ -187,7 +184,7 @@ export default async function DashboardPage() {
                   key={ticket.id} 
                   id={`#${ticket.code || ticket.id.substring(0,4).toUpperCase()}`} 
                   title={ticket.title} 
-                  date={format(ticket.created_at, "dd/MM, HH:mm")} 
+                  date={formatShortDateTimeBR(ticket.created_at)} 
                   status={ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? 'Resolvido' : ticket.status === 'IN_PROGRESS' ? 'Em atendimento' : 'Aberto'} 
                   color={ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? 'success' : ticket.status === 'IN_PROGRESS' ? 'warning' : 'primary'} 
                 />

@@ -407,7 +407,7 @@ export function PCDetailsDrawer({
                           {asset.notes || "Nenhuma observação técnica registrada."}
                         </p>
                         <div className="text-[11px] text-muted-foreground pt-2 border-t border-border/40">
-                          Cadastrado em {new Date(asset.created_at).toLocaleDateString("pt-BR")} | Última alteração em {new Date(asset.updated_at).toLocaleDateString("pt-BR")}
+                          Cadastrado em {new Date(asset.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} | Última alteração em {new Date(asset.updated_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                         </div>
                       </div>
                     </div>
@@ -482,7 +482,7 @@ export function PCDetailsDrawer({
                                   Setor: <strong className="text-foreground">{a.collaborator.department_name || "N/A"}</strong>
                                 </div>
                                 <div>
-                                  Início: <strong className="text-foreground">{new Date(a.start_date).toLocaleDateString("pt-BR")}</strong>
+                                  Início: <strong className="text-foreground">{new Date(a.start_date).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</strong>
                                 </div>
                                 <div>
                                   Atribuído por: <strong className="text-foreground">{a.assigned_by || "TI"}</strong>
@@ -512,7 +512,7 @@ export function PCDetailsDrawer({
                                 <tr key={a.id}>
                                   <td className="px-4 py-2 font-medium text-foreground">{a.collaborator.name}</td>
                                   <td className="px-4 py-2">
-                                    {new Date(a.start_date).toLocaleDateString("pt-BR")} até {a.end_date ? new Date(a.end_date).toLocaleDateString("pt-BR") : "Encerrado"}
+                                    {new Date(a.start_date).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} até {a.end_date ? new Date(a.end_date).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "Encerrado"}
                                   </td>
                                   <td className="px-4 py-2">{a.assigned_by || "TI"}</td>
                                   <td className="px-4 py-2">{a.notes || "—"}</td>
@@ -626,7 +626,7 @@ export function PCDetailsDrawer({
                               </div>
                               <div>
                                 {acc.last_password_change ? (
-                                  <span>Última alteração: {new Date(acc.last_password_change).toLocaleDateString("pt-BR")}</span>
+                                  <span>Última alteração: {new Date(acc.last_password_change).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span>
                                 ) : (
                                   <span>Sem registro de troca</span>
                                 )}
@@ -758,7 +758,7 @@ export function PCDetailsDrawer({
                             </div>
 
                             <span className="text-[11px] text-muted-foreground font-mono shrink-0">
-                              {new Date(log.created_at).toLocaleString("pt-BR")}
+                              {new Date(log.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                             </span>
                           </div>
                         ))}
