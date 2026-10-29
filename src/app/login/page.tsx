@@ -31,6 +31,7 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("syngeti_session_active");
       sessionStorage.removeItem("syngeti_login_time");
+      sessionStorage.removeItem("syngeti_login_entry_consumed");
 
       // Limpeza defensiva de cookies fragmentados acessíveis pelo cliente
       try {
@@ -115,15 +116,16 @@ export default function LoginPage() {
           localStorage.removeItem("syngeti_remember_me");
         }
 
-        // Ativa flag de sessão para a aba do navegador
+        // Ativa flag de sessão para a aba do navegador e libera a primeira transição SPA pós-login
         sessionStorage.setItem("syngeti_session_active", "true");
         sessionStorage.setItem("syngeti_login_time", Date.now().toString());
+        sessionStorage.removeItem("syngeti_login_entry_consumed");
       }
 
       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const callback = params?.get("callbackUrl") || "/dashboard";
-      // Usa router.push para navegação SPA (sem reload completo)
-      router.push(callback);
+      // Usa router.replace para transição SPA limpa da tela de login para o painel
+      router.replace(callback);
     }
   };
 

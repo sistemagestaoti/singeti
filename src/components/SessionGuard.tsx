@@ -35,11 +35,30 @@ export function SessionGuard() {
 
     // Verifica se a sessão ativa da aba existe no sessionStorage (é destruído ao fechar o navegador)
     const sessionActive = sessionStorage.getItem("syngeti_session_active");
+    const loginTimeRaw = sessionStorage.getItem("syngeti_login_time");
+    const loginTime = loginTimeRaw ? Number(loginTimeRaw) : 0;
+
+    // IMPORTANTE: Se o usuário acabou de realizar login (nos últimos 12 segundos),
+    // uma entrada antiga "reload" do PerformanceNavigationTiming de quando ele deu F5
+    // na tela de /login ANTES de autenticar NÃO deve derrubar a sessão recém-criada.
+    // Caso o usuário dê F5 já dentro do sistema, o navegador recarrega o documento e
+    // analisamos se a página foi recarregada após o login.
+    const justLoggedIn = sessionActive === "true" && loginTime > 0 && Date.now() - loginTime < 12000;
+    const loginJustConsumed = sessionStorage.getItem("syngeti_login_entry_consumed") === "true";
+
+    if (justLoggedIn && !loginJustConsumed) {
+      // Marca que a entrada pós-login no painel já ocorreu via SPA.
+      // Se o usuário der F5 mesmo 1 segundo depois de entrar, na próxima montagem
+      // "syngeti_login_entry_consumed" já será "true" e o F5 encerrará a sessão imediatamente!
+      sessionStorage.setItem("syngeti_login_entry_consumed", "true");
+      return;
+    }
 
     if (isReload || !sessionActive) {
       setRedirecting(true);
       sessionStorage.removeItem("syngeti_session_active");
       sessionStorage.removeItem("syngeti_login_time");
+      sessionStorage.removeItem("syngeti_login_entry_consumed");
 
       // Encerra a sessão NextAuth e redireciona de volta para a tela de login
       signOut({ redirect: false }).finally(() => {

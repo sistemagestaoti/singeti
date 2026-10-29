@@ -104,6 +104,7 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
               if (typeof window !== "undefined") {
                 sessionStorage.removeItem("syngeti_session_active");
                 sessionStorage.removeItem("syngeti_login_time");
+                sessionStorage.removeItem("syngeti_login_entry_consumed");
               }
               signOut({ callbackUrl: "/login" });
             }}
