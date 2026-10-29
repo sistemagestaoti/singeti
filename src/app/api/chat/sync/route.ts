@@ -49,11 +49,16 @@ export async function GET(request: Request) {
       orderBy: { updated_at: 'desc' }
     });
 
-    // Count unread messages per channel (limited to latest 50 to keep polling fast)
+    // Count unread messages per channel (per-user via ChatMessageReceipt, limited to latest 50 to keep polling fast)
     const unreadMessages = await prisma.chatMessage.findMany({
       where: {
-        is_read: false,
         sender_id: { not: currentUserId },
+        receipts: {
+          none: {
+            user_id: currentUserId,
+            status: "READ"
+          }
+        },
         channel: {
           OR: [
             { is_group: true },
@@ -66,6 +71,7 @@ export async function GET(request: Request) {
         channel_id: true,
         sender_id: true,
         content: true,
+        type: true,
         created_at: true,
         sender: { select: { name: true, avatar: true } }
       },
@@ -75,10 +81,12 @@ export async function GET(request: Request) {
 
     const unreadByChannel: Record<string, number> = {};
     const unreadByUser: Record<string, number> = {};
+    const unreadIds: string[] = [];
 
     for (const msg of unreadMessages) {
       unreadByChannel[msg.channel_id] = (unreadByChannel[msg.channel_id] || 0) + 1;
       unreadByUser[msg.sender_id] = (unreadByUser[msg.sender_id] || 0) + 1;
+      unreadIds.push(msg.id);
     }
 
     const totalUnread = unreadMessages.length;
@@ -98,6 +106,7 @@ export async function GET(request: Request) {
       success: true,
       currentUserId,
       totalUnread,
+      unreadIds,
       unreadByChannel,
       unreadByUser,
       latestUnread,

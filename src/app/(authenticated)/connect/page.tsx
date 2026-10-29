@@ -32,7 +32,8 @@ export default async function ConnectPage() {
         email: true, 
         avatar: true,
         job_title: true,
-        status: true
+        status: true,
+        last_seen_at: true,
       },
       orderBy: { name: 'asc' }
     }),
@@ -82,8 +83,8 @@ export default async function ConnectPage() {
     })
     .map(u => ({
       ...u,
-      isOnline: isUserOnline(u.id, u.email),
-      lastSeen: getUserLastSeen(u.id, u.email),
+      isOnline: isUserOnline(u.id, u.email, u.last_seen_at),
+      lastSeen: getUserLastSeen(u.id, u.email, u.last_seen_at),
     }));
 
   users.sort((a, b) => {

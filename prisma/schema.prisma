@@ -132,8 +132,11 @@ model User {
   channels               ChatChannel[]          @relation("ChannelMembers")
   sent_messages          ChatMessage[]          @relation("SentMessages")
   chat_reactions         ChatMessageReaction[]
+  chat_receipts          ChatMessageReceipt[]
+  chat_settings          ChatUserSettings?
   saved_stickers         UserSticker[]
   password_reset_requests PasswordResetRequest[]
+  last_seen_at           DateTime?
 
   @@map("users")
 }
@@ -654,10 +657,12 @@ model ChatChannel {
 
 model ChatMessage {
   id          String   @id @default(cuid())
+  client_id   String?  // Chave de idempotência enviada pelo cliente para evitar duplicações
   content     String
-  type        String   @default("text") // "text" | "gif" | "sticker" | "image" | "video" | "audio" | "file"
+  type        String   @default("text") // "text" | "gif" | "sticker" | "image" | "video" | "audio" | "file" | "ticket"
   channel_id  String
   sender_id   String
+  status      String   @default("SENT") // "SENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED"
 
   is_read     Boolean  @default(false)
   is_pinned   Boolean  @default(false)
@@ -671,13 +676,64 @@ model ChatMessage {
   sender  User        @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
 
   reactions ChatMessageReaction[]
+  receipts  ChatMessageReceipt[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@index([channel_id, created_at])
   @@index([sender_id])
+  @@index([client_id])
   @@map("chat_messages")
+}
+
+model ChatMessageReceipt {
+  id         String   @id @default(cuid())
+  message_id String
+  user_id    String
+  status     String   @default("DELIVERED") // "DELIVERED" | "READ"
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  message ChatMessage @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([message_id, user_id])
+  @@index([user_id, status])
+  @@map("chat_message_receipts")
+}
+
+model ChatUserSettings {
+  id             String   @id @default(cuid())
+  user_id        String   @unique
+  sound_enabled  Boolean  @default(true)
+  desktop_notify Boolean  @default(true)
+  muted_channels String?  // JSON array com IDs dos canais silenciados
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("chat_user_settings")
+}
+
+model ChatNotificationOutbox {
+  id           String    @id @default(cuid())
+  message_id   String
+  recipient_id String
+  sender_id    String
+  channel_id   String
+  title        String
+  body         String
+  status       String    @default("PENDING") // PENDING, SENT, FAILED
+  attempts     Int       @default(0)
+  last_error   String?
+  processed_at DateTime?
+  created_at   DateTime  @default(now())
+
+  @@index([recipient_id, status])
+  @@index([created_at])
+  @@map("chat_notification_outbox")
 }
 
 model ChatMessageReaction {

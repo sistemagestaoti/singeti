@@ -153,15 +153,54 @@ export function EmailFormModal({
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1">
-              Endereço de E-mail Corporativo *
-            </label>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+              <label className="block text-xs font-semibold text-foreground">
+                Endereço de E-mail Corporativo *
+              </label>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-muted-foreground font-medium">Domínios corporativos:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentPrefix = formData.email_address.includes("@")
+                      ? formData.email_address.split("@")[0].trim()
+                      : formData.email_address.trim();
+                    setFormData({ ...formData, email_address: `${currentPrefix || "usuario"}@dlamb.ind.br` });
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                    formData.email_address.toLowerCase().endsWith("@dlamb.ind.br")
+                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      : "bg-surface border-border text-blue-500 hover:bg-blue-500/10"
+                  }`}
+                  title="Aplicar domínio @dlamb.ind.br"
+                >
+                  @dlamb.ind.br
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentPrefix = formData.email_address.includes("@")
+                      ? formData.email_address.split("@")[0].trim()
+                      : formData.email_address.trim();
+                    setFormData({ ...formData, email_address: `${currentPrefix || "usuario"}@eko21.ind.br` });
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                    formData.email_address.toLowerCase().endsWith("@eko21.ind.br")
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      : "bg-surface border-border text-emerald-500 hover:bg-emerald-500/10"
+                  }`}
+                  title="Aplicar domínio @eko21.ind.br"
+                >
+                  @eko21.ind.br
+                </button>
+              </div>
+            </div>
             <input
               type="email"
               required
               value={formData.email_address}
               onChange={(e) => setFormData({ ...formData, email_address: e.target.value })}
-              placeholder="Ex: maria.silva@dlamb.ind.br ou compras@empresa.com.br"
+              placeholder="Ex: maria.silva@dlamb.ind.br ou contato@eko21.ind.br"
               className="w-full bg-surface border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary font-mono"
             />
           </div>

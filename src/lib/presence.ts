@@ -1,6 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import { prisma } from '@/lib/prisma';
 
 export interface UserPresence {
   userId: string;
@@ -14,32 +12,14 @@ declare global {
   var __presenceMap: Map<string, UserPresence> | undefined;
 }
 
-// Arquivo temporário seguro e compatível com Windows e Linux
-const TMP_PRESENCE = path.join(os.tmpdir(), 'symgest_presence.json');
-// 35 segundos: garante detecção rápida de offline sem falsos negativos durante navegação normal
-const TIMEOUT_MS = 35 * 1000;
+// 45 segundos: garante detecção estável sem falsos negativos durante navegação normal
+const TIMEOUT_MS = 45 * 1000;
 
 function getMap(): Map<string, UserPresence> {
   if (!globalThis.__presenceMap) {
     globalThis.__presenceMap = new Map();
-    try {
-      if (fs.existsSync(TMP_PRESENCE)) {
-        const raw = fs.readFileSync(TMP_PRESENCE, 'utf8');
-        const entries: [string, UserPresence][] = JSON.parse(raw);
-        for (const [k, v] of entries) {
-          globalThis.__presenceMap.set(k, v);
-        }
-      }
-    } catch {}
   }
   return globalThis.__presenceMap;
-}
-
-function persistMap(map: Map<string, UserPresence>) {
-  try {
-    const entries = Array.from(map.entries());
-    fs.writeFileSync(TMP_PRESENCE, JSON.stringify(entries), 'utf8');
-  } catch {}
 }
 
 export function recordUserPresence(userId: string, name?: string, email?: string) {
@@ -55,27 +35,25 @@ export function recordUserPresence(userId: string, name?: string, email?: string
   };
 
   map.set(userId, record);
-
-  // Também registra por email para vincular caso o login use IDs de contingência (ex: admin-master)
   if (email) {
     map.set(`email:${email.toLowerCase()}`, record);
   }
 
-  // Limpeza preventiva de entradas muito antigas (> 24h) para preservar memória
-  if (map.size > 200) {
-    for (const [k, v] of map.entries()) {
-      if (now - v.lastSeen > 24 * 60 * 60 * 1000) {
-        map.delete(k);
-      }
-    }
-  }
-
-  persistMap(map);
+  // Persistência assíncrona no PostgreSQL (compartilhada entre todas as lambdas da Vercel)
+  prisma.user.updateMany({
+    where: {
+      OR: [
+        { id: userId },
+        ...(email ? [{ email: email.toLowerCase() }] : [])
+      ]
+    },
+    data: { last_seen_at: new Date(now) }
+  }).catch(() => {});
 }
 
 export function setUserOffline(userId: string, email?: string | null) {
   const map = getMap();
-  const expiredTime = Date.now() - (TIMEOUT_MS + 5000);
+  const expiredTime = Date.now() - (TIMEOUT_MS + 10000);
   const byId = map.get(userId);
   if (byId) {
     byId.lastSeen = expiredTime;
@@ -88,13 +66,29 @@ export function setUserOffline(userId: string, email?: string | null) {
       map.set(`email:${email.toLowerCase()}`, byEmail);
     }
   }
-  persistMap(map);
+
+  prisma.user.updateMany({
+    where: {
+      OR: [
+        { id: userId },
+        ...(email ? [{ email: email.toLowerCase() }] : [])
+      ]
+    },
+    data: { last_seen_at: new Date(expiredTime) }
+  }).catch(() => {});
 }
 
-export function isUserOnline(userId: string, email?: string | null): boolean {
-  const map = getMap();
+export function isUserOnline(userId: string, email?: string | null, dbLastSeen?: Date | null): boolean {
   const now = Date.now();
 
+  // 1. Verifica timestamp do banco de dados (mais confiável em ambientes serverless)
+  if (dbLastSeen) {
+    const dbTime = new Date(dbLastSeen).getTime();
+    if (now - dbTime < TIMEOUT_MS) return true;
+  }
+
+  // 2. Verifica cache em memória
+  const map = getMap();
   const byId = map.get(userId);
   if (byId && (now - byId.lastSeen < TIMEOUT_MS)) {
     return true;
@@ -110,7 +104,10 @@ export function isUserOnline(userId: string, email?: string | null): boolean {
   return false;
 }
 
-export function getUserLastSeen(userId: string, email?: string | null): number | null {
+export function getUserLastSeen(userId: string, email?: string | null, dbLastSeen?: Date | null): number | null {
+  if (dbLastSeen) {
+    return new Date(dbLastSeen).getTime();
+  }
   const map = getMap();
   const byId = map.get(userId);
   if (byId) return byId.lastSeen;

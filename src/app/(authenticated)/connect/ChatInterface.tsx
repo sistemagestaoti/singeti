@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { 
   User as UserIcon, Search, Hash, MessageSquare, Send, Circle, ArrowLeft,
-  Smile, Heart, ThumbsUp, Sparkles, Star, Trash2, X, Image as ImageIcon, Flame, Check, Loader2,
+  Smile, Heart, ThumbsUp, Sparkles, Star, Trash2, X, Image as ImageIcon, Flame, Check, CheckCheck, Loader2,
   Paperclip, Mic, MicOff, Video, Phone, PhoneOff, Pin, PinOff, Edit2, Share2, Download,
-  FileText, Film, Volume2, Plus, Users, Shield, Play, Pause, CornerDownLeft, Eye
+  FileText, Film, Volume2, Plus, Users, Shield, Play, Pause, CornerDownLeft, Eye,
+  Settings, Wifi, WifiOff, RefreshCw, AlertCircle, Ticket, BellOff
 } from "lucide-react";
 import Image from "next/image";
 import { CreateGroupModal } from "@/components/chat/CreateGroupModal";
@@ -13,6 +14,41 @@ import { StickerCreatorModal } from "@/components/chat/StickerCreatorModal";
 import { CallModal } from "@/components/chat/CallModal";
 import { ForwardModal } from "@/components/chat/ForwardModal";
 import { MediaLightbox } from "@/components/chat/MediaLightbox";
+import { TicketShareModal } from "@/components/chat/TicketShareModal";
+import { TicketShareCard } from "@/components/chat/TicketShareCard";
+import { ChatSettingsModal } from "@/components/chat/ChatSettingsModal";
+import { soundManager } from "@/lib/sound";
+import { supabase } from "@/lib/supabaseClient";
+
+// Gera chave de idempotência única por tentativa lógica de envio
+function newClientId() {
+  if (typeof crypto !== "undefined" && typeof (crypto as any).randomUUID === "function") {
+    return (crypto as any).randomUUID();
+  }
+  return `c_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Mescla lista do servidor com mensagens locais pendentes, sem duplicar (por id e client_id)
+function mergeMessages(server: Message[], local: Message[]): Message[] {
+  const serverClientIds = new Set(server.map((m) => m.client_id).filter(Boolean) as string[]);
+  const serverIds = new Set(server.map((m) => m.id));
+  const pending = local.filter(
+    (m) =>
+      (m.status === "SENDING" || m.status === "FAILED") &&
+      !serverIds.has(m.id) &&
+      !(m.client_id && serverClientIds.has(m.client_id))
+  );
+  return [...server, ...pending];
+}
+
+// Assinatura leve para evitar re-render quando nada mudou
+function messagesSignature(list: Message[]) {
+  return list
+    .map((m) => `${m.id}|${m.status || ""}|${m.is_edited ? 1 : 0}|${m.is_pinned ? 1 : 0}|${m.reactions?.length || 0}|${(m.receipts || []).map((r) => r.status).join("")}`)
+    .join(",");
+}
 
 type User = {
   id: string;
@@ -64,6 +100,11 @@ type Message = {
   file_name?: string | null;
   file_size?: number | null;
   metadata?: string | null;
+  client_id?: string | null;
+  // Estado local de envio: SENDING | SENT | FAILED (DELIVERED/READ derivados dos recibos)
+  status?: string | null;
+  receipts?: { user_id: string; status: string; updated_at?: string }[];
+  _localPayload?: any;
 };
 
 type UserSticker = {
@@ -230,6 +271,40 @@ export default function ChatInterface({
   const inputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  // Confiabilidade / tempo real
+  const [isTicketShareOpen, setIsTicketShareOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [connectionState, setConnectionState] = useState<"connecting" | "realtime" | "polling" | "offline">("connecting");
+  const [unreadByChannel, setUnreadByChannel] = useState<Record<string, number>>({});
+  const [unreadByUser, setUnreadByUser] = useState<Record<string, number>>({});
+  const [mutedChannels, setMutedChannels] = useState<string[]>([]);
+  const activeChannelIdRef = useRef(activeChannelId);
+  const messagesRef = useRef<Message[]>([]);
+  const lastSignatureRef = useRef("");
+  const notifiedIdsRef = useRef<Set<string>>(new Set());
+  const deliveredIdsRef = useRef<Set<string>>(new Set());
+  const realtimeChannelRef = useRef<any>(null);
+  const fetchInFlightRef = useRef<string | null>(null);
+  const lastMessageCountRef = useRef(0);
+
+  useEffect(() => { activeChannelIdRef.current = activeChannelId; }, [activeChannelId]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("connect_chat_muted");
+      if (raw) setMutedChannels(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const toggleMuteChannel = (channelId: string) => {
+    setMutedChannels((prev) => {
+      const next = prev.includes(channelId) ? prev.filter((c) => c !== channelId) : [...prev, channelId];
+      try { localStorage.setItem("connect_chat_muted", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
   // Exibe toast temporário
   const showToast = (text: string) => {
     setToastMessage(text);
@@ -375,35 +450,299 @@ export default function ChatInterface({
     return null;
   }, [activeChannel, currentUser.id, userList]);
 
-  // Fetch messages for active channel
-  const fetchMessages = async () => {
-    if (!activeChannelId) return;
-    if (typeof document !== "undefined" && document.hidden) return;
+  // Busca mensagens do canal ativo e reconcilia com mensagens locais pendentes (sem duplicar)
+  const fetchMessages = async (force = false) => {
+    const channelId = activeChannelIdRef.current;
+    if (!channelId) return;
+    if (!force && typeof document !== "undefined" && document.hidden) return;
+    if (fetchInFlightRef.current === channelId) return; // deduplica requisições concorrentes do mesmo canal
+    fetchInFlightRef.current = channelId;
     try {
-      const res = await fetch(`/api/chat?channelId=${activeChannelId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data);
+      const res = await fetch(`/api/chat?channelId=${channelId}`, { cache: "no-store" });
+      if (res.ok && channelId === activeChannelIdRef.current) {
+        const data: Message[] = await res.json();
+        const merged = mergeMessages(data, messagesRef.current);
+        const sig = messagesSignature(merged);
+        if (sig !== lastSignatureRef.current) {
+          lastSignatureRef.current = sig;
+          setMessages(merged);
+        }
+        setUnreadByChannel((prev) => (prev[channelId] ? { ...prev, [channelId]: 0 } : prev));
+        // Emite confirmação em tempo real para o remetente atualizar os ticks de leitura (✓✓ azul)
+        broadcastPing("receipt", channelId);
       }
     } catch (err) {
       console.error("Erro ao carregar mensagens:", err);
+    } finally {
+      if (fetchInFlightRef.current === channelId) fetchInFlightRef.current = null;
     }
   };
 
+  // Notificações (som + navegador) com deduplicação entre abas
+  const notifyNewMessages = async () => {
+    try {
+      const res = await fetch("/api/chat/sync", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const byChannel: Record<string, number> = data.unreadByChannel || {};
+      const byUser: Record<string, number> = data.unreadByUser || {};
+      const activeId = activeChannelIdRef.current;
+      const visibleActive = typeof document !== "undefined" && !document.hidden;
+      if (visibleActive && activeId) byChannel[activeId] = 0;
+      setUnreadByChannel(byChannel);
+      setUnreadByUser(byUser);
+
+      // Recibos de ENTREGA reais: o app do destinatário recebeu as mensagens
+      const ids: string[] = (data.unreadIds || []).filter((id: string) => !deliveredIdsRef.current.has(id));
+      if (ids.length > 0) {
+        ids.forEach((id) => deliveredIdsRef.current.add(id));
+        fetch("/api/chat/receipts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageIds: ids, status: "DELIVERED" }),
+        })
+          .then(() => {
+            if (data.latestUnread?.channel_id) {
+              broadcastPing("receipt", data.latestUnread.channel_id);
+            }
+          })
+          .catch(() => {});
+      }
+
+      const latest = data.latestUnread;
+      if (!latest || notifiedIdsRef.current.has(latest.id)) return;
+      notifiedIdsRef.current.add(latest.id);
+
+      // Não notifica se a conversa já está aberta e visível
+      if (visibleActive && latest.channel_id === activeId) return;
+      if (mutedChannels.includes(latest.channel_id)) return;
+
+      // Coordenação entre múltiplas abas: apenas a primeira aba notifica
+      const lockKey = `connect_notified_${latest.id}`;
+      try {
+        if (localStorage.getItem(lockKey)) return;
+        localStorage.setItem(lockKey, String(Date.now()));
+      } catch {}
+
+      const soundOn = localStorage.getItem("connect_chat_sound") !== "false";
+      const desktopOn = localStorage.getItem("connect_chat_desktop") !== "false";
+      const privacy = localStorage.getItem("connect_chat_privacy") === "true";
+
+      if (soundOn) soundManager.playMessageReceived();
+
+      if (desktopOn && document.hidden && "Notification" in window && Notification.permission === "granted") {
+        const n = new Notification(privacy ? "CONNECT CHAT" : `Nova mensagem de ${latest.sender?.name || "colega"}`, {
+          body: privacy ? "Nova mensagem no CONNECT CHAT" : String(latest.content || "").slice(0, 140),
+          tag: `connect-${latest.channel_id}`,
+          icon: "/favicon.ico",
+        });
+        n.onclick = () => {
+          window.focus();
+          setActiveChannelId(latest.channel_id);
+          setMobileView("chat");
+          n.close();
+        };
+      }
+    } catch {}
+  };
+
+  // Ciclo de vida da assinatura Realtime (Broadcast sem conteúdo — apenas "ping" seguro)
   useEffect(() => {
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 3500);
-    const handleVis = () => { if (!document.hidden) fetchMessages(); };
+    let disposed = false;
+    let retry = 0;
+    let retryTimer: any = null;
+
+    const subscribe = () => {
+      if (disposed) return;
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+      setConnectionState((s) => (s === "offline" ? s : "connecting"));
+      const ch = supabase.channel("connect-chat-events", { config: { broadcast: { self: false } } });
+      ch.on("broadcast", { event: "message" }, ({ payload }: any) => {
+        if (!payload?.channelId) return;
+        if (payload.channelId === activeChannelIdRef.current) fetchMessages(true);
+        notifyNewMessages();
+      });
+      ch.on("broadcast", { event: "receipt" }, ({ payload }: any) => {
+        if (payload?.channelId === activeChannelIdRef.current) fetchMessages(true);
+      });
+      ch.subscribe((status: string) => {
+        if (disposed) return;
+        if (status === "SUBSCRIBED") {
+          retry = 0;
+          setConnectionState("realtime");
+          // Reconciliação após (re)conexão: busca no banco o que foi perdido
+          fetchMessages(true);
+          notifyNewMessages();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setConnectionState(navigator.onLine ? "polling" : "offline");
+          // Backoff exponencial com jitter, máximo 60s
+          const delay = Math.min(60000, 1000 * Math.pow(2, retry)) + Math.random() * 1000;
+          retry++;
+          clearTimeout(retryTimer);
+          retryTimer = setTimeout(subscribe, delay);
+        }
+      });
+      realtimeChannelRef.current = ch;
+    };
+
+    subscribe();
+
+    const handleOnline = () => { setConnectionState("connecting"); retry = 0; subscribe(); };
+    const handleOffline = () => setConnectionState("offline");
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      disposed = true;
+      clearTimeout(retryTimer);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Publica "ping" de nova mensagem (sem conteúdo). O destinatário busca pela API autenticada.
+  const broadcastPing = (event: "message" | "receipt", channelId: string, messageId?: string) => {
+    try {
+      realtimeChannelRef.current?.send({
+        type: "broadcast",
+        event,
+        payload: { channelId, messageId, senderId: currentUser.id },
+      });
+    } catch {}
+  };
+
+  // Troca de conversa: limpa a lista e carrega imediatamente
+  useEffect(() => {
+    lastSignatureRef.current = "";
+    lastMessageCountRef.current = 0;
+    setMessages([]);
+    messagesRef.current = [];
+    fetchMessages(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChannelId]);
+
+  // Polling de segurança adaptativo: lento com Realtime ativo, rápido sem ele
+  useEffect(() => {
+    const intervalMs = connectionState === "realtime" ? 15000 : 4000;
+    const interval = setInterval(() => fetchMessages(), intervalMs);
+    const notifyInterval = setInterval(() => notifyNewMessages(), connectionState === "realtime" ? 30000 : 8000);
+    const handleVis = () => { if (!document.hidden) { fetchMessages(true); notifyNewMessages(); } };
     document.addEventListener("visibilitychange", handleVis);
     return () => {
       clearInterval(interval);
+      clearInterval(notifyInterval);
       document.removeEventListener("visibilitychange", handleVis);
     };
-  }, [activeChannelId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChannelId, connectionState]);
 
+  // Rola para o fim somente quando chega mensagem nova (não a cada polling)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length !== lastMessageCountRef.current) {
+      lastMessageCountRef.current = messages.length;
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
+
+  // Envio confiável: idempotência por clientId + retentativas com backoff + estados
+  const postChatMessage = async (payload: {
+    content: string;
+    type: string;
+    fileName?: string;
+    fileSize?: number;
+    replyToId?: string | null;
+    metadata?: any;
+  }, existingClientId?: string) => {
+    const channelId = activeChannelIdRef.current;
+    if (!channelId) return;
+    const clientId = existingClientId || newClientId();
+
+    if (!existingClientId) {
+      setMessages((prev) => [...prev, {
+        id: `opt_${clientId}`,
+        client_id: clientId,
+        content: payload.content,
+        type: payload.type,
+        reply_to_id: payload.replyToId || null,
+        file_name: payload.fileName || null,
+        file_size: payload.fileSize || null,
+        metadata: payload.metadata ? (typeof payload.metadata === "string" ? payload.metadata : JSON.stringify(payload.metadata)) : null,
+        sender: { name: currentUser.name, avatar: currentUser.avatar },
+        created_at: new Date().toISOString(),
+        sender_id: currentUser.id,
+        reactions: [],
+        status: "SENDING",
+        _localPayload: { ...payload, channelId },
+      }]);
+    } else {
+      setMessages((prev) => prev.map((m) => (m.client_id === clientId ? { ...m, status: "SENDING" } : m)));
+    }
+
+    const maxAttempts = 4;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, channelId, clientId }),
+        });
+        if (res.status === 401 || res.status === 403 || res.status === 400 || res.status === 404) {
+          break; // falha permanente: não adianta repetir
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const saved: Message = await res.json();
+        setMessages((prev) => {
+          const without = prev.filter((m) => m.client_id !== clientId && m.id !== saved.id);
+          return [...without, { ...saved, status: "SENT" }];
+        });
+        broadcastPing("message", channelId, saved.id);
+        return saved;
+      } catch {
+        if (!navigator.onLine) break;
+        await sleep(Math.min(8000, 600 * Math.pow(2, attempt)) + Math.random() * 300);
+      }
+    }
+
+    setMessages((prev) => prev.map((m) => (m.client_id === clientId ? { ...m, status: "FAILED" } : m)));
+    showToast(navigator.onLine ? "Falha ao enviar. Toque em 'Tentar novamente'." : "Sem conexão. A mensagem ficou pendente.");
+  };
+
+  const retryFailedMessage = (msg: Message) => {
+    if (!msg.client_id || !msg._localPayload) return;
+    const { channelId, ...payload } = msg._localPayload;
+    if (channelId !== activeChannelIdRef.current) return;
+    postChatMessage(payload, msg.client_id);
+  };
+
+  // Reenvio automático das mensagens pendentes ao reconectar
+  useEffect(() => {
+    const handler = () => {
+      messagesRef.current
+        .filter((m) => m.status === "FAILED" && m.sender_id === currentUser.id)
+        .forEach((m) => retryFailedMessage(m));
+    };
+    window.addEventListener("online", handler);
+    return () => window.removeEventListener("online", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Estado de entrega derivado de confirmações reais
+  const getDeliveryState = (msg: Message): "SENDING" | "FAILED" | "SENT" | "DELIVERED" | "READ" => {
+    if (msg.status === "SENDING") return "SENDING";
+    if (msg.status === "FAILED") return "FAILED";
+    const others = (msg.receipts || []).filter((r) => r.user_id !== currentUser.id);
+    if (others.some((r) => r.status === "READ")) return "READ";
+    if (others.some((r) => r.status === "DELIVERED")) return "DELIVERED";
+    return "SENT";
+  };
 
   // Filtered lists
   const filteredUsers = useMemo(() => {
@@ -500,62 +839,28 @@ export default function ChatInterface({
     setInput("");
     setReplyingTo(null);
 
-    // Optimistic UI update
-    const optId = "opt_" + Date.now();
-    setMessages(prev => [...prev, {
-      id: optId,
-      content: currentInput,
-      type: "text",
-      reply_to_id: currentReplyId,
-      sender: { name: currentUser.name, avatar: currentUser.avatar },
-      created_at: new Date().toISOString(),
-      sender_id: currentUser.id,
-      reactions: []
-    }]);
+    await postChatMessage({ content: currentInput, type: "text", replyToId: currentReplyId });
+  };
 
-    try {
-      await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          channelId: activeChannelId, 
-          content: currentInput, 
-          type: "text",
-          replyToId: currentReplyId
-        })
-      });
-      fetchMessages();
-    } catch (err) {
-      console.error("Erro ao enviar mensagem:", err);
-    }
+  // Compartilhar chamado como card interativo
+  const shareTicket = async (t: any) => {
+    const meta = {
+      ticketId: t.id,
+      code: t.code,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      departmentName: t.department?.name || null,
+      assignedToName: t.assigned_to?.name || t.assigned_to_name || null,
+    };
+    await postChatMessage({ content: `🎫 ${t.code} — ${t.title}`, type: "ticket", metadata: meta });
   };
 
   // Enviar Mídia Direta (Figurinha ou GIF)
   const sendMedia = async (url: string, type: "gif" | "sticker") => {
     if (!url || !activeChannelId) return;
     setShowMediaPicker(false);
-
-    const optId = "opt_" + Date.now();
-    setMessages(prev => [...prev, {
-      id: optId,
-      content: url,
-      type,
-      sender: { name: currentUser.name, avatar: currentUser.avatar },
-      created_at: new Date().toISOString(),
-      sender_id: currentUser.id,
-      reactions: []
-    }]);
-
-    try {
-      await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: activeChannelId, content: url, type })
-      });
-      fetchMessages();
-    } catch (err) {
-      console.error("Erro ao enviar mídia:", err);
-    }
+    await postChatMessage({ content: url, type });
   };
 
   // Upload e envio de arquivos (Imagens, Vídeos, Documentos, Áudios)
@@ -586,19 +891,13 @@ export default function ChatInterface({
       else if (file.type.startsWith("video/")) msgType = "video";
       else if (file.type.startsWith("audio/")) msgType = "audio";
 
-      await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channelId: activeChannelId,
-          content: data.url,
-          type: msgType,
-          fileName: file.name,
-          fileSize: file.size,
-        }),
+      await postChatMessage({
+        content: data.url,
+        type: msgType,
+        fileName: file.name,
+        fileSize: file.size,
       });
 
-      fetchMessages();
       showToast("Arquivo compartilhado com sucesso!");
     } catch (err: any) {
       console.error(err);
@@ -632,18 +931,12 @@ export default function ChatInterface({
         reader.onloadend = async () => {
           const dataUri = reader.result as string;
           try {
-            await fetch("/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                channelId: activeChannelId,
-                content: dataUri,
-                type: "audio",
-                fileName: `audio-${Date.now()}.webm`,
-                fileSize: audioBlob.size,
-              }),
+            await postChatMessage({
+              content: dataUri,
+              type: "audio",
+              fileName: `audio-${Date.now()}.webm`,
+              fileSize: audioBlob.size,
             });
-            fetchMessages();
             showToast("Mensagem de voz enviada!");
           } catch (e) {
             console.error(e);
@@ -787,7 +1080,7 @@ export default function ChatInterface({
     if (!forwardingMessage) return;
 
     try {
-      await fetch("/api/chat", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -796,8 +1089,13 @@ export default function ChatInterface({
           type: forwardingMessage.type || "text",
           fileName: forwardingMessage.file_name,
           fileSize: forwardingMessage.file_size,
+          metadata: forwardingMessage.metadata,
+          clientId: newClientId(),
         }),
       });
+      if (!res.ok) throw new Error("Falha ao encaminhar");
+      const saved = await res.json();
+      broadcastPing("message", targetChannelId, saved?.id);
       showToast("Mensagem encaminhada com sucesso!");
     } catch (e) {
       console.error(e);
@@ -933,27 +1231,83 @@ export default function ChatInterface({
         mediaTitle={lightboxTitle}
       />
 
+      <TicketShareModal
+        isOpen={isTicketShareOpen}
+        onClose={() => setIsTicketShareOpen(false)}
+        onSelectTicket={shareTicket}
+      />
+
+      <ChatSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        activeChannelId={activeChannelId}
+        activeChannelName={activeChannel?.is_group ? (activeChannel?.name || "Canal") : (activeDMUser?.name || "Conversa")}
+        isMuted={mutedChannels.includes(activeChannelId)}
+        onToggleMuteChannel={toggleMuteChannel}
+      />
+
       {/* ========================================================================= */}
       {/* SIDEBAR DE CANAIS, GRUPOS E MENSAGENS DIRETAS                             */}
       {/* ========================================================================= */}
       <div className={`${mobileView === 'list' ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-border bg-surface flex-col h-full flex-shrink-0 min-h-0`}>
         
-        {/* Header da Sidebar com Botão Criar Grupo */}
-        <div className="p-3.5 sm:p-4 border-b border-border space-y-3 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-foreground tracking-wider uppercase flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-primary" />
-              SYNGETI Connect 2.0
+        {/* Header da Sidebar com Botão Criar Grupo e Status de Conexão */}
+        <div className="p-3.5 sm:p-4 border-b border-border space-y-2.5 flex-shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xs font-bold text-foreground tracking-wider uppercase flex items-center gap-2 truncate">
+              <MessageSquare className="w-4 h-4 text-primary shrink-0" />
+              <span className="truncate">SYNGETI Connect 2.0</span>
             </h2>
-            <button
-              type="button"
-              onClick={() => setIsCreateGroupOpen(true)}
-              className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex items-center gap-1 text-[11px] font-bold"
-              title="Criar Novo Grupo ou Canal"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Novo</span>
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-1.5 rounded-lg bg-surface-elevated hover:bg-surface-hover text-muted-foreground hover:text-foreground border border-border transition-colors"
+                title="Preferências de Som, Notificações e Privacidade"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCreateGroupOpen(true)}
+                className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex items-center gap-1 text-[11px] font-bold"
+                title="Criar Novo Grupo ou Canal"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Novo</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Indicador de Estado de Conexão em Tempo Real */}
+          <div className="flex items-center justify-between text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-background border border-border">
+            {connectionState === "realtime" && (
+              <span className="flex items-center gap-1.5 text-emerald-500">
+                <Wifi className="w-3 h-3" />
+                <span>Tempo Real Ativo (WebSocket)</span>
+              </span>
+            )}
+            {connectionState === "connecting" && (
+              <span className="flex items-center gap-1.5 text-amber-500">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                <span>Sincronizando canal seguro...</span>
+              </span>
+            )}
+            {connectionState === "polling" && (
+              <span className="flex items-center gap-1.5 text-cyan-400">
+                <RefreshCw className="w-3 h-3" />
+                <span>Sincronização ativa (HTTPS)</span>
+              </span>
+            )}
+            {connectionState === "offline" && (
+              <span className="flex items-center gap-1.5 text-red-500">
+                <WifiOff className="w-3 h-3" />
+                <span>Sem conexão — aguardando rede</span>
+              </span>
+            )}
+            <span className="text-muted-foreground">
+              {onlineCount} online
+            </span>
           </div>
 
           <div className="relative">
@@ -985,6 +1339,8 @@ export default function ChatInterface({
             <ul className="space-y-1">
               {groupChannels.map(channel => {
                 const isActive = activeChannelId === channel.id;
+                const unreadCount = unreadByChannel[channel.id] || 0;
+                const isMuted = mutedChannels.includes(channel.id);
                 return (
                   <li key={channel.id}>
                     <button
@@ -995,18 +1351,28 @@ export default function ChatInterface({
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left ${
                         isActive 
                           ? 'bg-primary text-white shadow-sm' 
-                          : 'text-foreground hover:bg-surface-hover'
+                          : unreadCount > 0
+                            ? 'bg-primary/10 text-foreground font-bold border border-primary/30'
+                            : 'text-foreground hover:bg-surface-hover'
                       }`}
                     >
                       <div className="flex items-center gap-2 truncate">
                         <Hash className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-primary'}`} />
                         <span className="truncate">{channel.name || "Geral"}</span>
+                        {isMuted && <BellOff className="w-3 h-3 opacity-60 shrink-0" />}
                       </div>
-                      {channel.members && channel.members.length > 0 && (
-                        <span className={`text-[10px] opacity-75 shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground'}`}>
-                          {channel.members.length}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {unreadCount > 0 && !isActive && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none shadow-xs">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                        {channel.members && channel.members.length > 0 && (
+                          <span className={`text-[10px] opacity-75 shrink-0 ${isActive ? 'text-white' : 'text-muted-foreground'}`}>
+                            {channel.members.length}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   </li>
                 );
@@ -1034,6 +1400,8 @@ export default function ChatInterface({
               <ul className="space-y-1">
                 {filteredUsers.map(user => {
                   const active = isUserActive(user.id);
+                  const dmChannel = channels.find(c => !c.is_group && c.members?.some(m => m.id === user.id));
+                  const userUnread = (dmChannel ? unreadByChannel[dmChannel.id] : 0) || unreadByUser[user.id] || 0;
                   return (
                     <li key={user.id}>
                       <button
@@ -1042,7 +1410,9 @@ export default function ChatInterface({
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all text-left group ${
                           active 
                             ? 'bg-primary/15 text-primary border border-primary/30 font-semibold' 
-                            : 'text-foreground hover:bg-surface-hover'
+                            : userUnread > 0
+                              ? 'bg-primary/10 text-foreground border border-primary/30 font-bold'
+                              : 'text-foreground hover:bg-surface-hover'
                         }`}
                       >
                         <div className="relative flex-shrink-0">
@@ -1059,11 +1429,18 @@ export default function ChatInterface({
                             <span className="truncate font-semibold text-xs group-hover:text-primary transition-colors">
                               {user.name}
                             </span>
-                            <span className={`text-[9px] font-bold uppercase tracking-wider shrink-0 ${
-                              user.isOnline ? 'text-emerald-500' : 'text-red-400/90'
-                            }`}>
-                              {user.isOnline ? 'Online' : 'Offline'}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {userUnread > 0 && !active && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none shadow-xs">
+                                  {userUnread > 99 ? "99+" : userUnread}
+                                </span>
+                              )}
+                              <span className={`text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                                user.isOnline ? 'text-emerald-500' : 'text-red-400/90'
+                              }`}>
+                                {user.isOnline ? 'Online' : 'Offline'}
+                              </span>
+                            </div>
                           </div>
                           <span className="text-[10px] text-muted-foreground block truncate mt-0.5">
                             {user.job_title || user.email}
@@ -1453,7 +1830,18 @@ export default function ChatInterface({
                             </div>
                           )}
 
-                          {/* 6. Texto Padrão */}
+                          {/* 6. Card de Chamado compartilhado */}
+                          {msg.type === "ticket" && (() => {
+                            let meta: any = null;
+                            try { meta = msg.metadata ? JSON.parse(msg.metadata) : null; } catch {}
+                            return meta?.ticketId ? (
+                              <TicketShareCard data={meta} isMe={isMe} />
+                            ) : (
+                              <div className="px-3.5 py-2 rounded-2xl text-xs bg-surface border border-border">{msg.content}</div>
+                            );
+                          })()}
+
+                          {/* 7. Texto Padrão */}
                           {(!msg.type || msg.type === "text") && (
                             <div 
                               className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm leading-relaxed break-words whitespace-pre-wrap shadow-xs ${
@@ -1547,6 +1935,57 @@ export default function ChatInterface({
                       </div>
 
                     </div>
+
+                    {/* Indicadores de Estado de Entrega e Leitura (WhatsApp / Teams) */}
+                    {isMe && (() => {
+                      const dState = getDeliveryState(msg);
+                      const readReceipts = (msg.receipts || []).filter((r) => r.user_id !== currentUser.id && r.status === "READ");
+                      return (
+                        <div className="flex items-center gap-1.5 mt-1 px-1 text-[10px] select-none">
+                          {dState === "SENDING" && (
+                            <span className="flex items-center gap-1 text-muted-foreground font-medium">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Enviando...</span>
+                            </span>
+                          )}
+                          {dState === "SENT" && (
+                            <span className="flex items-center gap-0.5 text-muted-foreground font-medium" title="Enviada e gravada no servidor">
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Enviada</span>
+                            </span>
+                          )}
+                          {dState === "DELIVERED" && (
+                            <span className="flex items-center gap-0.5 text-muted-foreground font-semibold" title="Entregue ao dispositivo do destinatário">
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              <span>Entregue</span>
+                            </span>
+                          )}
+                          {dState === "READ" && (
+                            <span className="flex items-center gap-0.5 text-cyan-400 font-bold" title="Visualizada pelo destinatário">
+                              <CheckCheck className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>
+                                {activeChannel?.is_group && readReceipts.length > 1
+                                  ? `Lida (${readReceipts.length})`
+                                  : "Lida"}
+                              </span>
+                            </span>
+                          )}
+                          {dState === "FAILED" && (
+                            <div className="flex items-center gap-1.5 text-red-500 font-bold">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              <span>Falha no envio</span>
+                              <button
+                                type="button"
+                                onClick={() => retryFailedMessage(msg)}
+                                className="underline hover:text-red-400 ml-1"
+                              >
+                                Tentar novamente
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Pílulas de Reações Abaixo da Mensagem */}
                     {groupedReactions.length > 0 && (
@@ -1849,6 +2288,16 @@ export default function ChatInterface({
                 title="Emojis, Figurinhas e GIFs"
               >
                 <Smile className="w-5 h-5" />
+              </button>
+
+              {/* Botão Compartilhar Chamado do Service Desk */}
+              <button
+                type="button"
+                onClick={() => setIsTicketShareOpen(true)}
+                className="p-2 sm:p-2.5 rounded-xl bg-background border border-border text-muted-foreground hover:text-primary hover:bg-surface-hover transition-colors flex items-center justify-center shrink-0"
+                title="Compartilhar Chamado do Service Desk"
+              >
+                <Ticket className="w-5 h-5" />
               </button>
 
               {/* Input de Mensagem */}

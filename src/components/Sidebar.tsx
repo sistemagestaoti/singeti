@@ -17,7 +17,7 @@ let brandingCacheFetching = false;
 
 export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
   const router = useRouter();
-  const { isMobileOpen, closeMobileMenu, navigatingTo, startNavigation } = useMobileMenu();
+  const { isMobileOpen, closeMobileMenu, navigatingTo, startNavigation, chatUnreadCount } = useMobileMenu();
   const pathname = usePathname();
 
   // Prefetch inteligente sob demanda ao aproximar o mouse (elimina a latência de clique sem causar prefetch storm inicial)
@@ -297,6 +297,7 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
           if (isCollapsed) {
             // Renderização no modo recolhido (desktop apenas)
             const targetHref = item.href || item.subItems?.[0]?.href || '#';
+            const isConnectItem = item.href === "/connect";
             return (
               <Link
                 key={item.name}
@@ -309,17 +310,23 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                   closeMobileMenu();
                 }}
                 title={item.name}
-                className={`flex items-center justify-center w-full h-11 rounded-xl transition-all duration-200 ${
+                className={`relative flex items-center justify-center w-full h-11 rounded-xl transition-all duration-200 ${
                   active 
                     ? 'bg-primary/10 text-primary border border-primary/20' 
                     : 'text-muted-foreground hover:bg-sidebar-active/50 hover:text-foreground'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
+                {isConnectItem && chatUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none shadow-sm">
+                    {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                  </span>
+                )}
               </Link>
             );
           }
 
+          const isConnectItem = item.href === "/connect";
           const ItemContent = (
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-3">
@@ -333,6 +340,11 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
                   </span>
                 </div>
               </div>
+              {isConnectItem && chatUnreadCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-extrabold leading-none shadow-sm animate-pulse">
+                  {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
+                </span>
+              )}
               {hasSubItems && (
                 <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
               )}

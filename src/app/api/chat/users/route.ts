@@ -29,6 +29,7 @@ export async function GET() {
         avatar: true,
         job_title: true,
         status: true,
+        last_seen_at: true,
       },
       orderBy: { name: "asc" }
     });
@@ -43,10 +44,9 @@ export async function GET() {
         avatar: u.avatar,
         job_title: u.job_title,
         status: u.status,
+        last_seen_at: u.last_seen_at,
       });
     }
-
-
 
     // 3. Montar lista excluindo o usuário logado e calculando status de presença online/offline
     const allUsers = Array.from(userMap.values())
@@ -56,8 +56,8 @@ export async function GET() {
         return !isMeById && !isMeByEmail;
       })
       .map(u => {
-        const online = isUserOnline(u.id, u.email);
-        const lastSeen = getUserLastSeen(u.id, u.email);
+        const online = isUserOnline(u.id, u.email, u.last_seen_at);
+        const lastSeen = getUserLastSeen(u.id, u.email, u.last_seen_at);
         return {
           ...u,
           isOnline: online,
