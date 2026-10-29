@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { X, Sparkles, Upload, Type, Palette, Check, RefreshCw } from "lucide-react";
+import { HelpButton } from "@/components/help/HelpButton";
 
 interface StickerCreatorModalProps {
   isOpen: boolean;
@@ -196,13 +197,16 @@ export function StickerCreatorModal({
               <p className="text-[11px] text-muted-foreground">Crie figurinhas personalizadas para as conversas</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <HelpButton contextOverride="connect/stickers" className="scale-90" />
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

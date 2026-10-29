@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { HelpButton } from "./help/HelpButton";
 import { Menu } from "lucide-react";
 
 const MODULE_DATA: Record<string, { title: string, subtitle: string }> = {
@@ -76,7 +77,8 @@ export function Topbar({ userName, avatar }: { userName: string, avatar?: string
       </div>
 
       {/* Actions */}
-      <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+      <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+        <HelpButton />
         <ThemeSwitcher />
         
         <div className="flex items-center space-x-2 sm:space-x-3 border-l border-border pl-2 sm:pl-4">

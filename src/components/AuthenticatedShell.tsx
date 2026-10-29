@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
 import { SessionGuard } from "@/components/SessionGuard";
+import { ContextualHelpProvider } from "@/components/help/ContextualHelpContext";
+import { ContextualHelpDrawer } from "@/components/help/ContextualHelpDrawer";
 import { supabase } from "@/lib/supabaseClient";
 import { soundManager } from "@/lib/sound";
 import { MessageSquare, X } from "lucide-react";
@@ -192,9 +194,11 @@ export function AuthenticatedShell({
   };
 
   return (
-    <MobileMenuContext.Provider value={{ isMobileOpen, setIsMobileOpen, toggleMobileMenu, closeMobileMenu, navigatingTo, startNavigation, chatUnreadCount }}>
-      <div className="flex h-screen overflow-hidden bg-background">
-        <SessionGuard />
+    <ContextualHelpProvider>
+      <MobileMenuContext.Provider value={{ isMobileOpen, setIsMobileOpen, toggleMobileMenu, closeMobileMenu, navigatingTo, startNavigation, chatUnreadCount }}>
+        <div className="flex h-screen overflow-hidden bg-background">
+          <SessionGuard />
+          <ContextualHelpDrawer />
 
         {/* Toast Global de Nova Mensagem (quando o usuário está em outros módulos como Service Desk, CMDB, etc.) */}
         {chatToast && (
@@ -268,5 +272,6 @@ export function AuthenticatedShell({
         </div>
       </div>
     </MobileMenuContext.Provider>
-  );
+  </ContextualHelpProvider>
+);
 }

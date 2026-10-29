@@ -595,7 +595,7 @@ model KnowledgeArticle {
   id        String  @id @default(cuid())
   title     String
   content   String // Markdown ou HTML
-  category  String // FAQ, TUTORIAL, POLICY, TROUBLESHOOTING
+  category  String // FAQ, TUTORIAL, POLICY, TROUBLESHOOTING, MANUAL
   status    String  @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
   is_public Boolean @default(false)
 
@@ -610,7 +610,45 @@ model KnowledgeArticle {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  manuals SystemManual[]
+
   @@map("knowledge_articles")
+}
+
+// ---------------------------------------------------------
+// FASE 6B: MANUAIS OFICIAIS E AJUDA CONTEXTUAL INTELIGENTE
+// ---------------------------------------------------------
+
+model SystemManual {
+  id               String   @id @default(cuid())
+  module           String   // ex: service-desk, connect, cmdb, pc-access, etc.
+  submodule        String?  // ex: tickets, new, stickers, vault, etc.
+  context_key      String   // Chave estável de contexto: ex: "service-desk", "service-desk/new", "connect/stickers"
+  route_pattern    String   // Padrão de rota: ex: "/service-desk", "/service-desk/new", "/connect"
+  
+  title            String   // ex: "Manual — Como Abrir um Chamado"
+  description      String?  // Breve resumo das instruções do manual
+  version          String   @default("1.0") // ex: "1.0", "1.1", "2.0"
+  status           String   @default("PUBLISHED") // DRAFT, IN_REVIEW, APPROVED, PUBLISHED, ARCHIVED
+  
+  pdf_url          String?  // URL do arquivo PDF (ou rota de download/stream /api/manuals/[id]/pdf)
+  file_name        String?  // ex: "Manual_Como_Abrir_Chamado_v1.0.pdf"
+  file_size        Int?     // Tamanho em bytes
+  
+  content_markdown String?  @db.Text // Conteúdo canônico estruturado e pesquisável
+  tags             String?  // Tags separadas por vírgula para busca inteligente
+  order_index      Int      @default(0)
+  
+  article_id       String?
+  article          KnowledgeArticle? @relation(fields: [article_id], references: [id], onDelete: SetNull)
+  
+  created_by       String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@index([context_key, status])
+  @@index([module])
+  @@map("system_manuals")
 }
 
 model Booking {
