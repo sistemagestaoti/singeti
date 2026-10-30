@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ensureManualsSeeded } from "@/lib/manualsSeed";
+import { estimateManualPdfPages } from "@/lib/pdfGenerator";
 
 export interface ResolvedManualResult {
   exactMatch: boolean;
@@ -17,6 +18,7 @@ export interface ResolvedManualResult {
     fileSize: number | null;
     contentMarkdown: string | null;
     articleId: string | null;
+    pageCount: number;
   } | null;
   relatedManuals: Array<{
     id: string;
@@ -159,6 +161,7 @@ export async function resolveContextManual(
       fileSize: bestManual.file_size || null,
       contentMarkdown: bestManual.content_markdown,
       articleId: bestManual.article_id,
+      pageCount: estimateManualPdfPages(bestManual.content_markdown),
     },
     relatedManuals,
   };

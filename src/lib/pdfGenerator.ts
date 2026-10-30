@@ -153,3 +153,29 @@ export function generateManualPdf(options: ManualPdfOptions): Uint8Array {
   const arrayBuffer = doc.output("arraybuffer");
   return new Uint8Array(arrayBuffer);
 }
+
+/**
+ * Calcula ou estima com precisão a quantidade de páginas A4 geradas para um manual.
+ */
+export function estimateManualPdfPages(markdown?: string | null): number {
+  if (!markdown) return 1;
+  const lines = markdown.split("\n");
+  let totalHeightMm = 45; // Cabeçalho institucional e títulos
+
+  for (const line of lines) {
+    const raw = line.trim();
+    if (!raw) {
+      totalHeightMm += 3;
+    } else if (raw.startsWith("### ") || raw.startsWith("## ")) {
+      totalHeightMm += 10;
+    } else if (raw.startsWith("- ") || raw.startsWith("* ") || /^\d+\.\s/.test(raw)) {
+      totalHeightMm += 6;
+    } else {
+      totalHeightMm += 5;
+    }
+  }
+
+  // Página A4 = 297mm. Altura útil de impressão = ~260mm
+  const estimated = Math.ceil(totalHeightMm / 260);
+  return Math.max(1, estimated);
+}

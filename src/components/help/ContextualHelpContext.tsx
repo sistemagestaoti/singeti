@@ -16,6 +16,7 @@ export interface ContextualHelpState {
     description?: string | null;
     contentMarkdown?: string | null;
     articleId?: string | null;
+    pageCount?: number;
   } | null;
   relatedManuals: Array<{
     id: string;
