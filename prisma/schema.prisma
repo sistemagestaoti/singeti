@@ -1030,3 +1030,95 @@ model PcAccessAuditLog {
   @@index([created_at])
   @@map("pc_access_audit_logs")
 }
+
+// ---------------------------------------------------------
+// SYNGETI SENTINELA IA: AUDITORIA, MONITORAMENTO & SRE
+// ---------------------------------------------------------
+
+model SentinelaTelemetry {
+  id          String   @id @default(cuid())
+  source      String   // frontend, backend, supabase, vercel, audit
+  event_type  String   // error, latency, healthcheck, warning, query
+  endpoint    String?
+  status_code Int?
+  duration_ms Float?
+  message     String?
+  details     String?  @db.Text
+  created_at  DateTime @default(now())
+
+  @@index([source])
+  @@index([event_type])
+  @@index([created_at])
+  @@index([endpoint])
+  @@map("sentinela_telemetry")
+}
+
+model SentinelaIncident {
+  id               String            @id @default(cuid())
+  title            String
+  description      String            @db.Text
+  module           String            // connect-chat, service-desk, database, api, frontend, infrastructure, security
+  severity         String            // CRITICAL, HIGH, MEDIUM, LOW
+  status           String            @default("OPEN") // OPEN, INVESTIGATING, RESOLVED, IGNORED
+  root_cause       String?           @db.Text
+  evidence         String?           @db.Text
+  recommendation   String?           @db.Text
+  first_seen_at    DateTime          @default(now())
+  last_seen_at     DateTime          @default(now())
+  occurrence_count Int               @default(1)
+  resolved_at      DateTime?
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+
+  actions          SentinelaAction[]
+
+  @@index([status])
+  @@index([severity])
+  @@index([module])
+  @@index([created_at])
+  @@map("sentinela_incidents")
+}
+
+model SentinelaAction {
+  id                String             @id @default(cuid())
+  incident_id       String?
+  title             String
+  description       String             @db.Text
+  autonomy_level    Int                @default(1) // 1: Auto Não-Destrutivo, 2: Requer Aprovação, 3: Crítico Restrito
+  action_type       String             // DIAGNOSTIC, CACHE_PURGE, RETRY_OUTBOX, OPTIMIZE_INDEX, CODE_PATCH, DB_CLEANUP
+  status            String             @default("PROPOSED") // PROPOSED, APPROVED, EXECUTED, REJECTED, FAILED
+  target_files      String?            @db.Text
+  execution_payload String?            @db.Text
+  execution_result  String?            @db.Text
+  risk_assessment   String?            @db.Text
+  reversion_plan    String?            @db.Text
+  created_by        String             @default("SENTINELA_IA")
+  approved_by       String?
+  approved_at       DateTime?
+  executed_at       DateTime?
+  created_at        DateTime           @default(now())
+  updated_at        DateTime           @updatedAt
+
+  incident          SentinelaIncident? @relation(fields: [incident_id], references: [id], onDelete: SetNull)
+
+  @@index([incident_id])
+  @@index([status])
+  @@index([autonomy_level])
+  @@index([created_at])
+  @@map("sentinela_actions")
+}
+
+model SentinelaAuditLog {
+  id          String   @id @default(cuid())
+  action      String   // RUN_AUDIT, APPROVE_ACTION, REJECT_ACTION, EXECUTE_ACTION, CHAT_QUERY, SYSTEM_ALERT
+  user_id     String?
+  user_name   String?
+  user_email  String?
+  details     String   @db.Text
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  @@index([action])
+  @@index([created_at])
+  @@map("sentinela_audit_logs")
+}

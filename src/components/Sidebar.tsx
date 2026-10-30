@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Server, HeadphonesIcon, 
   AlertTriangle, ArrowRightLeft, CalendarClock, 
   Briefcase, MessageSquare, BookOpen, Settings, 
-  Users, ChevronDown, ChevronRight, FileText, Database, Shield, X, Monitor
+  Users, ChevronDown, ChevronRight, FileText, Database, Shield, X, Monitor, Sparkles
 } from "lucide-react";
 import { useMobileMenu } from "./AuthenticatedShell";
 
@@ -162,11 +162,19 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
       icon: BookOpen 
     },
     { 
+      name: "SENTINELA IA", 
+      subtitle: "Auditoria & SRE contínuo",
+      href: "/sentinela", 
+      icon: Sparkles,
+      badge: "SRE IA"
+    },
+    { 
       name: "Configurações", 
       subtitle: "Sistema e acesso",
       icon: Settings,
       subItems: [
         { name: "Identidade Visual", href: "/settings/branding" },
+        { name: "Sentinela IA (Monitoramento)", href: "/sentinela" },
       ]
     },
   ];
@@ -332,9 +340,16 @@ export function Sidebar({ initialBranding }: { initialBranding?: any } = {}) {
               <div className="flex items-center gap-3">
                 <item.icon className={`w-5 h-5 ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
                 <div className="flex flex-col text-left">
-                  <span className={`text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
-                    {item.name}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
+                      {item.name}
+                    </span>
+                    {(item as any).badge && (
+                      <span className="px-1.5 py-0.2 rounded-md bg-primary/15 text-primary text-[9px] font-black uppercase tracking-wider border border-primary/25">
+                        {(item as any).badge}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[11px] font-medium text-muted-foreground leading-tight">
                     {item.subtitle}
                   </span>
